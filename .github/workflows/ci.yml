@@ -16,11 +16,11 @@ jobs:
           # The floor: oldest GTK and libadwaita Corewatch supports.
           - name: floor (Debian 13)
             image: debian:trixie
-            deps: apt-get update && apt-get install -y libgtk-4-dev libadwaita-1-dev pkg-config build-essential curl git
+            deps: apt-get update && apt-get install -y libgtk-4-dev libadwaita-1-dev blueprint-compiler pkg-config build-essential curl git xvfb xauth
           # The edge: newest GTK and libadwaita.
           - name: edge (Arch)
             image: archlinux:latest
-            deps: pacman -Syu --noconfirm gtk4 libadwaita pkgconf base-devel git
+            deps: pacman -Syu --noconfirm gtk4 libadwaita blueprint-compiler pkgconf base-devel git xorg-server-xvfb
     steps:
       - name: Install system dependencies
         run: ${{ matrix.deps }}
@@ -33,6 +33,7 @@ jobs:
       - name: Lint
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: Test
-        run: cargo test --workspace
+        # A virtual display lets the template test build the real window.
+        run: xvfb-run -a cargo test --workspace
       - name: Build
         run: cargo build --workspace --release

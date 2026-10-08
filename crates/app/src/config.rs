@@ -1,7 +1,6 @@
 use std::time::Duration;
 
 pub const APP_ID: &str = "io.github.amirmwhdi.Corewatch";
-pub const APP_NAME: &str = "Corewatch";
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Time between two samples.

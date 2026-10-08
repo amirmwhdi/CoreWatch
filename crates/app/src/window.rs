@@ -1,15 +1,69 @@
 //! Builds the main window from the module list and feeds it snapshots.
 //!
+//! The layout lives in `data/ui/stable/window.blp` (the `CwWindow` template).
 //! This file never names a resource: it only loops over `modules::all()`.
 
-use crate::i18n::gettext;
 use crate::modules::{self, ResourcePage};
 use crate::{config, logging};
 use adw::prelude::*;
+use adw::subclass::prelude::*;
 use corewatch_core::{Sampler, Snapshot, SysRoot};
-use gtk::glib;
+use gtk::{gio, glib};
 use std::cell::RefCell;
 use std::rc::Rc;
+
+mod imp {
+    use super::*;
+
+    #[derive(Default, gtk::CompositeTemplate)]
+    #[template(resource = "/io/github/amirmwhdi/Corewatch/ui/window.ui")]
+    pub struct Window {
+        #[template_child]
+        pub split_view: TemplateChild<adw::NavigationSplitView>,
+        #[template_child]
+        pub sidebar: TemplateChild<gtk::ListBox>,
+        #[template_child]
+        pub content_page: TemplateChild<adw::NavigationPage>,
+        #[template_child]
+        pub main_stack: TemplateChild<gtk::Stack>,
+        #[template_child]
+        pub stack: TemplateChild<gtk::Stack>,
+    }
+
+    #[glib::object_subclass]
+    impl ObjectSubclass for Window {
+        const NAME: &'static str = "CwWindow";
+        type Type = super::Window;
+        type ParentType = adw::ApplicationWindow;
+
+        fn class_init(klass: &mut Self::Class) {
+            klass.bind_template();
+        }
+
+        fn instance_init(obj: &glib::subclass::InitializingObject<Self>) {
+            obj.init_template();
+        }
+    }
+
+    impl ObjectImpl for Window {}
+    impl WidgetImpl for Window {}
+    impl WindowImpl for Window {}
+    impl ApplicationWindowImpl for Window {}
+    impl AdwApplicationWindowImpl for Window {}
+}
+
+glib::wrapper! {
+    pub struct Window(ObjectSubclass<imp::Window>)
+        @extends adw::ApplicationWindow, gtk::ApplicationWindow, gtk::Window, gtk::Widget,
+        @implements gio::ActionGroup, gio::ActionMap, gtk::Accessible, gtk::Buildable,
+            gtk::ConstraintTarget, gtk::Native, gtk::Root, gtk::ShortcutManager;
+}
+
+impl Window {
+    pub fn new(app: &adw::Application) -> Self {
+        glib::Object::builder().property("application", app).build()
+    }
+}
 
 pub fn present(app: &adw::Application) {
     if let Some(window) = app.active_window() {
@@ -21,12 +75,12 @@ pub fn present(app: &adw::Application) {
     logging::log_startup_banner(&root);
     let mut sampler = Sampler::new(root.clone(), config::SAMPLE_INTERVAL);
 
-    let stack = gtk::Stack::builder()
-        .transition_type(gtk::StackTransitionType::Crossfade)
-        .build();
-    let sidebar = gtk::ListBox::builder()
-        .css_classes(["navigation-sidebar"])
-        .build();
+    let window = Window::new(app);
+    let ui = window.imp();
+    let stack = ui.stack.get();
+    let sidebar = ui.sidebar.get();
+    let split = ui.split_view.get();
+    let content_page = ui.content_page.get();
 
     // Each module: collector into the sampler, page into the stack, row into the sidebar.
     let mut pages: Vec<(Box<dyn ResourcePage>, adw::ActionRow)> = Vec::new();
@@ -55,21 +109,8 @@ pub fn present(app: &adw::Application) {
         sidebar.append(&row);
         pages.push((page, row));
     }
-
-    // Split view: sidebar | content.
-    let sidebar_view = adw::ToolbarView::new();
-    sidebar_view.add_top_bar(&adw::HeaderBar::new());
-    sidebar_view.set_content(Some(&sidebar));
-
-    let content_view = adw::ToolbarView::new();
-    content_view.add_top_bar(&adw::HeaderBar::new());
-    content_view.set_content(Some(&content_or_empty(&stack, pages.is_empty())));
-    let content_page = adw::NavigationPage::new(&content_view, config::APP_NAME);
-
-    let split = adw::NavigationSplitView::builder()
-        .sidebar(&adw::NavigationPage::new(&sidebar_view, config::APP_NAME))
-        .content(&content_page)
-        .build();
+    ui.main_stack
+        .set_visible_child_name(if pages.is_empty() { "empty" } else { "pages" });
 
     sidebar.connect_row_selected(glib::clone!(
         #[weak]
@@ -88,26 +129,6 @@ pub fn present(app: &adw::Application) {
         }
     ));
     sidebar.select_row(sidebar.row_at_index(0).as_ref());
-
-    let window = adw::ApplicationWindow::builder()
-        .application(app)
-        .title(config::APP_NAME)
-        .default_width(960)
-        .default_height(640)
-        .width_request(360)
-        .height_request(294)
-        .content(&split)
-        .build();
-
-    // Collapse to one pane on narrow windows.
-    match adw::BreakpointCondition::parse("max-width: 600sp") {
-        Ok(condition) => {
-            let breakpoint = adw::Breakpoint::new(condition);
-            breakpoint.add_setter(&split, "collapsed", Some(&true.to_value()));
-            window.add_breakpoint(breakpoint);
-        }
-        Err(error) => tracing::warn!(%error, "breakpoint not set"),
-    }
 
     // Start sampling and feed every page from the channel.
     let (tx, rx) = async_channel::bounded::<Snapshot>(1);
@@ -140,19 +161,4 @@ pub fn present(app: &adw::Application) {
     });
 
     window.present();
-}
-
-/// The page stack, or a status page if every module failed to start.
-fn content_or_empty(stack: &gtk::Stack, empty: bool) -> gtk::Widget {
-    if !empty {
-        return stack.clone().upcast();
-    }
-    adw::StatusPage::builder()
-        .icon_name("dialog-warning-symbolic")
-        .title(gettext("No data sources available"))
-        .description(gettext(
-            "Corewatch could not read /proc. Run corewatch --verbose from a terminal for details.",
-        ))
-        .build()
-        .upcast()
 }

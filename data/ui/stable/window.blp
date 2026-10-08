@@ -1,0 +1,68 @@
+using Gtk 4.0;
+using Adw 1;
+
+// The main window: sidebar of modules on the left, the selected page on the
+// right. Rust (window.rs) fills the sidebar and the page stack from
+// modules::all(); this file only describes the layout.
+template $CwWindow: Adw.ApplicationWindow {
+  title: "Corewatch";
+  default-width: 960;
+  default-height: 640;
+  width-request: 360;
+  height-request: 294;
+
+  // Collapse to one pane on narrow windows.
+  Adw.Breakpoint {
+    condition ("max-width: 600sp")
+
+    setters {
+      split_view.collapsed: true;
+    }
+  }
+
+  content: Adw.NavigationSplitView split_view {
+    sidebar: Adw.NavigationPage {
+      title: "Corewatch";
+
+      child: Adw.ToolbarView {
+        [top]
+        Adw.HeaderBar {}
+
+        content: ListBox sidebar {
+          styles [
+            "navigation-sidebar",
+          ]
+        };
+      };
+    };
+
+    content: Adw.NavigationPage content_page {
+      title: "Corewatch";
+
+      child: Adw.ToolbarView {
+        [top]
+        Adw.HeaderBar {}
+
+        content: Stack main_stack {
+          StackPage {
+            name: "pages";
+
+            child: Stack stack {
+              transition-type: crossfade;
+            };
+          }
+
+          StackPage {
+            name: "empty";
+
+            child: Adw.StatusPage {
+              icon-name: "dialog-warning-symbolic";
+              title: _("No data sources available");
+              description: _("Corewatch could not read /proc. Run corewatch --verbose from a terminal for details.");
+            };
+          }
+        };
+      };
+    };
+  };
+}

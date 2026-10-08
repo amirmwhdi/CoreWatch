@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Compiled into the binary by crates/app/build.rs. The ui/*.ui files are
+     generated from data/ui/stable/*.blp by blueprint-compiler. -->
+<gresources>
+  <gresource prefix="/io/github/amirmwhdi/Corewatch">
+    <file preprocess="xml-stripblanks">ui/window.ui</file>
+    <!-- Loaded automatically by AdwApplication from <app-id path>/style.css -->
+    <file>style.css</file>
+  </gresource>
+</gresources>

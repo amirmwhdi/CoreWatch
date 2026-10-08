@@ -9,7 +9,7 @@ mod widgets;
 mod window;
 
 use adw::prelude::*;
-use gtk::glib;
+use gtk::{gio, glib};
 
 fn main() -> glib::ExitCode {
     // Our own flags are handled here, before GApplication sees the arguments.
@@ -29,6 +29,12 @@ fn main() -> glib::ExitCode {
     let _log_guard = logging::init(has("-v", "--verbose"));
     i18n::init();
 
+    // The UI (Blueprint templates, style.css) is compiled into the binary by build.rs.
+    if let Err(error) = register_resources() {
+        tracing::error!(%error, "cannot load the built-in UI resources");
+        return glib::ExitCode::FAILURE;
+    }
+
     let app = adw::Application::builder()
         .application_id(config::APP_ID)
         .build();
@@ -36,6 +42,14 @@ fn main() -> glib::ExitCode {
     let code = app.run_with_args::<&str>(&[]);
     tracing::info!("exiting");
     code
+}
+
+/// Embed the GResource built by build.rs and register the custom widget
+/// types that templates refer to, such as `$CwGraph`.
+fn register_resources() -> Result<(), glib::Error> {
+    gio::resources_register_include!("corewatch.gresource")?;
+    widgets::Graph::ensure_type();
+    Ok(())
 }
 
 fn print_help() {
@@ -56,4 +70,23 @@ Log files: {dir}",
         root = corewatch_core::root::SYSROOT_ENV,
         dir = logging::log_dir().display(),
     );
+}
+
+#[cfg(test)]
+mod tests {
+    /// Every template must load: a Blueprint `id` that Rust expects but the
+    /// file lacks only shows up at run time. Needs a display (CI runs the
+    /// tests under xvfb-run); without one the check is skipped.
+    #[test]
+    fn templates_load() {
+        super::register_resources().expect("resources");
+        if gtk::init().is_err() {
+            eprintln!("no display: skipping template check");
+            return;
+        }
+        let app = adw::Application::builder()
+            .application_id("io.github.amirmwhdi.Corewatch.Test")
+            .build();
+        let _window = super::window::Window::new(&app);
+    }
 }

@@ -12,10 +12,35 @@ use std::collections::VecDeque;
 mod imp {
     use super::*;
 
-    #[derive(Default)]
+    #[derive(glib::Properties)]
+    #[properties(wrapper_type = super::Graph)]
     pub struct Graph {
         pub values: RefCell<VecDeque<f32>>,
-        pub capacity: Cell<usize>,
+        /// Points kept; older ones scroll out on the left. Settable from
+        /// Blueprint as `capacity: 60;`.
+        #[property(get, set = Self::set_capacity, minimum = 2, default = 60)]
+        pub capacity: Cell<u32>,
+    }
+
+    impl Default for Graph {
+        fn default() -> Self {
+            Self {
+                values: RefCell::default(),
+                capacity: Cell::new(60),
+            }
+        }
+    }
+
+    impl Graph {
+        fn set_capacity(&self, capacity: u32) {
+            self.capacity.set(capacity.max(2));
+            let mut values = self.values.borrow_mut();
+            while values.len() > self.capacity.get() as usize {
+                values.pop_front();
+            }
+            drop(values);
+            self.obj().queue_draw();
+        }
     }
 
     #[glib::object_subclass]
@@ -30,7 +55,30 @@ mod imp {
         }
     }
 
-    impl ObjectImpl for Graph {}
+    #[glib::derived_properties]
+    impl ObjectImpl for Graph {
+        /// Setup shared by `Graph::new` and graphs built from Blueprint.
+        fn constructed(&self) {
+            self.parent_constructed();
+            let graph = self.obj();
+            graph.set_hexpand(true);
+            graph.set_overflow(gtk::Overflow::Hidden);
+            graph.add_css_class("card");
+
+            // Follow the user's accent color and light/dark style without a restart.
+            let style = adw::StyleManager::default();
+            style.connect_accent_color_notify(glib::clone!(
+                #[weak]
+                graph,
+                move |_| graph.queue_draw()
+            ));
+            style.connect_dark_notify(glib::clone!(
+                #[weak]
+                graph,
+                move |_| graph.queue_draw()
+            ));
+        }
+    }
 
     impl WidgetImpl for Graph {
         fn snapshot(&self, snapshot: &gtk::Snapshot) {
@@ -90,26 +138,10 @@ glib::wrapper! {
 impl Graph {
     /// A graph that keeps `capacity` points and asks for `height` pixels.
     pub fn new(capacity: usize, height: i32) -> Self {
-        let graph: Self = glib::Object::new();
-        graph.imp().capacity.set(capacity.max(2));
-        graph.set_height_request(height);
-        graph.set_hexpand(true);
-        graph.set_overflow(gtk::Overflow::Hidden);
-        graph.add_css_class("card");
-
-        // Follow the user's accent color and light/dark style without a restart.
-        let style = adw::StyleManager::default();
-        style.connect_accent_color_notify(glib::clone!(
-            #[weak]
-            graph,
-            move |_| graph.queue_draw()
-        ));
-        style.connect_dark_notify(glib::clone!(
-            #[weak]
-            graph,
-            move |_| graph.queue_draw()
-        ));
-        graph
+        glib::Object::builder()
+            .property("capacity", u32::try_from(capacity).unwrap_or(u32::MAX))
+            .property("height-request", height)
+            .build()
     }
 
     /// Append a value in 0.0..=1.0 and redraw.
@@ -118,7 +150,7 @@ impl Graph {
         {
             let mut values = imp.values.borrow_mut();
             values.push_back(value);
-            while values.len() > imp.capacity.get() {
+            while values.len() > imp.capacity.get() as usize {
                 values.pop_front();
             }
         }
