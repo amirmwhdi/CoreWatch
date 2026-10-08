@@ -2,8 +2,8 @@
 //!
 //! This file never names a resource: it only loops over `modules::all()`.
 
-use crate::config;
 use crate::modules::{self, ResourcePage};
+use crate::{config, logging};
 use adw::prelude::*;
 use corewatch_core::{Sampler, Snapshot, SysRoot};
 use gtk::glib;
@@ -17,6 +17,7 @@ pub fn present(app: &adw::Application) {
     }
 
     let root = SysRoot::from_env();
+    logging::log_startup_banner(&root);
     let mut sampler = Sampler::new(root.clone(), config::SAMPLE_INTERVAL);
 
     let stack = gtk::Stack::builder()
@@ -29,14 +30,22 @@ pub fn present(app: &adw::Application) {
     // Each module: collector into the sampler, page into the stack, row into the sidebar.
     let mut pages: Vec<(Box<dyn ResourcePage>, adw::ActionRow)> = Vec::new();
     for module in modules::all() {
+        let page = (module.page)();
         match (module.collector)(&root) {
-            Ok(collector) => sampler.add(collector),
+            Ok(collector) => {
+                tracing::info!(module = page.id(), "module enabled");
+                sampler.add(collector);
+            }
             Err(error) => {
-                tracing::warn!(%error, "module disabled");
+                tracing::warn!(
+                    module = page.id(),
+                    error.kind = error.kind(),
+                    error = %error.chain(),
+                    "module disabled"
+                );
                 continue;
             }
         }
-        let page = (module.page)();
         stack.add_named(&page.widget(), Some(page.id()));
 
         let row = adw::ActionRow::builder().title(page.title()).build();
@@ -140,7 +149,9 @@ fn content_or_empty(stack: &gtk::Stack, empty: bool) -> gtk::Widget {
     adw::StatusPage::builder()
         .icon_name("dialog-warning-symbolic")
         .title("No data sources available")
-        .description("Corewatch could not read /proc. Run with RUST_LOG=debug for details.")
+        .description(
+            "Corewatch could not read /proc. Run corewatch --verbose from a terminal for details.",
+        )
         .build()
         .upcast()
 }

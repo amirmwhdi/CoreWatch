@@ -3,15 +3,23 @@
 //! The sampler does not know which modules exist: it only holds
 //! `Box<dyn Collector>` and sends finished [`Snapshot`]s over a channel.
 
+use crate::throttle::{FailureTracker, Report};
 use crate::{Collector, Snapshot, SysRoot};
 use std::sync::mpsc::{self, RecvTimeoutError};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
+/// One collector plus its failure history, so a permanent failure is logged
+/// once and then summarized instead of once per tick.
+struct Slot {
+    collector: Box<dyn Collector>,
+    failures: FailureTracker,
+}
+
 pub struct Sampler {
     root: SysRoot,
     interval: Duration,
-    collectors: Vec<Box<dyn Collector>>,
+    slots: Vec<Slot>,
 }
 
 impl Sampler {
@@ -19,29 +27,63 @@ impl Sampler {
         Self {
             root,
             interval,
-            collectors: Vec::new(),
+            slots: Vec::new(),
         }
     }
 
     pub fn add(&mut self, collector: Box<dyn Collector>) {
-        self.collectors.push(collector);
+        self.slots.push(Slot {
+            collector,
+            failures: FailureTracker::default(),
+        });
     }
 
     /// Number of registered collectors.
     pub fn len(&self) -> usize {
-        self.collectors.len()
+        self.slots.len()
     }
 
     pub fn is_empty(&self) -> bool {
-        self.collectors.is_empty()
+        self.slots.is_empty()
     }
 
     /// Run one tick on the calling thread. Used by tests and the example.
     pub fn sample_once(&mut self) -> Snapshot {
         let mut snapshot = Snapshot::new();
-        for collector in &mut self.collectors {
-            if let Err(error) = collector.collect(&self.root, &mut snapshot) {
-                tracing::warn!(collector = collector.name(), %error, "collect failed");
+        for slot in &mut self.slots {
+            let name = slot.collector.name();
+            let started = Instant::now();
+            let result = slot.collector.collect(&self.root, &mut snapshot);
+            let elapsed_us = u64::try_from(started.elapsed().as_micros()).unwrap_or(u64::MAX);
+            tracing::debug!(
+                collector = name,
+                elapsed_us,
+                ok = result.is_ok(),
+                "collected"
+            );
+
+            match (
+                slot.failures.record(result.is_ok(), Instant::now()),
+                &result,
+            ) {
+                (Some(Report::First), Err(error)) => tracing::warn!(
+                    collector = name,
+                    error.kind = error.kind(),
+                    error = %error.chain(),
+                    "collector failed"
+                ),
+                (Some(Report::Ongoing { count }), Err(error)) => tracing::warn!(
+                    collector = name,
+                    error.kind = error.kind(),
+                    count,
+                    "collector still failing"
+                ),
+                (Some(Report::Recovered { count }), _) => tracing::info!(
+                    collector = name,
+                    failed_ticks = count,
+                    "collector recovered"
+                ),
+                _ => {}
             }
         }
         snapshot

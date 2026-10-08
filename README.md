@@ -32,12 +32,25 @@ cargo run -p corewatch --release
 Useful while developing:
 
 ```sh
-RUST_LOG=debug cargo run -p corewatch                 # logs
+cargo run -p corewatch -- --verbose                   # detailed logs in the terminal
+COREWATCH_LOG=corewatch_core=debug cargo run -p corewatch   # custom log filter
 cargo run -p corewatch-core --example print           # CPU and memory in the terminal, no GUI
 COREWATCH_SYSROOT=crates/core/tests/fixtures/basic \
     cargo run -p corewatch                            # read a fake /proc and /sys
 cargo test --workspace                                # tests
 ```
+
+## Logs and bug reports
+
+Corewatch writes a log file to `~/.local/state/corewatch/logs/` (one file per
+day, the last 7 kept). Inside Flatpak the folder is under
+`~/.var/app/io.github.amirmwhdi.Corewatch/`. The terminal only shows warnings
+unless you pass `--verbose`.
+
+When reporting a bug, attach today's log file. Its first lines say which
+versions of Corewatch, GTK, libadwaita, the kernel and the distribution were
+running, and which modules were enabled or disabled and why. Logs never leave
+your computer unless you attach them yourself.
 
 ## Project layout
 

@@ -19,9 +19,10 @@ pub mod memory;
 pub mod root;
 pub mod sampler;
 pub mod snapshot;
+pub mod throttle;
 
 pub use collector::Collector;
-pub use error::CollectError;
+pub use error::{CollectError, ErrorChain};
 pub use root::SysRoot;
 pub use sampler::{Sampler, SamplerHandle};
 pub use snapshot::Snapshot;
