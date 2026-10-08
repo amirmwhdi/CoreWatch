@@ -1,0 +1,11 @@
+processor	: 0
+vendor_id	: GenuineIntel
+model name	: Fixture CPU @ 3.00GHz
+physical id	: 0
+core id		: 0
+
+processor	: 1
+vendor_id	: GenuineIntel
+model name	: Fixture CPU @ 3.00GHz
+physical id	: 0
+core id		: 1

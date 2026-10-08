@@ -1,0 +1,23 @@
+[workspace]
+resolver = "2"
+members = ["crates/core", "crates/app"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-or-later"
+authors = ["Amirmahdi <https://github.com/amirmwhdi>"]
+repository = "https://github.com/amirmwhdi/corewatch"
+
+[workspace.dependencies]
+corewatch-core = { path = "crates/core" }
+# The version features (v4_18, v1_7) set the floor: Debian 13 ships these.
+gtk = { package = "gtk4", version = "0.11", features = ["v4_18"] }
+adw = { package = "libadwaita", version = "0.9", features = ["v1_7"] }
+async-channel = "2.3"
+thiserror = "2"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[profile.release]
+lto = "thin"

@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    container: ${{ matrix.image }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # The floor: oldest GTK and libadwaita Corewatch supports.
+          - name: floor (Debian 13)
+            image: debian:trixie
+            deps: apt-get update && apt-get install -y libgtk-4-dev libadwaita-1-dev pkg-config build-essential curl git
+          # The edge: newest GTK and libadwaita.
+          - name: edge (Arch)
+            image: archlinux:latest
+            deps: pacman -Syu --noconfirm gtk4 libadwaita pkgconf base-devel git
+    steps:
+      - name: Install system dependencies
+        run: ${{ matrix.deps }}
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Format
+        run: cargo fmt --all --check
+      - name: Lint
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Test
+        run: cargo test --workspace
+      - name: Build
+        run: cargo build --workspace --release

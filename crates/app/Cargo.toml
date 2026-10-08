@@ -1,0 +1,16 @@
+[package]
+name = "corewatch"
+description = "A modern system monitor for Linux"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]
+corewatch-core.workspace = true
+gtk.workspace = true
+adw.workspace = true
+async-channel.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true

@@ -1,0 +1,13 @@
+[package]
+name = "corewatch-core"
+description = "Data collection for Corewatch: reads /proc and /sys, no GTK"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]
+async-channel.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
