@@ -3,6 +3,7 @@
 
 use super::{Module, ResourcePage};
 use crate::config::HISTORY_LEN;
+use crate::i18n::{self, gettext};
 use crate::widgets::{layout, Graph};
 use adw::prelude::*;
 use corewatch_core::disk::{DiskCollector, DiskDevice, DiskKind, Filesystem};
@@ -40,13 +41,13 @@ impl DiskPage {
     fn new() -> Self {
         let disks_box = gtk::Box::new(gtk::Orientation::Vertical, 24);
         let no_disks = gtk::Label::builder()
-            .label("No disks found")
+            .label(gettext("No disks found"))
             .css_classes(["dim-label"])
             .visible(false)
             .build();
 
         let fs_group = adw::PreferencesGroup::builder()
-            .title("Filesystems")
+            .title(gettext("Filesystems"))
             .build();
 
         let content = layout::page_box();
@@ -125,12 +126,15 @@ impl DiskPage {
             self.fs_group.set_visible(!filesystems.is_empty());
         }
         for ((_, row, bar), fs) in rows.iter().zip(filesystems) {
-            row.set_subtitle(&format!(
-                "{} of {} used · {} · {}",
-                glib::format_size(fs.space.used),
-                glib::format_size(fs.space.total),
-                fs.fs_type,
-                fs.source
+            row.set_subtitle(&i18n::fmt(
+                // Translators: e.g. "120 GB of 500 GB used · ext4 · /dev/nvme0n1p2"
+                &gettext("{used} of {total} used · {type} · {device}"),
+                &[
+                    ("used", &glib::format_size(fs.space.used)),
+                    ("total", &glib::format_size(fs.space.total)),
+                    ("type", &fs.fs_type),
+                    ("device", &fs.source),
+                ],
             ));
             bar.set_value(f64::from(fs.space.used_fraction()));
         }
@@ -142,8 +146,8 @@ impl ResourcePage for DiskPage {
         "disk"
     }
 
-    fn title(&self) -> &'static str {
-        "Disks"
+    fn title(&self) -> String {
+        gettext("Disks")
     }
 
     fn icon_name(&self) -> &'static str {
@@ -183,24 +187,27 @@ impl DiskBlock {
             .css_classes(["heading"])
             .build();
         let description = gtk::Label::builder()
-            .label(format!(
-                "{} · {} · {}",
-                kind_label(device.kind),
-                glib::format_size(device.size),
-                device.name
+            .label(i18n::fmt(
+                // Translators: disk type, size and kernel name, e.g. "NVMe · 512 GB · nvme0n1"
+                &gettext("{kind} · {size} · {name}"),
+                &[
+                    ("kind", &kind_label(device.kind)),
+                    ("size", &glib::format_size(device.size)),
+                    ("name", &device.name),
+                ],
             ))
             .xalign(0.0)
             .css_classes(["dim-label", "caption"])
             .build();
 
         let graph = Graph::new(HISTORY_LEN, 100);
-        graph.update_property(&[gtk::accessible::Property::Label(&format!(
-            "Activity of {}",
-            device.model
+        graph.update_property(&[gtk::accessible::Property::Label(&i18n::fmt(
+            &gettext("Activity of {model}"),
+            &[("model", &device.model)],
         ))]);
 
         let row = |title: &str| adw::ActionRow::builder().title(title).subtitle("…").build();
-        let (read, write) = (row("Read"), row("Write"));
+        let (read, write) = (row(&gettext("Read")), row(&gettext("Write")));
         let rows = adw::PreferencesGroup::new();
         rows.add(&read);
         rows.add(&write);
@@ -236,21 +243,25 @@ impl DiskBlock {
 /// "12.3 MB/s · 4.1 GB since boot"; "…" while the speed is not known yet.
 fn transfer(bps: Option<u64>, total: u64) -> String {
     match bps {
-        Some(bps) => format!("{} · {} since boot", speed(bps), glib::format_size(total)),
+        Some(bps) => i18n::fmt(
+            &gettext("{speed} · {total} since boot"),
+            &[("speed", &speed(bps)), ("total", &glib::format_size(total))],
+        ),
         None => "…".to_owned(),
     }
 }
 
 fn speed(bps: u64) -> String {
-    format!("{}/s", glib::format_size(bps))
+    // Translators: a transfer speed, e.g. "12.3 MB/s"
+    i18n::fmt(&gettext("{size}/s"), &[("size", &glib::format_size(bps))])
 }
 
-fn kind_label(kind: DiskKind) -> &'static str {
+fn kind_label(kind: DiskKind) -> String {
     match kind {
-        DiskKind::Nvme => "NVMe",
-        DiskKind::Ssd => "SSD",
-        DiskKind::Hdd => "Hard disk",
-        DiskKind::Removable => "Removable",
+        DiskKind::Nvme => gettext("NVMe"),
+        DiskKind::Ssd => gettext("SSD"),
+        DiskKind::Hdd => gettext("Hard disk"),
+        DiskKind::Removable => gettext("Removable"),
     }
 }
 

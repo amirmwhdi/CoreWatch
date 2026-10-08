@@ -18,6 +18,7 @@ async-channel = "2.3"
 thiserror = "2"
 rustix = { version = "1.1", features = ["fs"] }
 tracing = "0.1"
+gettext-rs = { version = "0.8", features = ["gettext-system"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-appender = "0.2"
 

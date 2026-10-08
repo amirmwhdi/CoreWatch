@@ -2,6 +2,7 @@
 
 use super::{Module, ResourcePage};
 use crate::config::HISTORY_LEN;
+use crate::i18n::{self, gettext};
 use crate::widgets::{layout, Graph};
 use adw::prelude::*;
 use corewatch_core::memory::MemoryCollector;
@@ -33,10 +34,10 @@ impl MemoryPage {
         let graph = Graph::new(HISTORY_LEN, 160);
         let row = |title: &str| adw::ActionRow::builder().title(title).subtitle("…").build();
         let (used, available, cached, swap) = (
-            row("Used"),
-            row("Available"),
-            row("Cache and buffers"),
-            row("Swap"),
+            row(&gettext("Used")),
+            row(&gettext("Available")),
+            row(&gettext("Cache and buffers")),
+            row(&gettext("Swap")),
         );
 
         let swap_bar = gtk::LevelBar::builder()
@@ -71,8 +72,8 @@ impl ResourcePage for MemoryPage {
         "memory"
     }
 
-    fn title(&self) -> &'static str {
-        "Memory"
+    fn title(&self) -> String {
+        gettext("Memory")
     }
 
     fn icon_name(&self) -> &'static str {
@@ -88,25 +89,29 @@ impl ResourcePage for MemoryPage {
         let size = |bytes: u64| glib::format_size(bytes);
 
         self.graph.push(m.used_fraction());
-        self.used.set_subtitle(&format!(
-            "{} of {} ({:.0}%)",
-            size(m.used),
-            size(m.total),
-            m.used_fraction() * 100.0
+        self.used.set_subtitle(&i18n::fmt(
+            // Translators: e.g. "6.2 GB of 16 GB (39%)"
+            &gettext("{used} of {total} ({percent})"),
+            &[
+                ("used", &size(m.used)),
+                ("total", &size(m.total)),
+                ("percent", &i18n::percent(m.used_fraction())),
+            ],
         ));
         self.available.set_subtitle(&size(m.available));
-        self.cached.set_subtitle(&format!(
-            "{} cache · {} buffers",
-            size(m.cached),
-            size(m.buffers)
+        self.cached.set_subtitle(&i18n::fmt(
+            &gettext("{cache} cache · {buffers} buffers"),
+            &[("cache", &size(m.cached)), ("buffers", &size(m.buffers))],
         ));
 
         if m.swap_total == 0 {
-            self.swap.set_subtitle("No swap configured");
+            self.swap.set_subtitle(&gettext("No swap configured"));
             self.swap_bar.set_visible(false);
         } else {
-            self.swap
-                .set_subtitle(&format!("{} of {}", size(m.swap_used), size(m.swap_total)));
+            self.swap.set_subtitle(&i18n::fmt(
+                &gettext("{used} of {total}"),
+                &[("used", &size(m.swap_used)), ("total", &size(m.swap_total))],
+            ));
             self.swap_bar.set_visible(true);
             self.swap_bar.set_value(f64::from(m.swap_fraction()));
         }
@@ -116,6 +121,6 @@ impl ResourcePage for MemoryPage {
         snapshot
             .memory
             .as_ref()
-            .map(|m| format!("{:.0}%", m.used_fraction() * 100.0))
+            .map(|m| i18n::percent(m.used_fraction()))
     }
 }

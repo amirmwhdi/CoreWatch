@@ -2,6 +2,7 @@
 
 use super::{Module, ResourcePage};
 use crate::config::HISTORY_LEN;
+use crate::i18n::{self, gettext, ngettext};
 use crate::widgets::{layout, Graph};
 use adw::prelude::*;
 use corewatch_core::cpu::CpuCollector;
@@ -39,7 +40,11 @@ impl CpuPage {
                 .subtitle_selectable(true)
                 .build()
         };
-        let (model, usage, freq) = (row("Model"), row("Usage"), row("Frequency"));
+        let (model, usage, freq) = (
+            row(&gettext("Model")),
+            row(&gettext("Usage")),
+            row(&gettext("Frequency")),
+        );
 
         let info = adw::PreferencesGroup::new();
         info.add(&model);
@@ -55,7 +60,7 @@ impl CpuPage {
             .column_spacing(12)
             .build();
         let cores_title = gtk::Label::builder()
-            .label("Logical cores")
+            .label(gettext("Logical cores"))
             .xalign(0.0)
             .css_classes(["heading"])
             .build();
@@ -102,8 +107,8 @@ impl ResourcePage for CpuPage {
         "cpu"
     }
 
-    fn title(&self) -> &'static str {
-        "Processor"
+    fn title(&self) -> String {
+        gettext("Processor")
     }
 
     fn icon_name(&self) -> &'static str {
@@ -123,28 +128,50 @@ impl ResourcePage for CpuPage {
             self.model.set_subtitle(&cpu.info.model);
             self.info_set.set(true);
         }
+        let logical = cpu.info.logical;
+        let threads = i18n::fmt(
+            &ngettext("{n} thread", "{n} threads", i18n::count(logical)),
+            &[("n", &logical)],
+        );
         let threads = match cpu.info.physical {
-            Some(physical) => format!("{} cores, {} threads", physical, cpu.info.logical),
-            None => format!("{} threads", cpu.info.logical),
+            Some(physical) => {
+                let cores = i18n::fmt(
+                    &ngettext("{n} core", "{n} cores", i18n::count(physical)),
+                    &[("n", &physical)],
+                );
+                // Translators: e.g. "8 cores, 16 threads"
+                i18n::fmt(
+                    &gettext("{cores}, {threads}"),
+                    &[("cores", &cores), ("threads", &threads)],
+                )
+            }
+            None => threads,
         };
-        self.usage
-            .set_subtitle(&format!("{:.0}% · {threads}", cpu.usage * 100.0));
+        self.usage.set_subtitle(&i18n::fmt(
+            // Translators: e.g. "37% · 8 cores, 16 threads"
+            &gettext("{usage} · {threads}"),
+            &[("usage", &i18n::percent(cpu.usage)), ("threads", &threads)],
+        ));
         self.freq.set_subtitle(&match cpu.max_freq_mhz() {
-            Some(mhz) => format!("{:.2} GHz (fastest core)", f64::from(mhz) / 1000.0),
-            None => "Unknown".to_owned(),
+            Some(mhz) => i18n::fmt(
+                &gettext("{ghz} GHz (fastest core)"),
+                &[("ghz", &format!("{:.2}", f64::from(mhz) / 1000.0))],
+            ),
+            None => gettext("Unknown"),
         });
 
         self.ensure_cores(cpu.cores.len());
         for ((graph, label), core) in self.cores.borrow().iter().zip(&cpu.cores) {
             graph.push(core.usage);
-            label.set_label(&format!("CPU {} · {:.0}%", core.id, core.usage * 100.0));
+            label.set_label(&i18n::fmt(
+                // Translators: one logical core, e.g. "CPU 3 · 12%"
+                &gettext("CPU {id} · {usage}"),
+                &[("id", &core.id), ("usage", &i18n::percent(core.usage))],
+            ));
         }
     }
 
     fn summary(&self, snapshot: &Snapshot) -> Option<String> {
-        snapshot
-            .cpu
-            .as_ref()
-            .map(|c| format!("{:.0}%", c.usage * 100.0))
+        snapshot.cpu.as_ref().map(|c| i18n::percent(c.usage))
     }
 }

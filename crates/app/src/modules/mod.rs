@@ -19,7 +19,8 @@ pub trait ResourcePage {
     /// Stable id, used as the stack page name, e.g. `"cpu"`.
     fn id(&self) -> &'static str;
 
-    fn title(&self) -> &'static str;
+    /// Translated name shown in the sidebar and the header bar.
+    fn title(&self) -> String;
 
     fn icon_name(&self) -> &'static str;
 

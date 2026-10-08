@@ -2,6 +2,7 @@
 
 mod compat;
 mod config;
+mod i18n;
 mod logging;
 mod modules;
 mod widgets;
@@ -26,6 +27,7 @@ fn main() -> glib::ExitCode {
 
     // Logging starts before anything else; the guard flushes the log file on exit.
     let _log_guard = logging::init(has("-v", "--verbose"));
+    i18n::init();
 
     let app = adw::Application::builder()
         .application_id(config::APP_ID)

@@ -2,6 +2,7 @@
 //!
 //! This file never names a resource: it only loops over `modules::all()`.
 
+use crate::i18n::gettext;
 use crate::modules::{self, ResourcePage};
 use crate::{config, logging};
 use adw::prelude::*;
@@ -148,10 +149,10 @@ fn content_or_empty(stack: &gtk::Stack, empty: bool) -> gtk::Widget {
     }
     adw::StatusPage::builder()
         .icon_name("dialog-warning-symbolic")
-        .title("No data sources available")
-        .description(
+        .title(gettext("No data sources available"))
+        .description(gettext(
             "Corewatch could not read /proc. Run corewatch --verbose from a terminal for details.",
-        )
+        ))
         .build()
         .upcast()
 }
