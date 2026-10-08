@@ -1,0 +1,6 @@
+22 1 259:2 / / rw,relatime shared:1 - ext4 /dev/nvme0n1p2 rw
+23 22 259:1 / /boot/efi rw,relatime shared:2 - vfat /dev/nvme0n1p1 rw
+24 22 0:5 / /proc rw,nosuid - proc proc rw
+25 22 8:1 / /mnt/My\040Data rw,relatime - ext4 /dev/sda1 rw
+26 22 7:0 / /snap/core/1 ro,relatime shared:9 - squashfs /dev/loop0 ro
+27 22 0:40 / /net rw - nfs4 server:/export rw

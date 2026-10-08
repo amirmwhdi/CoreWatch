@@ -1,4 +1,4 @@
-use crate::{cpu::CpuSample, memory::MemorySample};
+use crate::{cpu::CpuSample, disk::DiskSample, memory::MemorySample};
 use std::time::Instant;
 
 /// Everything collected in one tick.
@@ -12,6 +12,7 @@ pub struct Snapshot {
     pub taken_at: Instant,
     pub cpu: Option<CpuSample>,
     pub memory: Option<MemorySample>,
+    pub disk: Option<DiskSample>,
     // A new module adds one field here and one line in `new`.
 }
 
@@ -21,6 +22,7 @@ impl Snapshot {
             taken_at: Instant::now(),
             cpu: None,
             memory: None,
+            disk: None,
         }
     }
 }

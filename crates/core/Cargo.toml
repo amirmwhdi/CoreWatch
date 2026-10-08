@@ -10,4 +10,5 @@ repository.workspace = true
 [dependencies]
 async-channel.workspace = true
 thiserror.workspace = true
+rustix.workspace = true
 tracing.workspace = true

@@ -33,6 +33,15 @@ impl SysRoot {
         }
     }
 
+    /// Separate proc and sys roots; lets tests pair one `/sys` with several
+    /// `/proc` states.
+    pub fn new(proc: impl Into<PathBuf>, sys: impl Into<PathBuf>) -> Self {
+        Self {
+            proc: proc.into(),
+            sys: sys.into(),
+        }
+    }
+
     /// [`SysRoot::at`] the value of [`SYSROOT_ENV`] if set, otherwise [`SysRoot::host`].
     pub fn from_env() -> Self {
         std::env::var_os(SYSROOT_ENV)
@@ -48,6 +57,11 @@ impl SysRoot {
     /// Read a file relative to the sys root, e.g. `"devices/system/cpu/online"`.
     pub fn read_sys(&self, rel: &str) -> Result<String, CollectError> {
         read(self.sys.join(rel))
+    }
+
+    /// Full path of an entry under the sys root, for existence checks.
+    pub fn sys_path(&self, rel: &str) -> PathBuf {
+        self.sys.join(rel)
     }
 }
 

@@ -1,9 +1,10 @@
-//! Print CPU and memory once per second, without any GUI.
+//! Print CPU, memory and disks once per second, without any GUI.
 //!
 //!     cargo run -p corewatch-core --example print
 //!     COREWATCH_SYSROOT=crates/core/tests/fixtures/basic cargo run -p corewatch-core --example print
 
 use corewatch_core::cpu::CpuCollector;
+use corewatch_core::disk::DiskCollector;
 use corewatch_core::memory::MemoryCollector;
 use corewatch_core::{Sampler, SysRoot};
 use std::time::Duration;
@@ -16,6 +17,10 @@ fn main() {
         Err(e) => eprintln!("cpu disabled: {e}"),
     }
     sampler.add(Box::new(MemoryCollector));
+    match DiskCollector::new(&root) {
+        Ok(disk) => sampler.add(Box::new(disk)),
+        Err(e) => eprintln!("disk disabled: {e}"),
+    }
 
     let (tx, rx) = async_channel::bounded(1);
     let _handle = match sampler.spawn(tx) {
@@ -49,6 +54,31 @@ fn main() {
                 mem.total / 1024 / 1024,
                 mem.swap_used / 1024 / 1024
             );
+        }
+        if let Some(disk) = &snap.disk {
+            for d in &disk.disks {
+                let rate = |v: Option<u64>| v.map_or("-".into(), |b| format!("{} KB/s", b / 1000));
+                println!(
+                    "DSK {:>3}  {} ({:?}, {} GB)  read {}  write {}",
+                    d.busy.map_or("-".into(), |b| format!("{:.0}%", b * 100.0)),
+                    d.model,
+                    d.kind,
+                    d.size / 1_000_000_000,
+                    rate(d.read_bps),
+                    rate(d.write_bps),
+                );
+            }
+            for f in &disk.filesystems {
+                println!(
+                    "FS  {:>3.0}%  {} ({}, {}) {} / {} GB",
+                    f.space.used_fraction() * 100.0,
+                    f.mount_point.display(),
+                    f.fs_type,
+                    f.source,
+                    f.space.used / 1_000_000_000,
+                    f.space.total / 1_000_000_000,
+                );
+            }
         }
     }
 }
