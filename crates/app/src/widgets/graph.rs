@@ -120,8 +120,8 @@ mod imp {
                 .map(|(i, v)| (x0 + step * i as f32, y(*v)))
                 .collect();
 
-            let mut line = gsk::PathBuilder::new();
-            let mut area = gsk::PathBuilder::new();
+            let line = gsk::PathBuilder::new();
+            let area = gsk::PathBuilder::new();
 
             // Setup initial points for both line and area
             let first = points[0];
@@ -157,17 +157,17 @@ mod imp {
             snapshot.append_fill(&area.to_path(), gsk::FillRule::Winding, &fill);
 
             // 2. Draw the Line Stroke with rounded caps
-            let mut stroke = gsk::Stroke::new(2.5);
+            let stroke = gsk::Stroke::new(2.5);
             stroke.set_line_cap(gsk::LineCap::Round);
             snapshot.append_stroke(&line.to_path(), &stroke, &accent);
 
             // 3. Draw a dot at the latest data point (Live indicator)
-            let mut dot_builder = gsk::PathBuilder::new();
+            let dot_builder = gsk::PathBuilder::new();
             dot_builder.add_circle(&graphene::Point::new(last.0, last.1), 3.5);
 
             // Draw a subtle glow behind the dot
             let glow_color = gdk::RGBA::new(accent.red(), accent.green(), accent.blue(), 0.3);
-            let mut glow_builder = gsk::PathBuilder::new();
+            let glow_builder = gsk::PathBuilder::new();
             glow_builder.add_circle(&graphene::Point::new(last.0, last.1), 6.0);
             snapshot.append_fill(&glow_builder.to_path(), gsk::FillRule::Winding, &glow_color);
 
