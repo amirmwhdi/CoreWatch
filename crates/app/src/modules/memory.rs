@@ -1,10 +1,10 @@
 //! Memory page: usage graph, used, available, cache and swap.
 
 use super::{Module, ResourcePage};
-use crate::config::HISTORY_LEN;
 use crate::i18n::{self, gettext};
-use crate::widgets::{layout, Graph};
+use crate::widgets::Graph;
 use adw::prelude::*;
+use adw::subclass::prelude::ObjectSubclassIsExt;
 use corewatch_core::memory::MemoryCollector;
 use corewatch_core::{CollectError, Collector, Snapshot, SysRoot};
 use gtk::glib;
@@ -30,39 +30,19 @@ struct MemoryPage {
 }
 
 impl MemoryPage {
+    /// The layout comes from `memory-page.blp`; keep handles to the parts
+    /// that change.
     fn new() -> Self {
-        let graph = Graph::new(HISTORY_LEN, 160);
-        let row = |title: &str| adw::ActionRow::builder().title(title).subtitle("…").build();
-        let (used, available, cached, swap) = (
-            row(&gettext("Used")),
-            row(&gettext("Available")),
-            row(&gettext("Cache and buffers")),
-            row(&gettext("Swap")),
-        );
-
-        let swap_bar = gtk::LevelBar::builder()
-            .width_request(120)
-            .valign(gtk::Align::Center)
-            .build();
-        swap.add_suffix(&swap_bar);
-
-        let group = adw::PreferencesGroup::new();
-        for r in [&used, &available, &cached, &swap] {
-            group.add(r);
-        }
-
-        let content = layout::page_box();
-        content.append(&graph);
-        content.append(&group);
-
+        let view = view::MemoryView::new();
+        let ui = view.imp();
         Self {
-            root: layout::scrolled(&content),
-            graph,
-            used,
-            available,
-            cached,
-            swap,
-            swap_bar,
+            graph: ui.graph.get(),
+            used: ui.used.get(),
+            available: ui.available.get(),
+            cached: ui.cached.get(),
+            swap: ui.swap.get(),
+            swap_bar: ui.swap_bar.get(),
+            root: view.upcast(),
         }
     }
 }
@@ -122,5 +102,66 @@ impl ResourcePage for MemoryPage {
             .memory
             .as_ref()
             .map(|m| i18n::percent(m.used_fraction()))
+    }
+}
+
+/// The `CwMemoryPage` template from `data/ui/stable/memory-page.blp`.
+mod view {
+    use crate::widgets::Graph;
+    use adw::subclass::prelude::*;
+    use gtk::prelude::StaticTypeExt;
+    use gtk::{glib, CompositeTemplate, TemplateChild};
+
+    mod imp {
+        use super::*;
+
+        #[derive(Default, CompositeTemplate)]
+        #[template(resource = "/io/github/amirmwhdi/Corewatch/ui/memory-page.ui")]
+        pub struct MemoryView {
+            #[template_child]
+            pub graph: TemplateChild<Graph>,
+            #[template_child]
+            pub used: TemplateChild<adw::ActionRow>,
+            #[template_child]
+            pub available: TemplateChild<adw::ActionRow>,
+            #[template_child]
+            pub cached: TemplateChild<adw::ActionRow>,
+            #[template_child]
+            pub swap: TemplateChild<adw::ActionRow>,
+            #[template_child]
+            pub swap_bar: TemplateChild<gtk::LevelBar>,
+        }
+
+        #[glib::object_subclass]
+        impl ObjectSubclass for MemoryView {
+            const NAME: &'static str = "CwMemoryPage";
+            type Type = super::MemoryView;
+            type ParentType = adw::Bin;
+
+            fn class_init(klass: &mut Self::Class) {
+                Graph::ensure_type();
+                klass.bind_template();
+            }
+
+            fn instance_init(obj: &glib::subclass::InitializingObject<Self>) {
+                obj.init_template();
+            }
+        }
+
+        impl ObjectImpl for MemoryView {}
+        impl WidgetImpl for MemoryView {}
+        impl BinImpl for MemoryView {}
+    }
+
+    glib::wrapper! {
+        pub struct MemoryView(ObjectSubclass<imp::MemoryView>)
+            @extends adw::Bin, gtk::Widget,
+            @implements gtk::Accessible, gtk::Buildable, gtk::ConstraintTarget;
+    }
+
+    impl MemoryView {
+        pub fn new() -> Self {
+            glib::Object::new()
+        }
     }
 }

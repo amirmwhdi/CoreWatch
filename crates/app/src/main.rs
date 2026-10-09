@@ -88,5 +88,8 @@ mod tests {
             .application_id("io.github.amirmwhdi.Corewatch.Test")
             .build();
         let _window = super::window::Window::new(&app);
+        for module in super::modules::all() {
+            let _page = (module.page)();
+        }
     }
 }

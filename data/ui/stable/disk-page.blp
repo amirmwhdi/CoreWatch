@@ -1,0 +1,43 @@
+using Gtk 4.0;
+using Adw 1;
+
+translation-domain "corewatch";
+
+// Disk page. One block per disk is added to disks_box at run time (disks come
+// and go); filesystem rows are added to fs_group the same way.
+template $CwDiskPage: Adw.Bin {
+  child: ScrolledWindow {
+    hscrollbar-policy: never;
+
+    child: Adw.Clamp {
+      maximum-size: 1000;
+
+      child: Box {
+        orientation: vertical;
+        spacing: 18;
+
+        styles [
+          "cw-page",
+        ]
+
+        Box disks_box {
+          orientation: vertical;
+          spacing: 24;
+        }
+
+        Label no_disks {
+          label: _("No disks found");
+          visible: false;
+
+          styles [
+            "dim-label",
+          ]
+        }
+
+        Adw.PreferencesGroup fs_group {
+          title: _("Filesystems");
+        }
+      };
+    };
+  };
+}

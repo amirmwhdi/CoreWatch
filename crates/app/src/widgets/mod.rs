@@ -1,6 +1,6 @@
-//! Widgets and layout helpers shared by every module page.
+//! Widgets shared by every module page. Page layouts live in Blueprint
+//! (`data/ui/stable/`); margins in `data/style.css`.
 
 pub mod graph;
-pub mod layout;
 
 pub use graph::Graph;

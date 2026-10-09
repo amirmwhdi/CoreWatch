@@ -9,6 +9,13 @@ use gtk::{gdk, glib, graphene, gsk};
 use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
 
+/// Graphs declared in Blueprint keep this many points unless they set
+/// `capacity`; it matches the history every page shows.
+const _: () = assert!(
+    crate::config::HISTORY_LEN == 60,
+    "update the `default = 60` of Graph's capacity property too"
+);
+
 mod imp {
     use super::*;
 

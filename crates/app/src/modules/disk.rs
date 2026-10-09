@@ -4,8 +4,9 @@
 use super::{Module, ResourcePage};
 use crate::config::HISTORY_LEN;
 use crate::i18n::{self, gettext};
-use crate::widgets::{layout, Graph};
+use crate::widgets::Graph;
 use adw::prelude::*;
+use adw::subclass::prelude::ObjectSubclassIsExt;
 use corewatch_core::disk::{DiskCollector, DiskDevice, DiskKind, Filesystem};
 use corewatch_core::{CollectError, Collector, Snapshot, SysRoot};
 use gtk::glib;
@@ -38,30 +39,18 @@ struct DiskPage {
 }
 
 impl DiskPage {
+    /// The layout comes from `disk-page.blp`; disk blocks and filesystem
+    /// rows are added at run time.
     fn new() -> Self {
-        let disks_box = gtk::Box::new(gtk::Orientation::Vertical, 24);
-        let no_disks = gtk::Label::builder()
-            .label(gettext("No disks found"))
-            .css_classes(["dim-label"])
-            .visible(false)
-            .build();
-
-        let fs_group = adw::PreferencesGroup::builder()
-            .title(gettext("Filesystems"))
-            .build();
-
-        let content = layout::page_box();
-        content.append(&disks_box);
-        content.append(&no_disks);
-        content.append(&fs_group);
-
+        let view = view::DiskView::new();
+        let ui = view.imp();
         Self {
-            root: layout::scrolled(&content),
-            disks_box,
-            no_disks,
+            disks_box: ui.disks_box.get(),
+            no_disks: ui.no_disks.get(),
             disks: RefCell::default(),
-            fs_group,
+            fs_group: ui.fs_group.get(),
             fs_rows: RefCell::default(),
+            root: view.upcast(),
         }
     }
 
@@ -284,4 +273,59 @@ fn space_bar() -> gtk::LevelBar {
     bar.add_offset_value(gtk::LEVEL_BAR_OFFSET_HIGH, SPACE_WARNING);
     bar.add_offset_value(gtk::LEVEL_BAR_OFFSET_LOW, 1.0);
     bar
+}
+
+/// The `CwDiskPage` template from `data/ui/stable/disk-page.blp`.
+mod view {
+    use crate::widgets::Graph;
+    use adw::subclass::prelude::*;
+    use gtk::prelude::StaticTypeExt;
+    use gtk::{glib, CompositeTemplate, TemplateChild};
+
+    mod imp {
+        use super::*;
+
+        #[derive(Default, CompositeTemplate)]
+        #[template(resource = "/io/github/amirmwhdi/Corewatch/ui/disk-page.ui")]
+        pub struct DiskView {
+            #[template_child]
+            pub disks_box: TemplateChild<gtk::Box>,
+            #[template_child]
+            pub no_disks: TemplateChild<gtk::Label>,
+            #[template_child]
+            pub fs_group: TemplateChild<adw::PreferencesGroup>,
+        }
+
+        #[glib::object_subclass]
+        impl ObjectSubclass for DiskView {
+            const NAME: &'static str = "CwDiskPage";
+            type Type = super::DiskView;
+            type ParentType = adw::Bin;
+
+            fn class_init(klass: &mut Self::Class) {
+                Graph::ensure_type();
+                klass.bind_template();
+            }
+
+            fn instance_init(obj: &glib::subclass::InitializingObject<Self>) {
+                obj.init_template();
+            }
+        }
+
+        impl ObjectImpl for DiskView {}
+        impl WidgetImpl for DiskView {}
+        impl BinImpl for DiskView {}
+    }
+
+    glib::wrapper! {
+        pub struct DiskView(ObjectSubclass<imp::DiskView>)
+            @extends adw::Bin, gtk::Widget,
+            @implements gtk::Accessible, gtk::Buildable, gtk::ConstraintTarget;
+    }
+
+    impl DiskView {
+        pub fn new() -> Self {
+            glib::Object::new()
+        }
+    }
 }

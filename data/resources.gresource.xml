@@ -4,6 +4,9 @@
 <gresources>
   <gresource prefix="/io/github/amirmwhdi/Corewatch">
     <file preprocess="xml-stripblanks">ui/window.ui</file>
+    <file preprocess="xml-stripblanks">ui/cpu-page.ui</file>
+    <file preprocess="xml-stripblanks">ui/memory-page.ui</file>
+    <file preprocess="xml-stripblanks">ui/disk-page.ui</file>
     <!-- Loaded automatically by AdwApplication from <app-id path>/style.css -->
     <file>style.css</file>
   </gresource>

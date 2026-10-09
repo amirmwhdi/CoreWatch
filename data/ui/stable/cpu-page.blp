@@ -1,0 +1,67 @@
+using Gtk 4.0;
+using Adw 1;
+
+translation-domain "corewatch";
+
+// CPU page. The per-core graphs are added to core_grid at run time, once the
+// first sample says how many cores there are.
+template $CwCpuPage: Adw.Bin {
+  child: ScrolledWindow {
+    hscrollbar-policy: never;
+
+    child: Adw.Clamp {
+      maximum-size: 1000;
+
+      child: Box {
+        orientation: vertical;
+        spacing: 18;
+
+        styles [
+          "cw-page",
+        ]
+
+        $CwGraph total {
+          height-request: 160;
+        }
+
+        Adw.PreferencesGroup {
+          Adw.ActionRow model {
+            title: _("Model");
+            subtitle: "…";
+            subtitle-selectable: true;
+          }
+
+          Adw.ActionRow usage {
+            title: _("Usage");
+            subtitle: "…";
+            subtitle-selectable: true;
+          }
+
+          Adw.ActionRow freq {
+            title: _("Frequency");
+            subtitle: "…";
+            subtitle-selectable: true;
+          }
+        }
+
+        Label {
+          label: _("Logical cores");
+          xalign: 0;
+
+          styles [
+            "heading",
+          ]
+        }
+
+        FlowBox core_grid {
+          selection-mode: none;
+          homogeneous: true;
+          min-children-per-line: 2;
+          max-children-per-line: 8;
+          row-spacing: 12;
+          column-spacing: 12;
+        }
+      };
+    };
+  };
+}

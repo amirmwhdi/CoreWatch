@@ -3,8 +3,9 @@
 use super::{Module, ResourcePage};
 use crate::config::HISTORY_LEN;
 use crate::i18n::{self, gettext, ngettext};
-use crate::widgets::{layout, Graph};
+use crate::widgets::Graph;
 use adw::prelude::*;
+use adw::subclass::prelude::ObjectSubclassIsExt;
 use corewatch_core::cpu::CpuCollector;
 use corewatch_core::{CollectError, Collector, Snapshot, SysRoot};
 use std::cell::{Cell, RefCell};
@@ -31,55 +32,20 @@ struct CpuPage {
 }
 
 impl CpuPage {
+    /// The layout comes from `cpu-page.blp`; keep handles to the parts that
+    /// change.
     fn new() -> Self {
-        let total = Graph::new(HISTORY_LEN, 160);
-        let row = |title: &str| {
-            adw::ActionRow::builder()
-                .title(title)
-                .subtitle("…")
-                .subtitle_selectable(true)
-                .build()
-        };
-        let (model, usage, freq) = (
-            row(&gettext("Model")),
-            row(&gettext("Usage")),
-            row(&gettext("Frequency")),
-        );
-
-        let info = adw::PreferencesGroup::new();
-        info.add(&model);
-        info.add(&usage);
-        info.add(&freq);
-
-        let core_grid = gtk::FlowBox::builder()
-            .selection_mode(gtk::SelectionMode::None)
-            .homogeneous(true)
-            .min_children_per_line(2)
-            .max_children_per_line(8)
-            .row_spacing(12)
-            .column_spacing(12)
-            .build();
-        let cores_title = gtk::Label::builder()
-            .label(gettext("Logical cores"))
-            .xalign(0.0)
-            .css_classes(["heading"])
-            .build();
-
-        let content = layout::page_box();
-        content.append(&total);
-        content.append(&info);
-        content.append(&cores_title);
-        content.append(&core_grid);
-
+        let view = view::CpuView::new();
+        let ui = view.imp();
         Self {
-            root: layout::scrolled(&content),
-            total,
-            model,
-            usage,
-            freq,
+            total: ui.total.get(),
+            model: ui.model.get(),
+            usage: ui.usage.get(),
+            freq: ui.freq.get(),
             info_set: Cell::new(false),
-            core_grid,
+            core_grid: ui.core_grid.get(),
             cores: RefCell::default(),
+            root: view.upcast(),
         }
     }
 
@@ -173,5 +139,64 @@ impl ResourcePage for CpuPage {
 
     fn summary(&self, snapshot: &Snapshot) -> Option<String> {
         snapshot.cpu.as_ref().map(|c| i18n::percent(c.usage))
+    }
+}
+
+/// The `CwCpuPage` template from `data/ui/stable/cpu-page.blp`.
+mod view {
+    use crate::widgets::Graph;
+    use adw::subclass::prelude::*;
+    use gtk::prelude::StaticTypeExt;
+    use gtk::{glib, CompositeTemplate, TemplateChild};
+
+    mod imp {
+        use super::*;
+
+        #[derive(Default, CompositeTemplate)]
+        #[template(resource = "/io/github/amirmwhdi/Corewatch/ui/cpu-page.ui")]
+        pub struct CpuView {
+            #[template_child]
+            pub total: TemplateChild<Graph>,
+            #[template_child]
+            pub model: TemplateChild<adw::ActionRow>,
+            #[template_child]
+            pub usage: TemplateChild<adw::ActionRow>,
+            #[template_child]
+            pub freq: TemplateChild<adw::ActionRow>,
+            #[template_child]
+            pub core_grid: TemplateChild<gtk::FlowBox>,
+        }
+
+        #[glib::object_subclass]
+        impl ObjectSubclass for CpuView {
+            const NAME: &'static str = "CwCpuPage";
+            type Type = super::CpuView;
+            type ParentType = adw::Bin;
+
+            fn class_init(klass: &mut Self::Class) {
+                Graph::ensure_type();
+                klass.bind_template();
+            }
+
+            fn instance_init(obj: &glib::subclass::InitializingObject<Self>) {
+                obj.init_template();
+            }
+        }
+
+        impl ObjectImpl for CpuView {}
+        impl WidgetImpl for CpuView {}
+        impl BinImpl for CpuView {}
+    }
+
+    glib::wrapper! {
+        pub struct CpuView(ObjectSubclass<imp::CpuView>)
+            @extends adw::Bin, gtk::Widget,
+            @implements gtk::Accessible, gtk::Buildable, gtk::ConstraintTarget;
+    }
+
+    impl CpuView {
+        pub fn new() -> Self {
+            glib::Object::new()
+        }
     }
 }

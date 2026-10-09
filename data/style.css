@@ -1,3 +1,8 @@
 /* Corewatch styles. AdwApplication loads this file automatically from the
    embedded resources. Keep it small: Adwaita already styles almost
    everything, and pages follow the system light/dark style and accent. */
+
+/* Content box of every resource page: the same margins on every page. */
+.cw-page {
+  margin: 24px 12px;
+}

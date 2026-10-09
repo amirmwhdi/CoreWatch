@@ -1,0 +1,56 @@
+using Gtk 4.0;
+using Adw 1;
+
+translation-domain "corewatch";
+
+// Memory page: usage graph, then used, available, cache and swap.
+template $CwMemoryPage: Adw.Bin {
+  child: ScrolledWindow {
+    hscrollbar-policy: never;
+
+    child: Adw.Clamp {
+      maximum-size: 1000;
+
+      child: Box {
+        orientation: vertical;
+        spacing: 18;
+
+        styles [
+          "cw-page",
+        ]
+
+        $CwGraph graph {
+          height-request: 160;
+        }
+
+        Adw.PreferencesGroup {
+          Adw.ActionRow used {
+            title: _("Used");
+            subtitle: "…";
+          }
+
+          Adw.ActionRow available {
+            title: _("Available");
+            subtitle: "…";
+          }
+
+          Adw.ActionRow cached {
+            title: _("Cache and buffers");
+            subtitle: "…";
+          }
+
+          Adw.ActionRow swap {
+            title: _("Swap");
+            subtitle: "…";
+
+            [suffix]
+            LevelBar swap_bar {
+              width-request: 120;
+              valign: center;
+            }
+          }
+        }
+      };
+    };
+  };
+}
