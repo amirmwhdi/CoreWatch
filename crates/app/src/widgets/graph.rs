@@ -113,25 +113,70 @@ mod imp {
             let x0 = w - step * (values.len() - 1) as f32;
             let y = |v: f32| h - v.clamp(0.0, 1.0) * (h - 2.0) - 1.0;
 
-            let line = gsk::PathBuilder::new();
-            let area = gsk::PathBuilder::new();
-            area.move_to(x0, h);
-            for (i, v) in values.iter().enumerate() {
-                let x = x0 + step * i as f32;
-                if i == 0 {
-                    line.move_to(x, y(*v));
-                } else {
-                    line.line_to(x, y(*v));
-                }
-                area.line_to(x, y(*v));
+            // Collect points for easier calculation
+            let points: Vec<(f32, f32)> = values
+                .iter()
+                .enumerate()
+                .map(|(i, v)| (x0 + step * i as f32, y(*v)))
+                .collect();
+
+            let mut line = gsk::PathBuilder::new();
+            let mut area = gsk::PathBuilder::new();
+
+            // Setup initial points for both line and area
+            let first = points[0];
+            line.move_to(first.0, first.1);
+            area.move_to(first.0, h); // Area starts from bottom
+            area.line_to(first.0, first.1);
+
+            // Draw smooth curves using cubic beziers
+            for i in 1..points.len() {
+                let (x_prev, y_prev) = points[i - 1];
+                let (x_curr, y_curr) = points[i];
+
+                // Control points for smooth horizontal easing
+                let cp1_x = x_prev + step / 2.0;
+                let cp1_y = y_prev;
+                let cp2_x = x_curr - step / 2.0;
+                let cp2_y = y_curr;
+
+                line.cubic_to(cp1_x, cp1_y, cp2_x, cp2_y, x_curr, y_curr);
+                area.cubic_to(cp1_x, cp1_y, cp2_x, cp2_y, x_curr, y_curr);
             }
-            area.line_to(w, h);
+
+            // Close the area path at the bottom right
+            let last = points.last().unwrap();
+            area.line_to(last.0, h);
             area.close();
 
             let accent = adw::StyleManager::default().accent_color_rgba();
-            let fill = gdk::RGBA::new(accent.red(), accent.green(), accent.blue(), 0.18);
-            snapshot.append_fill(&area.to_path(), gsk::FillRule::Winding, &fill);
-            snapshot.append_stroke(&line.to_path(), &gsk::Stroke::new(2.0), &accent);
+
+            // 1. Draw Gradient Fill (using gsk::ColorStop)
+            let stops = [
+                gsk::ColorStop::new(0.0, gdk::RGBA::new(accent.red(), accent.green(), accent.blue(), 0.35)),
+                gsk::ColorStop::new(1.0, gdk::RGBA::new(accent.red(), accent.green(), accent.blue(), 0.0)),
+            ];
+            // Define bounds for the gradient (top to bottom of the widget)
+            let bounds = graphene::Rect::new(0.0, 0.0, w, h);
+            snapshot.append_linear_gradient(&area.to_path(), &bounds, &stops);
+
+            // 2. Draw the Line Stroke with rounded caps
+            let mut stroke = gsk::Stroke::new(2.5);
+            stroke.set_line_cap(gsk::LineCap::Round);
+            snapshot.append_stroke(&line.to_path(), &stroke, &accent);
+
+            // 3. Draw a dot at the latest data point (Live indicator)
+            let mut dot_builder = gsk::PathBuilder::new();
+            dot_builder.add_circle(&graphene::Point::new(last.0, last.1), 3.5);
+            
+            // Draw a subtle glow behind the dot
+            let glow_color = gdk::RGBA::new(accent.red(), accent.green(), accent.blue(), 0.3);
+            let mut glow_builder = gsk::PathBuilder::new();
+            glow_builder.add_circle(&graphene::Point::new(last.0, last.1), 6.0);
+            snapshot.append_fill(&glow_builder.to_path(), gsk::FillRule::Winding, &glow_color);
+            
+            // Draw the solid dot
+            snapshot.append_fill(&dot_builder.to_path(), gsk::FillRule::Winding, &accent);
         }
     }
 }
