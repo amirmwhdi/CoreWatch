@@ -1,4 +1,3 @@
-```yaml
 name: Release
 
 on:
@@ -354,4 +353,3 @@ jobs:
           prerelease: ${{ contains(steps.vars.outputs.version, '-') }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-```
