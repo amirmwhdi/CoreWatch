@@ -151,14 +151,10 @@ mod imp {
 
             let accent = adw::StyleManager::default().accent_color_rgba();
 
-            // 1. Draw Gradient Fill (using gsk::ColorStop)
-            let stops = [
-                gsk::ColorStop::new(0.0, gdk::RGBA::new(accent.red(), accent.green(), accent.blue(), 0.35)),
-                gsk::ColorStop::new(1.0, gdk::RGBA::new(accent.red(), accent.green(), accent.blue(), 0.0)),
-            ];
-            // Define bounds for the gradient (top to bottom of the widget)
-            let bounds = graphene::Rect::new(0.0, 0.0, w, h);
-            snapshot.append_linear_gradient(&area.to_path(), &bounds, &stops);
+            // 1. Draw Solid Fill (using append_fill instead of gradient 
+            //    because GTK4's push_clip only accepts Rect, not arbitrary Paths)
+            let fill = gdk::RGBA::new(accent.red(), accent.green(), accent.blue(), 0.25);
+            snapshot.append_fill(&area.to_path(), gsk::FillRule::Winding, &fill);
 
             // 2. Draw the Line Stroke with rounded caps
             let mut stroke = gsk::Stroke::new(2.5);

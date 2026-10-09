@@ -1,0 +1,170 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*' # با زدن تگ مثل v1.0.0 اجرا می‌شود
+  workflow_dispatch: # امکان اجرای دستی
+
+permissions:
+  contents: write # برای آپلود فایل‌ها در بخش Releases
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+            nfpm_arch: amd64
+            appimage_arch: x86_64
+          - arch: aarch64
+            runner: ubuntu-24.04-arm # رانر نیتیو ARM گیت‌هاب
+            target: aarch64-unknown-linux-gnu
+            nfpm_arch: arm64
+            appimage_arch: aarch64
+
+    runs-on: ${{ matrix.runner }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-4-dev libadwaita-1-dev blueprint-compiler \
+            pkg-config build-essential curl wget file zstd dpkg-dev rpm
+
+      - name: Install nfpm
+        run: |
+          curl -Lo nfpm.tar.gz "https://github.com/goreleaser/nfpm/releases/download/v2.38.0/nfpm_2.38.0_Linux_${{ matrix.arch }}.tar.gz"
+          tar -xzf nfpm.tar.gz nfpm
+          sudo mv nfpm /usr/local/bin/
+          
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build Rust project
+        run: cargo build --release
+
+      - name: Prepare packaging variables
+        id: vars
+        run: |
+          # استخراج نام و نسخه از Cargo.toml
+          APP_NAME=$(grep '^name = ' Cargo.toml | head -n 1 | sed 's/name = //; s/"//g')
+          VERSION=${GITHUB_REF_NAME#v}
+          
+          echo "app_name=$APP_NAME" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          
+          # ساخت ساختار پوشه‌ها برای AppImage و nfpm
+          mkdir -p AppDir/usr/bin
+          mkdir -p AppDir/usr/share/applications
+          mkdir -p AppDir/usr/share/icons/hicolor/scalable/apps
+
+      # ------------------- ساخت بسته‌های deb, rpm, zst -------------------
+      - name: Build Linux Packages (deb, rpm, zst)
+        env:
+          APP_NAME: ${{ steps.vars.outputs.app_name }}
+          VERSION: ${{ steps.vars.outputs.version }}
+          NFPM_ARCH: ${{ matrix.nfpm_arch }}
+        run: |
+          # ساخت یک فایل nfpm.yaml پویا بر اساس پروژه شما
+          cat <<EOF > nfpm.yaml
+          name: "$APP_NAME"
+          arch: "$NFPM_ARCH"
+          platform: "linux"
+          version: "$VERSION"
+          section: "utils"
+          priority: "optional"
+          maintainer: "Corewatch Devs <devs@example.com>"
+          description: "A modern system monitor"
+          homepage: "${{ github.repositoryUrl }}"
+          license: "MIT"
+          depends:
+            - libgtk-4-1
+            - libadwaita-1-0
+          contents:
+            - src: ./target/release/$APP_NAME
+              dst: /usr/bin/$APP_NAME
+          EOF
+          
+          # توجه: اگر فایل .desktop و آیکون دارید، مسیر آن‌ها را در بالا به nfpm اضافه کنید.
+          
+          nfpm pkg --packager deb --target $APP_NAME-$VERSION-$NFPM_ARCH.deb
+          nfpm pkg --packager rpm --target $APP_NAME-$VERSION-$NFPM_ARCH.rpm
+          nfpm pkg --packager archlinux --target $APP_NAME-$VERSION-$NFPM_ARCH.pkg.tar.zst
+
+      # ------------------- ساخت AppImage -------------------
+      - name: Create AppImage
+        env:
+          APP_NAME: ${{ steps.vars.outputs.app_name }}
+          VERSION: ${{ steps.vars.outputs.version }}
+        run: |
+          APP_NAME=$APP_NAME
+          # کپی باینری به AppDir
+          cp target/release/$APP_NAME AppDir/usr/bin/
+          
+          # نکته: برای اینکه AppImage در منوی اپلیکیشن‌ها بیفتد، باید فایل .desktop و آیکون داشته باشید
+          # خطوط زیر را اگر فایل‌های .desktop و آیکون دارید از کامنت خارج کنید:
+          # cp data/$APP_NAME.desktop AppDir/usr/share/applications/
+          # cp data/icons/$APP_NAME.svg AppDir/usr/share/icons/hicolor/scalable/apps/
+          
+          # دانلود appimagetool
+          wget -q "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-${{ matrix.appimage_arch }}.AppImage"
+          chmod +x appimagetool-${{ matrix.appimage_arch }}.AppImage
+          
+          # ساخت AppImage
+          ARCH=${{ matrix.appimage_arch }} ./appimagetool-${{ matrix.appimage_arch }}.AppImage AppDir $APP_NAME-$VERSION-${{ matrix.arch }}.AppImage --appimage-extract-and-run || true
+          
+          # حل مشکل اجرای AppImage در محیط CI
+          ./appimagetool-${{ matrix.appimage_arch }}.AppImage AppDir $APP_NAME-$VERSION-${{ matrix.arch }}.AppImage
+
+      # ------------------- ساخت باینری خام (tar.gz) -------------------
+      - name: Create Binary Archive
+        env:
+          APP_NAME: ${{ steps.vars.outputs.app_name }}
+          VERSION: ${{ steps.vars.outputs.version }}
+        run: |
+          cd target/release
+          tar -czf ../../$APP_NAME-$VERSION-linux-${{ matrix.arch }}.tar.gz $APP_NAME
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.vars.outputs.app_name }}-${{ matrix.arch }}
+          path: |
+            *.tar.gz
+            *.AppImage
+            *.deb
+            *.rpm
+            *.pkg.tar.zst
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
