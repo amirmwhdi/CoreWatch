@@ -4,7 +4,8 @@
 //!     COREWATCH_SYSROOT=crates/core/tests/fixtures/basic cargo run -p corewatch-core --example print
 
 use corewatch_core::{
-    cpu::CpuCollector, disk::DiskCollector, gpu::GpuCollector, memory::MemoryCollector,
+    battery::BatteryCollector, cpu::CpuCollector, disk::DiskCollector, gpu::GpuCollector,
+    memory::MemoryCollector,
 };
 use corewatch_core::{Sampler, SysRoot};
 use std::time::Duration;
@@ -24,6 +25,10 @@ fn main() {
     match GpuCollector::new(&root) {
         Ok(gpu) => sampler.add(Box::new(gpu)),
         Err(e) => eprintln!("gpu disabled: {e}"),
+    }
+    match BatteryCollector::new(&root) {
+        Ok(bat) => sampler.add(Box::new(bat)),
+        Err(e) => eprintln!("battery disabled: {e}"),
     }
 
     let (tx, rx) = async_channel::bounded(1);
@@ -66,6 +71,18 @@ fn main() {
                 println!(
                     "GPU {:>3}  {} ({:?})  clock {}  temp {:?}",
                     usage_str, g.name, g.vendor, freq_str, g.temp_c
+                );
+            }
+        }
+        if let Some(bat) = &snap.battery {
+            for b in &bat.batteries {
+                let p_str = b.power_w.map_or("-".into(), |w| format!("{w:.1} W"));
+                println!(
+                    "BAT {:>3.0}%  {:?}  rate {}  model {}",
+                    b.capacity * 100.0,
+                    b.state,
+                    p_str,
+                    b.model
                 );
             }
         }

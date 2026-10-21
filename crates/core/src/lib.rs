@@ -12,6 +12,7 @@
     deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)
 )]
 
+pub mod battery;
 pub mod collector;
 pub mod cpu;
 pub mod disk;

@@ -3,6 +3,7 @@
 //! To add a resource, create `modules/<name>.rs` with a page and a `MODULE`
 //! constant, then add it to [`all`]. Nothing else in the app changes.
 
+pub mod battery;
 pub mod cpu;
 pub mod disk;
 pub mod gpu;
@@ -45,5 +46,11 @@ pub struct Module {
 
 /// The single registry. Order here is the order in the sidebar.
 pub fn all() -> Vec<Module> {
-    vec![cpu::MODULE, memory::MODULE, disk::MODULE, gpu::MODULE]
+    vec![
+        cpu::MODULE,
+        memory::MODULE,
+        gpu::MODULE,
+        disk::MODULE,
+        battery::MODULE,
+    ]
 }

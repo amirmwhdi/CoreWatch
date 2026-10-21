@@ -1,0 +1,80 @@
+using Gtk 4.0;
+using Adw 1;
+
+translation-domain "corewatch";
+
+// Battery page. Displays battery level graph, status, remaining time, health, and power metrics.
+template $CwBatteryPage: Adw.Bin {
+  child: ScrolledWindow {
+    hscrollbar-policy: never;
+
+    child: Adw.Clamp {
+      maximum-size: 1000;
+
+      child: Box {
+        orientation: vertical;
+        spacing: 18;
+
+        styles [
+          "cw-page",
+        ]
+
+        $CwGraph graph {
+          height-request: 160;
+        }
+
+        Adw.PreferencesGroup info_group {
+          title: _("Battery Details");
+
+          Adw.ActionRow status_row {
+            title: _("Status");
+            subtitle: "…";
+            subtitle-selectable: true;
+          }
+
+          Adw.ActionRow level_row {
+            title: _("Charge Level");
+            subtitle: "…";
+            subtitle-selectable: true;
+
+            [suffix]
+            LevelBar level_bar {
+              width-request: 120;
+              valign: center;
+            }
+          }
+
+          Adw.ActionRow time_row {
+            title: _("Time Remaining");
+            subtitle: "…";
+            subtitle-selectable: true;
+          }
+
+          Adw.ActionRow rate_row {
+            title: _("Charge / Discharge Rate");
+            subtitle: "…";
+            subtitle-selectable: true;
+          }
+
+          Adw.ActionRow health_row {
+            title: _("Health and Capacity");
+            subtitle: "…";
+            subtitle-selectable: true;
+          }
+
+          Adw.ActionRow power_supply_row {
+            title: _("AC Power Supply");
+            subtitle: "…";
+            subtitle-selectable: true;
+          }
+
+          Adw.ActionRow hardware_row {
+            title: _("Hardware");
+            subtitle: "…";
+            subtitle-selectable: true;
+          }
+        }
+      };
+    };
+  };
+}

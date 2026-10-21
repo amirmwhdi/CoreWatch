@@ -26,6 +26,7 @@ Corewatch is a native Linux system monitor built with Rust, GTK 4 and libadwaita
 - GPU: model, driver, core usage graph, clock speed, VRAM, and temperature
 - Memory: used, available, cache and buffers, swap, usage graph (binary IEC units)
 - Disks: activity graph, read/write speeds, and mounted filesystem space (binary IEC units)
+- Battery: charge level graph, charging status, time remaining, health, power rate, and cycles
 - Follows the system light/dark style and accent color
 - Configurable update speeds (0.5s, 1s, 2s) and preferences dialog
 - Adaptive layout down to 360 px wide
