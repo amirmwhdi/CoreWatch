@@ -41,29 +41,23 @@ impl ThemeMode {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum UpdateSpeed {
-    Realtime = 0,   // 100ms (Real-time, GNOME System Monitor default)
-    Fast = 1,       // 250ms (4 samples/sec)
-    HalfSecond = 2, // 500ms (0.5s)
+    HalfSecond = 0, // 500ms (0.5s)
     #[default]
-    Normal = 3, // 1000ms (1s)
-    Slow = 4,       // 2000ms (2s)
+    Normal = 1, // 1000ms (1s)
+    Slow = 2,       // 2000ms (2s)
 }
 
 impl UpdateSpeed {
     pub fn from_index(index: u32) -> Self {
         match index {
-            0 => Self::Realtime,
-            1 => Self::Fast,
-            2 => Self::HalfSecond,
-            4 => Self::Slow,
+            0 => Self::HalfSecond,
+            2 => Self::Slow,
             _ => Self::Normal,
         }
     }
 
     pub fn as_duration(&self) -> Duration {
         match self {
-            Self::Realtime => Duration::from_millis(100),
-            Self::Fast => Duration::from_millis(250),
             Self::HalfSecond => Duration::from_millis(500),
             Self::Normal => DEFAULT_SAMPLE_INTERVAL,
             Self::Slow => Duration::from_millis(2000),
@@ -76,9 +70,7 @@ impl UpdateSpeed {
 
     pub fn from_millis(ms: u64) -> Self {
         match ms {
-            0..=175 => Self::Realtime,
-            176..=375 => Self::Fast,
-            376..=750 => Self::HalfSecond,
+            0..=750 => Self::HalfSecond,
             751..=1500 => Self::Normal,
             _ => Self::Slow,
         }
@@ -161,17 +153,10 @@ mod tests {
 
     #[test]
     fn update_speed_roundtrip() {
-        assert_eq!(UpdateSpeed::from_index(0), UpdateSpeed::Realtime);
-        assert_eq!(UpdateSpeed::from_index(1), UpdateSpeed::Fast);
-        assert_eq!(UpdateSpeed::from_index(2), UpdateSpeed::HalfSecond);
-        assert_eq!(UpdateSpeed::from_index(3), UpdateSpeed::Normal);
-        assert_eq!(UpdateSpeed::from_index(4), UpdateSpeed::Slow);
+        assert_eq!(UpdateSpeed::from_index(0), UpdateSpeed::HalfSecond);
+        assert_eq!(UpdateSpeed::from_index(1), UpdateSpeed::Normal);
+        assert_eq!(UpdateSpeed::from_index(2), UpdateSpeed::Slow);
 
-        assert_eq!(
-            UpdateSpeed::Realtime.as_duration(),
-            Duration::from_millis(100)
-        );
-        assert_eq!(UpdateSpeed::Fast.as_duration(), Duration::from_millis(250));
         assert_eq!(
             UpdateSpeed::HalfSecond.as_duration(),
             Duration::from_millis(500)

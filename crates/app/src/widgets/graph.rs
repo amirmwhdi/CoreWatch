@@ -27,8 +27,6 @@ mod imp {
         /// Blueprint as `capacity: 60;`.
         #[property(get, set = Self::set_capacity, minimum = 2, default = 60)]
         pub capacity: Cell<u32>,
-        pub last_push: Cell<Option<std::time::Instant>>,
-        pub push_interval: Cell<std::time::Duration>,
     }
 
     impl Default for Graph {
@@ -36,8 +34,6 @@ mod imp {
             Self {
                 values: RefCell::default(),
                 capacity: Cell::new(60),
-                last_push: Cell::new(None),
-                push_interval: Cell::new(std::time::Duration::from_millis(1000)),
             }
         }
     }
@@ -88,12 +84,6 @@ mod imp {
                 graph,
                 move |_| graph.queue_draw()
             ));
-
-            // Smooth continuous animation ticker (like GNOME System Monitor)
-            graph.add_tick_callback(|graph, _clock| {
-                graph.queue_draw();
-                glib::ControlFlow::Continue
-            });
         }
     }
 
@@ -118,22 +108,9 @@ mod imp {
                 return;
             }
 
-            // Continuous sub-pixel scroll progress (GNOME System Monitor style)
-            let progress = if let Some(last_push) = self.last_push.get() {
-                let interval = self.push_interval.get();
-                if interval.as_millis() > 0 {
-                    (last_push.elapsed().as_secs_f32() / interval.as_secs_f32()).min(1.0)
-                } else {
-                    0.0
-                }
-            } else {
-                0.0
-            };
-
-            // Newest value at the right edge; older values move left.
+            // Newest value at the right edge (w); older values move left.
             let step = w / (self.capacity.get().max(2) - 1) as f32;
-            let shift = progress * step;
-            let x0 = w - step * (values.len() - 1) as f32 - shift;
+            let x0 = w - step * (values.len() - 1) as f32;
             let y = |v: f32| h - v.clamp(0.0, 1.0) * (h - 2.0) - 1.0;
 
             let mut iter = values
@@ -152,7 +129,7 @@ mod imp {
 
             let mut prev = first;
 
-            // Draw smooth curves using cubic beziers across all historical points
+            // Draw smooth curves using cubic beziers across all points up to the latest point
             for curr in iter {
                 let cp1_x = prev.0 + step / 2.0;
                 let cp1_y = prev.1;
@@ -163,19 +140,6 @@ mod imp {
                 area.cubic_to(cp1_x, cp1_y, cp2_x, cp2_y, curr.0, curr.1);
 
                 prev = curr;
-            }
-
-            // Extend the bezier curve smoothly to the right edge (w) using the natural
-            // tangent of the latest segment, preventing any abrupt corner or sharp angle
-            if shift > 0.001 {
-                let remaining = w - prev.0;
-                let cp1_x = prev.0 + remaining / 2.0;
-                let cp1_y = prev.1;
-                let cp2_x = w - remaining / 2.0;
-                let cp2_y = prev.1;
-
-                line.cubic_to(cp1_x, cp1_y, cp2_x, cp2_y, w, prev.1);
-                area.cubic_to(cp1_x, cp1_y, cp2_x, cp2_y, w, prev.1);
             }
 
             // Close the area path at the bottom right
@@ -219,15 +183,6 @@ impl Graph {
     /// Append a value in 0.0..=1.0 and redraw.
     pub fn push(&self, value: f32) {
         let imp = self.imp();
-        let now = std::time::Instant::now();
-        if let Some(prev) = imp.last_push.get() {
-            let dur = now.duration_since(prev);
-            if dur <= std::time::Duration::from_secs(5) {
-                imp.push_interval.set(dur);
-            }
-        }
-        imp.last_push.set(Some(now));
-
         {
             let mut values = imp.values.borrow_mut();
             values.push_back(value);

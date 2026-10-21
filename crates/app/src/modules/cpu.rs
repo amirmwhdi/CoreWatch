@@ -51,11 +51,11 @@ impl CpuPage {
     }
 
     /// The core count is known only after the first sample; build small graphs
-    /// on demand. Keep 30 points so small boxes have clear, visible waveforms.
+    /// on demand.
     fn ensure_cores(&self, n: usize) {
         let mut cores = self.cores.borrow_mut();
         while cores.len() < n {
-            let graph = Graph::new(30, 48);
+            let graph = Graph::new(60, 48);
             graph.set_width_request(96);
             let label = gtk::Label::builder()
                 .xalign(0.0)
