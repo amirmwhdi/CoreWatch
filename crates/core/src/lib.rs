@@ -16,6 +16,7 @@ pub mod collector;
 pub mod cpu;
 pub mod disk;
 pub mod error;
+pub mod gpu;
 pub mod memory;
 pub mod root;
 pub mod sampler;

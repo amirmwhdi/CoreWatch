@@ -6,6 +6,7 @@
     <file preprocess="xml-stripblanks">ui/window.ui</file>
     <file preprocess="xml-stripblanks">ui/preferences.ui</file>
     <file preprocess="xml-stripblanks">ui/cpu-page.ui</file>
+    <file preprocess="xml-stripblanks">ui/gpu-page.ui</file>
     <file preprocess="xml-stripblanks">ui/memory-page.ui</file>
     <file preprocess="xml-stripblanks">ui/disk-page.ui</file>
     <file alias="icons/scalable/apps/corewatch.svg">icons/corewatch.svg</file>

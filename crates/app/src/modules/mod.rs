@@ -5,6 +5,7 @@
 
 pub mod cpu;
 pub mod disk;
+pub mod gpu;
 pub mod memory;
 
 use corewatch_core::{CollectError, Collector, Snapshot, SysRoot};
@@ -44,5 +45,5 @@ pub struct Module {
 
 /// The single registry. Order here is the order in the sidebar.
 pub fn all() -> Vec<Module> {
-    vec![cpu::MODULE, memory::MODULE, disk::MODULE]
+    vec![cpu::MODULE, memory::MODULE, disk::MODULE, gpu::MODULE]
 }

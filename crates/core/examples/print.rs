@@ -3,9 +3,9 @@
 //!     cargo run -p corewatch-core --example print
 //!     COREWATCH_SYSROOT=crates/core/tests/fixtures/basic cargo run -p corewatch-core --example print
 
-use corewatch_core::cpu::CpuCollector;
-use corewatch_core::disk::DiskCollector;
-use corewatch_core::memory::MemoryCollector;
+use corewatch_core::{
+    cpu::CpuCollector, disk::DiskCollector, gpu::GpuCollector, memory::MemoryCollector,
+};
 use corewatch_core::{Sampler, SysRoot};
 use std::time::Duration;
 
@@ -20,6 +20,10 @@ fn main() {
     match DiskCollector::new(&root) {
         Ok(disk) => sampler.add(Box::new(disk)),
         Err(e) => eprintln!("disk disabled: {e}"),
+    }
+    match GpuCollector::new(&root) {
+        Ok(gpu) => sampler.add(Box::new(gpu)),
+        Err(e) => eprintln!("gpu disabled: {e}"),
     }
 
     let (tx, rx) = async_channel::bounded(1);
@@ -54,6 +58,16 @@ fn main() {
                 mem.total / 1024 / 1024,
                 mem.swap_used / 1024 / 1024
             );
+        }
+        if let Some(gpu) = &snap.gpu {
+            for g in &gpu.devices {
+                let usage_str = g.usage.map_or("-".into(), |u| format!("{:.0}%", u * 100.0));
+                let freq_str = g.freq_mhz.map_or("-".into(), |f| format!("{f} MHz"));
+                println!(
+                    "GPU {:>3}  {} ({:?})  clock {}  temp {:?}",
+                    usage_str, g.name, g.vendor, freq_str, g.temp_c
+                );
+            }
         }
         if let Some(disk) = &snap.disk {
             for d in &disk.disks {
