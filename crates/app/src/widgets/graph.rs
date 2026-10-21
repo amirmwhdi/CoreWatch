@@ -152,9 +152,8 @@ mod imp {
 
             let mut prev = first;
 
-            // Draw smooth curves using cubic beziers
+            // Draw smooth curves using cubic beziers across all historical points
             for curr in iter {
-                // Control points for smooth horizontal easing
                 let cp1_x = prev.0 + step / 2.0;
                 let cp1_y = prev.1;
                 let cp2_x = curr.0 - step / 2.0;
@@ -166,18 +165,18 @@ mod imp {
                 prev = curr;
             }
 
-            // Smooth cubic interpolation (SmoothStep) for the live edge
-            let len = values.len();
-            let v_prev = values[len - 2];
-            let v_curr = values[len - 1];
-            let prev_y = y(v_prev);
-            let curr_y = y(v_curr);
-            let s = progress * progress * (3.0 - 2.0 * progress);
-            let live_y = (1.0 - s) * prev_y + s * curr_y;
+            // Extend the bezier curve smoothly to the right edge (w) using the natural
+            // tangent of the latest segment, preventing any abrupt corner or sharp angle
+            if shift > 0.001 {
+                let remaining = w - prev.0;
+                let cp1_x = prev.0 + remaining / 2.0;
+                let cp1_y = prev.1;
+                let cp2_x = w - remaining / 2.0;
+                let cp2_y = prev.1;
 
-            // Connect smoothly from the latest bezier point to the live edge at x = w
-            line.line_to(w, live_y);
-            area.line_to(w, live_y);
+                line.cubic_to(cp1_x, cp1_y, cp2_x, cp2_y, w, prev.1);
+                area.cubic_to(cp1_x, cp1_y, cp2_x, cp2_y, w, prev.1);
+            }
 
             // Close the area path at the bottom right
             area.line_to(w, h);
