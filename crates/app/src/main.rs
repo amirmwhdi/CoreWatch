@@ -31,9 +31,6 @@ fn main() -> glib::ExitCode {
     let _log_guard = logging::init(has("-v", "--verbose"));
     i18n::init();
 
-    // Apply saved user settings (e.g. ColorScheme)
-    settings::AppSettings::load().apply_theme();
-
     // The UI (Blueprint templates, style.css) is compiled into the binary by build.rs.
     if let Err(error) = register_resources() {
         tracing::error!(%error, "cannot load the built-in UI resources");

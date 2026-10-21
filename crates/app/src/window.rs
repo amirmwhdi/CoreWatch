@@ -74,6 +74,7 @@ pub fn present(app: &adw::Application) {
     let root = SysRoot::from_env();
     logging::log_startup_banner(&root);
     let settings = crate::settings::AppSettings::load();
+    settings.apply_theme();
     let mut sampler = Sampler::new(root.clone(), settings.speed.as_duration());
 
     let window = Window::new(app);
