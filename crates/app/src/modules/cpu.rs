@@ -56,11 +56,14 @@ impl CpuPage {
         let mut cores = self.cores.borrow_mut();
         while cores.len() < n {
             let graph = Graph::new(30, 48);
+            graph.set_width_request(96);
             let label = gtk::Label::builder()
                 .xalign(0.0)
+                .ellipsize(gtk::pango::EllipsizeMode::End)
                 .css_classes(["caption", "numeric"])
                 .build();
             let cell = gtk::Box::new(gtk::Orientation::Vertical, 4);
+            cell.set_width_request(96);
             cell.append(&label);
             cell.append(&graph);
             self.core_grid.append(&cell);
