@@ -38,6 +38,6 @@ jobs:
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: Test
         # A virtual display lets the template test build the real window.
-        run: xvfb-run -a cargo test --workspace
+        run: ./scripts/run-with-display.sh cargo test --workspace
       - name: Build
         run: cargo build --workspace --release
