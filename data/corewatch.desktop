@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Corewatch
+Comment=A modern system monitor for Linux
+Exec=corewatch
+Icon=corewatch
+Terminal=false
+Type=Application
+Categories=GNOME;GTK;System;Monitor;
+Keywords=system;process;task;manager;performance;cpu;memory;disk;
+StartupNotify=true

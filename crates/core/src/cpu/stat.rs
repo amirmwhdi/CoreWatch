@@ -62,21 +62,23 @@ pub fn parse_stat(text: &str) -> Result<StatTimes, CollectError> {
             continue;
         };
 
-        let values = fields
-            .take(8)
-            .map(str::parse::<u64>)
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|e| CollectError::parse(WHAT, format!("{label}: {e}")))?;
-        if values.len() < 4 {
+        let mut values = [0u64; 8];
+        let mut count = 0;
+        for (i, field) in fields.take(8).enumerate() {
+            values[i] = field
+                .parse::<u64>()
+                .map_err(|e| CollectError::parse(WHAT, format!("{label}: {e}")))?;
+            count += 1;
+        }
+        if count < 4 {
             return Err(CollectError::parse(
                 WHAT,
                 format!("{label}: too few columns"),
             ));
         }
-        let at = |i: usize| values.get(i).copied().unwrap_or(0);
         let times = CpuTimes {
-            busy: at(0) + at(1) + at(2) + at(5) + at(6) + at(7),
-            idle: at(3) + at(4),
+            busy: values[0] + values[1] + values[2] + values[5] + values[6] + values[7],
+            idle: values[3] + values[4],
         };
 
         if suffix.is_empty() {

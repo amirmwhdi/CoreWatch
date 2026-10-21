@@ -2,46 +2,62 @@
 
 use super::MemorySample;
 use crate::CollectError;
-use std::collections::HashMap;
 
 /// Parse `/proc/meminfo` into bytes.
 ///
 /// `used` follows `free(1)`: total minus available. Cached includes
 /// reclaimable slab, again like `free(1)`.
 pub fn parse_meminfo(text: &str) -> Result<MemorySample, CollectError> {
-    let kib: HashMap<&str, u64> = text
-        .lines()
-        .filter_map(|line| {
-            let (key, rest) = line.split_once(':')?;
-            let value = rest.split_ascii_whitespace().next()?.parse().ok()?;
-            Some((key.trim(), value))
-        })
-        .collect();
-    let get = |key: &str| kib.get(key).copied().unwrap_or(0).saturating_mul(1024);
+    let mut mem_total = 0u64;
+    let mut mem_free = 0u64;
+    let mut mem_available = None;
+    let mut buffers = 0u64;
+    let mut cached = 0u64;
+    let mut sreclaimable = 0u64;
+    let mut swap_total = 0u64;
+    let mut swap_free = 0u64;
 
-    let total = get("MemTotal");
-    if total == 0 {
+    for line in text.lines() {
+        let Some((key, rest)) = line.split_once(':') else {
+            continue;
+        };
+        let Some(val_str) = rest.split_ascii_whitespace().next() else {
+            continue;
+        };
+        let Ok(val) = val_str.parse::<u64>() else {
+            continue;
+        };
+        let bytes = val.saturating_mul(1024);
+
+        match key.trim() {
+            "MemTotal" => mem_total = bytes,
+            "MemFree" => mem_free = bytes,
+            "MemAvailable" => mem_available = Some(bytes),
+            "Buffers" => buffers = bytes,
+            "Cached" => cached = bytes,
+            "SReclaimable" => sreclaimable = bytes,
+            "SwapTotal" => swap_total = bytes,
+            "SwapFree" => swap_free = bytes,
+            _ => {}
+        }
+    }
+
+    if mem_total == 0 {
         return Err(CollectError::parse("/proc/meminfo", "MemTotal missing"));
     }
-    let cached = get("Cached") + get("SReclaimable");
-    let buffers = get("Buffers");
-    // MemAvailable exists since Linux 3.14; estimate it on anything older.
-    let available = if kib.contains_key("MemAvailable") {
-        get("MemAvailable")
-    } else {
-        get("MemFree") + buffers + cached
-    }
-    .min(total);
-    let swap_total = get("SwapTotal");
+    let cached_total = cached + sreclaimable;
+    let available = mem_available
+        .unwrap_or_else(|| mem_free + buffers + cached_total)
+        .min(mem_total);
 
     Ok(MemorySample {
-        total,
+        total: mem_total,
         available,
-        used: total - available,
-        cached,
+        used: mem_total - available,
+        cached: cached_total,
         buffers,
         swap_total,
-        swap_used: swap_total.saturating_sub(get("SwapFree")),
+        swap_used: swap_total.saturating_sub(swap_free),
     })
 }
 

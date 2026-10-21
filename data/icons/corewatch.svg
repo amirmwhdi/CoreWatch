@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="cw-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3584e4"/>
+      <stop offset="100%" stop-color="#1c71d8"/>
+    </linearGradient>
+  </defs>
+  <!-- Background rounded squircle (GNOME style) -->
+  <rect x="8" y="8" width="112" height="112" rx="24" fill="url(#cw-bg)"/>
+  <!-- Subtle grid lines -->
+  <path d="M 20 64 H 108 M 64 20 V 108" stroke="#ffffff" stroke-opacity="0.15" stroke-width="2"/>
+  <!-- Activity graph pulse line -->
+  <path d="M 22 72 L 42 72 L 52 38 L 68 94 L 80 58 L 90 72 L 106 72"
+        fill="none" stroke="#ffffff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Endpoint dot with glow -->
+  <circle cx="106" cy="72" r="5" fill="#f6f5f4"/>
+</svg>

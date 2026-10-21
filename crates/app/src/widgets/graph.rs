@@ -113,39 +113,39 @@ mod imp {
             let x0 = w - step * (values.len() - 1) as f32;
             let y = |v: f32| h - v.clamp(0.0, 1.0) * (h - 2.0) - 1.0;
 
-            // Collect points for easier calculation
-            let points: Vec<(f32, f32)> = values
+            let mut iter = values
                 .iter()
                 .enumerate()
-                .map(|(i, v)| (x0 + step * i as f32, y(*v)))
-                .collect();
+                .map(|(i, v)| (x0 + step * i as f32, y(*v)));
 
+            let first = iter.next().unwrap();
             let line = gsk::PathBuilder::new();
             let area = gsk::PathBuilder::new();
 
             // Setup initial points for both line and area
-            let first = points[0];
             line.move_to(first.0, first.1);
             area.move_to(first.0, h); // Area starts from bottom
             area.line_to(first.0, first.1);
 
+            let mut prev = first;
+            let mut last = first;
+
             // Draw smooth curves using cubic beziers
-            for i in 1..points.len() {
-                let (x_prev, y_prev) = points[i - 1];
-                let (x_curr, y_curr) = points[i];
-
+            for curr in iter {
                 // Control points for smooth horizontal easing
-                let cp1_x = x_prev + step / 2.0;
-                let cp1_y = y_prev;
-                let cp2_x = x_curr - step / 2.0;
-                let cp2_y = y_curr;
+                let cp1_x = prev.0 + step / 2.0;
+                let cp1_y = prev.1;
+                let cp2_x = curr.0 - step / 2.0;
+                let cp2_y = curr.1;
 
-                line.cubic_to(cp1_x, cp1_y, cp2_x, cp2_y, x_curr, y_curr);
-                area.cubic_to(cp1_x, cp1_y, cp2_x, cp2_y, x_curr, y_curr);
+                line.cubic_to(cp1_x, cp1_y, cp2_x, cp2_y, curr.0, curr.1);
+                area.cubic_to(cp1_x, cp1_y, cp2_x, cp2_y, curr.0, curr.1);
+
+                prev = curr;
+                last = curr;
             }
 
             // Close the area path at the bottom right
-            let last = points.last().unwrap();
             area.line_to(last.0, h);
             area.close();
 

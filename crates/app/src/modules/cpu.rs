@@ -27,6 +27,7 @@ struct CpuPage {
     usage: adw::ActionRow,
     freq: adw::ActionRow,
     info_set: Cell<bool>,
+    threads_desc: RefCell<String>,
     core_grid: gtk::FlowBox,
     cores: RefCell<Vec<(Graph, gtk::Label)>>,
 }
@@ -43,6 +44,7 @@ impl CpuPage {
             usage: ui.usage.get(),
             freq: ui.freq.get(),
             info_set: Cell::new(false),
+            threads_desc: RefCell::default(),
             core_grid: ui.core_grid.get(),
             cores: RefCell::default(),
             root: view.upcast(),
@@ -92,31 +94,33 @@ impl ResourcePage for CpuPage {
 
         if !self.info_set.get() {
             self.model.set_subtitle(&cpu.info.model);
+            let logical = cpu.info.logical;
+            let threads = i18n::fmt(
+                &ngettext("{n} thread", "{n} threads", i18n::count(logical)),
+                &[("n", &logical)],
+            );
+            let threads = match cpu.info.physical {
+                Some(physical) => {
+                    let cores = i18n::fmt(
+                        &ngettext("{n} core", "{n} cores", i18n::count(physical)),
+                        &[("n", &physical)],
+                    );
+                    // Translators: e.g. "8 cores, 16 threads"
+                    i18n::fmt(
+                        &gettext("{cores}, {threads}"),
+                        &[("cores", &cores), ("threads", &threads)],
+                    )
+                }
+                None => threads,
+            };
+            *self.threads_desc.borrow_mut() = threads;
             self.info_set.set(true);
         }
-        let logical = cpu.info.logical;
-        let threads = i18n::fmt(
-            &ngettext("{n} thread", "{n} threads", i18n::count(logical)),
-            &[("n", &logical)],
-        );
-        let threads = match cpu.info.physical {
-            Some(physical) => {
-                let cores = i18n::fmt(
-                    &ngettext("{n} core", "{n} cores", i18n::count(physical)),
-                    &[("n", &physical)],
-                );
-                // Translators: e.g. "8 cores, 16 threads"
-                i18n::fmt(
-                    &gettext("{cores}, {threads}"),
-                    &[("cores", &cores), ("threads", &threads)],
-                )
-            }
-            None => threads,
-        };
+        let threads = self.threads_desc.borrow();
         self.usage.set_subtitle(&i18n::fmt(
             // Translators: e.g. "37% · 8 cores, 16 threads"
             &gettext("{usage} · {threads}"),
-            &[("usage", &i18n::percent(cpu.usage)), ("threads", &threads)],
+            &[("usage", &i18n::percent(cpu.usage)), ("threads", &*threads)],
         ));
         self.freq.set_subtitle(&match cpu.max_freq_mhz() {
             Some(mhz) => i18n::fmt(

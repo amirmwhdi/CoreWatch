@@ -4,6 +4,8 @@
 //! work without touching collector code.
 
 use crate::CollectError;
+use std::fs::File;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 
 /// Name of the environment variable that points Corewatch at a fake root.
@@ -66,5 +68,15 @@ impl SysRoot {
 }
 
 fn read(path: PathBuf) -> Result<String, CollectError> {
-    std::fs::read_to_string(&path).map_err(|source| CollectError::Io { path, source })
+    let mut file = File::open(&path).map_err(|source| CollectError::Io {
+        path: path.clone(),
+        source,
+    })?;
+    // Files in /proc and /sys report st_size == 0, causing std::fs::read_to_string
+    // to repeatedly reallocate buffer memory. Pre-allocating a 2KB buffer accommodates
+    // typical procfs entries in a single step without reallocations.
+    let mut buf = String::with_capacity(2048);
+    file.read_to_string(&mut buf)
+        .map_err(|source| CollectError::Io { path, source })?;
+    Ok(buf)
 }

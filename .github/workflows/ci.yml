@@ -17,10 +17,14 @@ jobs:
           - name: floor (Debian 13)
             image: debian:trixie
             deps: apt-get update && apt-get install -y libgtk-4-dev libadwaita-1-dev blueprint-compiler pkg-config build-essential curl git xvfb xauth
+          # Fedora: Red Hat / RPM ecosystem and latest GNOME upstream.
+          - name: fedora (Fedora Latest)
+            image: fedora:latest
+            deps: dnf install -y --setopt=install_weak_deps=False gtk4-devel libadwaita-devel blueprint-compiler gcc pkgconf-pkg-config git xorg-x11-server-Xvfb xauth which curl
           # The edge: newest GTK and libadwaita.
           - name: edge (Arch)
             image: archlinux:latest
-            deps: pacman -Syu --noconfirm gtk4 libadwaita blueprint-compiler pkgconf base-devel git xorg-server-xvfb
+            deps: pacman -Syu --noconfirm gtk4 libadwaita blueprint-compiler pkgconf base-devel git xorg-server-xvfb xorg-xauth
     steps:
       - name: Install system dependencies
         run: ${{ matrix.deps }}

@@ -53,9 +53,9 @@ fn parse_line(line: &str) -> Option<DiskStat> {
     let _major = fields.next()?;
     let _minor = fields.next()?;
     let name = fields.next()?;
-    let numbers: Vec<u64> = fields.map(|f| f.parse().ok()).collect::<Option<_>>()?;
-    if numbers.len() < 11 {
-        return None;
+    let mut numbers = [0u64; 11];
+    for slot in &mut numbers {
+        *slot = fields.next()?.parse().ok()?;
     }
     // 1-based counter numbers from the kernel docs: 3 sectors read,
     // 7 sectors written, 10 time spent doing I/O.
