@@ -66,11 +66,11 @@ impl ResourcePage for MemoryPage {
 
     fn update(&self, snapshot: &Snapshot) {
         let Some(m) = &snapshot.memory else { return };
-        let size = |bytes: u64| glib::format_size(bytes);
+        let size = |bytes: u64| glib::format_size_full(bytes, glib::FormatSizeFlags::IEC_UNITS);
 
         self.graph.push(m.used_fraction());
         self.used.set_subtitle(&i18n::fmt(
-            // Translators: e.g. "6.2 GB of 16 GB (39%)"
+            // Translators: e.g. "6.2 GiB of 16 GiB (39%)"
             &gettext("{used} of {total} ({percent})"),
             &[
                 ("used", &size(m.used)),

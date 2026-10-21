@@ -57,26 +57,26 @@ fn main() {
         }
         if let Some(disk) = &snap.disk {
             for d in &disk.disks {
-                let rate = |v: Option<u64>| v.map_or("-".into(), |b| format!("{} KB/s", b / 1000));
+                let rate = |v: Option<u64>| v.map_or("-".into(), |b| format!("{} KiB/s", b / 1024));
                 println!(
-                    "DSK {:>3}  {} ({:?}, {} GB)  read {}  write {}",
+                    "DSK {:>3}  {} ({:?}, {} GiB)  read {}  write {}",
                     d.busy.map_or("-".into(), |b| format!("{:.0}%", b * 100.0)),
                     d.model,
                     d.kind,
-                    d.size / 1_000_000_000,
+                    d.size / (1024 * 1024 * 1024),
                     rate(d.read_bps),
                     rate(d.write_bps),
                 );
             }
             for f in &disk.filesystems {
                 println!(
-                    "FS  {:>3.0}%  {} ({}, {}) {} / {} GB",
+                    "FS  {:>3.0}%  {} ({}, {}) {} / {} GiB",
                     f.space.used_fraction() * 100.0,
                     f.mount_point.display(),
                     f.fs_type,
                     f.source,
-                    f.space.used / 1_000_000_000,
-                    f.space.total / 1_000_000_000,
+                    f.space.used / (1024 * 1024 * 1024),
+                    f.space.total / (1024 * 1024 * 1024),
                 );
             }
         }

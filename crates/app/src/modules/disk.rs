@@ -116,11 +116,17 @@ impl DiskPage {
         }
         for ((_, row, bar), fs) in rows.iter().zip(filesystems) {
             row.set_subtitle(&i18n::fmt(
-                // Translators: e.g. "120 GB of 500 GB used · ext4 · /dev/nvme0n1p2"
+                // Translators: e.g. "120 GiB of 500 GiB used · ext4 · /dev/nvme0n1p2"
                 &gettext("{used} of {total} used · {type} · {device}"),
                 &[
-                    ("used", &glib::format_size(fs.space.used)),
-                    ("total", &glib::format_size(fs.space.total)),
+                    (
+                        "used",
+                        &glib::format_size_full(fs.space.used, glib::FormatSizeFlags::IEC_UNITS),
+                    ),
+                    (
+                        "total",
+                        &glib::format_size_full(fs.space.total, glib::FormatSizeFlags::IEC_UNITS),
+                    ),
                     ("type", &fs.fs_type),
                     ("device", &fs.source),
                 ],
@@ -177,11 +183,14 @@ impl DiskBlock {
             .build();
         let description = gtk::Label::builder()
             .label(i18n::fmt(
-                // Translators: disk type, size and kernel name, e.g. "NVMe · 512 GB · nvme0n1"
+                // Translators: disk type, size and kernel name, e.g. "NVMe · 512 GiB · nvme0n1"
                 &gettext("{kind} · {size} · {name}"),
                 &[
                     ("kind", &kind_label(device.kind)),
-                    ("size", &glib::format_size(device.size)),
+                    (
+                        "size",
+                        &glib::format_size_full(device.size, glib::FormatSizeFlags::IEC_UNITS),
+                    ),
                     ("name", &device.name),
                 ],
             ))
@@ -229,20 +238,32 @@ impl DiskBlock {
     }
 }
 
-/// "12.3 MB/s · 4.1 GB since boot"; "…" while the speed is not known yet.
+/// "12.3 MiB/s · 4.1 GiB since boot"; "…" while the speed is not known yet.
 fn transfer(bps: Option<u64>, total: u64) -> String {
     match bps {
         Some(bps) => i18n::fmt(
             &gettext("{speed} · {total} since boot"),
-            &[("speed", &speed(bps)), ("total", &glib::format_size(total))],
+            &[
+                ("speed", &speed(bps)),
+                (
+                    "total",
+                    &glib::format_size_full(total, glib::FormatSizeFlags::IEC_UNITS),
+                ),
+            ],
         ),
         None => "…".to_owned(),
     }
 }
 
 fn speed(bps: u64) -> String {
-    // Translators: a transfer speed, e.g. "12.3 MB/s"
-    i18n::fmt(&gettext("{size}/s"), &[("size", &glib::format_size(bps))])
+    // Translators: a transfer speed, e.g. "12.3 MiB/s"
+    i18n::fmt(
+        &gettext("{size}/s"),
+        &[(
+            "size",
+            &glib::format_size_full(bps, glib::FormatSizeFlags::IEC_UNITS),
+        )],
+    )
 }
 
 fn kind_label(kind: DiskKind) -> String {
