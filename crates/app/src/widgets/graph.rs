@@ -151,7 +151,6 @@ mod imp {
             area.line_to(first.0, first.1);
 
             let mut prev = first;
-            let mut last = first;
 
             // Draw smooth curves using cubic beziers
             for curr in iter {
@@ -165,14 +164,20 @@ mod imp {
                 area.cubic_to(cp1_x, cp1_y, cp2_x, cp2_y, curr.0, curr.1);
 
                 prev = curr;
-                last = curr;
             }
 
-            // Extend smoothly to the right edge (w) while transitioning to next sample
-            if shift > 0.0 {
-                line.line_to(w, last.1);
-                area.line_to(w, last.1);
-            }
+            // Smooth cubic interpolation (SmoothStep) for the live edge
+            let len = values.len();
+            let v_prev = values[len - 2];
+            let v_curr = values[len - 1];
+            let prev_y = y(v_prev);
+            let curr_y = y(v_curr);
+            let s = progress * progress * (3.0 - 2.0 * progress);
+            let live_y = (1.0 - s) * prev_y + s * curr_y;
+
+            // Connect smoothly from the latest bezier point to the live edge at x = w
+            line.line_to(w, live_y);
+            area.line_to(w, live_y);
 
             // Close the area path at the bottom right
             area.line_to(w, h);
@@ -180,26 +185,30 @@ mod imp {
 
             let accent = adw::StyleManager::default().accent_color_rgba();
 
+            // Adapt visual scale to widget size (crisp rendering on 48px core boxes)
+            let is_small = h < 60.0;
+            let stroke_width = if is_small { 1.6 } else { 2.4 };
+            let dot_radius = if is_small { 2.2 } else { 3.5 };
+            let glow_radius = if is_small { 4.0 } else { 6.0 };
+
             // 1. Draw Solid Fill (using append_fill instead of gradient
             //    because GTK4's push_clip only accepts Rect, not arbitrary Paths)
             let fill = gdk::RGBA::new(accent.red(), accent.green(), accent.blue(), 0.25);
             snapshot.append_fill(&area.to_path(), gsk::FillRule::Winding, &fill);
 
             // 2. Draw the Line Stroke with rounded caps
-            let stroke = gsk::Stroke::new(2.5);
+            let stroke = gsk::Stroke::new(stroke_width);
             stroke.set_line_cap(gsk::LineCap::Round);
             snapshot.append_stroke(&line.to_path(), &stroke, &accent);
 
-            // 3. Draw a dot at the latest data point (Live indicator)
-            let dot_x = w;
-            let dot_y = last.1;
+            // 3. Draw a dot at the live edge point
             let dot_builder = gsk::PathBuilder::new();
-            dot_builder.add_circle(&graphene::Point::new(dot_x, dot_y), 3.5);
+            dot_builder.add_circle(&graphene::Point::new(w, live_y), dot_radius);
 
             // Draw a subtle glow behind the dot
             let glow_color = gdk::RGBA::new(accent.red(), accent.green(), accent.blue(), 0.3);
             let glow_builder = gsk::PathBuilder::new();
-            glow_builder.add_circle(&graphene::Point::new(dot_x, dot_y), 6.0);
+            glow_builder.add_circle(&graphene::Point::new(w, live_y), glow_radius);
             snapshot.append_fill(&glow_builder.to_path(), gsk::FillRule::Winding, &glow_color);
 
             // Draw the solid dot

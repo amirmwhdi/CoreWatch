@@ -1,7 +1,6 @@
 //! CPU page: total usage graph, model, frequency, one small graph per core.
 
 use super::{Module, ResourcePage};
-use crate::config::HISTORY_LEN;
 use crate::i18n::{self, gettext, ngettext};
 use crate::widgets::Graph;
 use adw::prelude::*;
@@ -52,11 +51,11 @@ impl CpuPage {
     }
 
     /// The core count is known only after the first sample; build small graphs
-    /// on demand.
+    /// on demand. Keep 30 points so small boxes have clear, visible waveforms.
     fn ensure_cores(&self, n: usize) {
         let mut cores = self.cores.borrow_mut();
         while cores.len() < n {
-            let graph = Graph::new(HISTORY_LEN, 48);
+            let graph = Graph::new(30, 48);
             let label = gtk::Label::builder()
                 .xalign(0.0)
                 .css_classes(["caption", "numeric"])
