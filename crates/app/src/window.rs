@@ -75,6 +75,13 @@ pub fn present(app: &adw::Application) {
     logging::log_startup_banner(&root);
     let settings = crate::settings::AppSettings::load();
     settings.apply_theme();
+
+    if let Some(display) = gtk::gdk::Display::default() {
+        let theme = gtk::IconTheme::for_display(&display);
+        theme.add_resource_path("/io/github/amirmwhdi/Corewatch/icons");
+    }
+    gtk::Window::set_default_icon_name(config::APP_ID);
+
     let mut sampler = Sampler::new(root.clone(), settings.speed.as_duration());
 
     let window = Window::new(app);

@@ -1,6 +1,20 @@
-# Corewatch
+<p align="center">
+  <img src="data/icons/corewatch.svg" alt="Corewatch Logo" width="128" height="128">
+</p>
 
-*Everything your system is doing, in one place.*
+<h1 align="center">Corewatch</h1>
+
+<p align="center">
+  <em>Everything your system is doing, in one place.</em>
+</p>
+
+<p align="center">
+  <a href="#features">Features</a> •
+  <a href="#build-and-run">Build & Run</a> •
+  <a href="#license">License</a>
+</p>
+
+---
 
 Corewatch is a native Linux system monitor built with Rust, GTK 4 and libadwaita.
 
