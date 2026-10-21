@@ -27,6 +27,8 @@ mod imp {
         /// Blueprint as `capacity: 60;`.
         #[property(get, set = Self::set_capacity, minimum = 2, default = 60)]
         pub capacity: Cell<u32>,
+        pub last_push: Cell<Option<std::time::Instant>>,
+        pub push_interval: Cell<std::time::Duration>,
     }
 
     impl Default for Graph {
@@ -34,6 +36,8 @@ mod imp {
             Self {
                 values: RefCell::default(),
                 capacity: Cell::new(60),
+                last_push: Cell::new(None),
+                push_interval: Cell::new(std::time::Duration::from_millis(1000)),
             }
         }
     }
@@ -84,6 +88,12 @@ mod imp {
                 graph,
                 move |_| graph.queue_draw()
             ));
+
+            // Smooth continuous animation ticker (like GNOME System Monitor)
+            graph.add_tick_callback(|graph, _clock| {
+                graph.queue_draw();
+                glib::ControlFlow::Continue
+            });
         }
     }
 
@@ -108,9 +118,22 @@ mod imp {
                 return;
             }
 
+            // Continuous sub-pixel scroll progress (GNOME System Monitor style)
+            let progress = if let Some(last_push) = self.last_push.get() {
+                let interval = self.push_interval.get();
+                if interval.as_millis() > 0 {
+                    (last_push.elapsed().as_secs_f32() / interval.as_secs_f32()).min(1.0)
+                } else {
+                    0.0
+                }
+            } else {
+                0.0
+            };
+
             // Newest value at the right edge; older values move left.
             let step = w / (self.capacity.get().max(2) - 1) as f32;
-            let x0 = w - step * (values.len() - 1) as f32;
+            let shift = progress * step;
+            let x0 = w - step * (values.len() - 1) as f32 - shift;
             let y = |v: f32| h - v.clamp(0.0, 1.0) * (h - 2.0) - 1.0;
 
             let mut iter = values
@@ -145,8 +168,14 @@ mod imp {
                 last = curr;
             }
 
+            // Extend smoothly to the right edge (w) while transitioning to next sample
+            if shift > 0.0 {
+                line.line_to(w, last.1);
+                area.line_to(w, last.1);
+            }
+
             // Close the area path at the bottom right
-            area.line_to(last.0, h);
+            area.line_to(w, h);
             area.close();
 
             let accent = adw::StyleManager::default().accent_color_rgba();
@@ -162,13 +191,15 @@ mod imp {
             snapshot.append_stroke(&line.to_path(), &stroke, &accent);
 
             // 3. Draw a dot at the latest data point (Live indicator)
+            let dot_x = w;
+            let dot_y = last.1;
             let dot_builder = gsk::PathBuilder::new();
-            dot_builder.add_circle(&graphene::Point::new(last.0, last.1), 3.5);
+            dot_builder.add_circle(&graphene::Point::new(dot_x, dot_y), 3.5);
 
             // Draw a subtle glow behind the dot
             let glow_color = gdk::RGBA::new(accent.red(), accent.green(), accent.blue(), 0.3);
             let glow_builder = gsk::PathBuilder::new();
-            glow_builder.add_circle(&graphene::Point::new(last.0, last.1), 6.0);
+            glow_builder.add_circle(&graphene::Point::new(dot_x, dot_y), 6.0);
             snapshot.append_fill(&glow_builder.to_path(), gsk::FillRule::Winding, &glow_color);
 
             // Draw the solid dot
@@ -195,6 +226,15 @@ impl Graph {
     /// Append a value in 0.0..=1.0 and redraw.
     pub fn push(&self, value: f32) {
         let imp = self.imp();
+        let now = std::time::Instant::now();
+        if let Some(prev) = imp.last_push.get() {
+            let dur = now.duration_since(prev);
+            if dur <= std::time::Duration::from_secs(5) {
+                imp.push_interval.set(dur);
+            }
+        }
+        imp.last_push.set(Some(now));
+
         {
             let mut values = imp.values.borrow_mut();
             values.push_back(value);
