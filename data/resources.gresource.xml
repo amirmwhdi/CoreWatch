@@ -4,6 +4,7 @@
 <gresources>
   <gresource prefix="/io/github/amirmwhdi/Corewatch">
     <file preprocess="xml-stripblanks">ui/window.ui</file>
+    <file preprocess="xml-stripblanks">ui/preferences.ui</file>
     <file preprocess="xml-stripblanks">ui/cpu-page.ui</file>
     <file preprocess="xml-stripblanks">ui/memory-page.ui</file>
     <file preprocess="xml-stripblanks">ui/disk-page.ui</file>

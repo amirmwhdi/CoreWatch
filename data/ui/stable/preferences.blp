@@ -1,0 +1,46 @@
+using Gtk 4.0;
+using Adw 1;
+
+translation-domain "corewatch";
+
+template $CwPreferencesDialog: Adw.PreferencesDialog {
+  title: _("Preferences");
+
+  Adw.PreferencesPage {
+    title: _("General");
+    icon-name: "preferences-other-symbolic";
+
+    Adw.PreferencesGroup {
+      title: _("Appearance");
+
+      Adw.ComboRow theme_row {
+        title: _("Color Scheme");
+        subtitle: _("Choose light, dark, or follow system theme");
+        model: Gtk.StringList {
+          strings [
+            _("Follow System"),
+            _("Light"),
+            _("Dark"),
+          ]
+        };
+      }
+    }
+
+    Adw.PreferencesGroup {
+      title: _("Monitoring");
+
+      Adw.ComboRow interval_row {
+        title: _("Update Speed");
+        subtitle: _("How often graphs and statistics are sampled");
+        model: Gtk.StringList {
+          strings [
+            _("Real-time (250 ms)"),
+            _("0.5 seconds"),
+            _("1 second (Default)"),
+            _("2 seconds (Power Saver)"),
+          ]
+        };
+      }
+    }
+  }
+}

@@ -73,7 +73,8 @@ pub fn present(app: &adw::Application) {
 
     let root = SysRoot::from_env();
     logging::log_startup_banner(&root);
-    let mut sampler = Sampler::new(root.clone(), config::SAMPLE_INTERVAL);
+    let settings = crate::settings::AppSettings::load();
+    let mut sampler = Sampler::new(root.clone(), settings.speed.as_duration());
 
     let window = Window::new(app);
     let ui = window.imp();
@@ -140,6 +141,43 @@ pub fn present(app: &adw::Application) {
             return;
         }
     };
+    let handle = Rc::new(RefCell::new(Some(handle)));
+
+    // Actions for main menu
+    let pref_action = gio::SimpleAction::new("preferences", None);
+    pref_action.connect_activate(glib::clone!(
+        #[weak]
+        window,
+        #[strong]
+        handle,
+        move |_, _| {
+            let dialog = crate::preferences::PreferencesDialog::new(handle.clone());
+            dialog.present(Some(&window));
+        }
+    ));
+    app.add_action(&pref_action);
+    app.set_accels_for_action("app.preferences", &["<primary>comma"]);
+
+    let about_action = gio::SimpleAction::new("about", None);
+    about_action.connect_activate(glib::clone!(
+        #[weak]
+        window,
+        move |_, _| {
+            let about = adw::AboutDialog::builder()
+                .application_name("Corewatch")
+                .application_icon(config::APP_ID)
+                .version(config::VERSION)
+                .copyright("© 2026 Amirmahdi")
+                .license_type(gtk::License::Gpl30)
+                .developer_name("Amirmahdi")
+                .website("https://github.com/amirmwhdi/corewatch")
+                .issue_url("https://github.com/amirmwhdi/corewatch/issues")
+                .build();
+            about.present(Some(&window));
+        }
+    ));
+    app.add_action(&about_action);
+
     let pages = Rc::new(pages);
     glib::spawn_future_local(async move {
         while let Ok(snapshot) = rx.recv().await {
@@ -154,9 +192,9 @@ pub fn present(app: &adw::Application) {
 
     // Closing the window drops the handle: the sampler stops, the channel
     // closes, and the update loop above ends.
-    let handle = RefCell::new(Some(handle));
+    let handle_close = handle.clone();
     window.connect_close_request(move |_| {
-        handle.borrow_mut().take();
+        handle_close.borrow_mut().take();
         glib::Propagation::Proceed
     });
 

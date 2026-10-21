@@ -25,5 +25,5 @@ pub mod throttle;
 pub use collector::Collector;
 pub use error::{CollectError, ErrorChain};
 pub use root::SysRoot;
-pub use sampler::{Sampler, SamplerHandle};
+pub use sampler::{Sampler, SamplerCommand, SamplerHandle};
 pub use snapshot::Snapshot;

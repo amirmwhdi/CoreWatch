@@ -5,6 +5,8 @@ mod config;
 mod i18n;
 mod logging;
 mod modules;
+mod preferences;
+mod settings;
 mod widgets;
 mod window;
 
@@ -29,6 +31,9 @@ fn main() -> glib::ExitCode {
     let _log_guard = logging::init(has("-v", "--verbose"));
     i18n::init();
 
+    // Apply saved user settings (e.g. ColorScheme)
+    settings::AppSettings::load().apply_theme();
+
     // The UI (Blueprint templates, style.css) is compiled into the binary by build.rs.
     if let Err(error) = register_resources() {
         tracing::error!(%error, "cannot load the built-in UI resources");
@@ -49,6 +54,7 @@ fn main() -> glib::ExitCode {
 fn register_resources() -> Result<(), glib::Error> {
     gio::resources_register_include!("corewatch.gresource")?;
     widgets::Graph::ensure_type();
+    preferences::PreferencesDialog::ensure_type();
     Ok(())
 }
 
@@ -88,6 +94,9 @@ mod tests {
             .application_id("io.github.amirmwhdi.Corewatch.Test")
             .build();
         let _window = super::window::Window::new(&app);
+        let _pref = super::preferences::PreferencesDialog::new(std::rc::Rc::new(
+            std::cell::RefCell::new(None),
+        ));
         for module in super::modules::all() {
             let _page = (module.page)();
         }

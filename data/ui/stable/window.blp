@@ -3,6 +3,22 @@ using Adw 1;
 
 translation-domain "corewatch";
 
+menu primary_menu {
+  section {
+    item {
+      label: _("Preferences");
+      action: "app.preferences";
+    }
+  }
+
+  section {
+    item {
+      label: _("About Corewatch");
+      action: "app.about";
+    }
+  }
+}
+
 // The main window: sidebar of modules on the left, the selected page on the
 // right. Rust (window.rs) fills the sidebar and the page stack from
 // modules::all(); this file only describes the layout.
@@ -28,7 +44,14 @@ template $CwWindow: Adw.ApplicationWindow {
 
       child: Adw.ToolbarView {
         [top]
-        Adw.HeaderBar {}
+        Adw.HeaderBar {
+          [end]
+          MenuButton {
+            icon-name: "open-menu-symbolic";
+            menu-model: primary_menu;
+            tooltip-text: _("Main Menu");
+          }
+        }
 
         content: ListBox sidebar {
           styles [
@@ -43,7 +66,14 @@ template $CwWindow: Adw.ApplicationWindow {
 
       child: Adw.ToolbarView {
         [top]
-        Adw.HeaderBar {}
+        Adw.HeaderBar {
+          [end]
+          MenuButton {
+            icon-name: "open-menu-symbolic";
+            menu-model: primary_menu;
+            tooltip-text: _("Main Menu");
+          }
+        }
 
         content: Stack main_stack {
           StackPage {

@@ -115,6 +115,28 @@ fn sampler_thread_delivers_and_stops_on_drop() {
     assert!(rx.recv_blocking().is_err());
 }
 
+#[test]
+fn sampler_set_interval_adjusts_speed() {
+    let root = fixture("basic");
+    let mut sampler = Sampler::new(root, Duration::from_secs(10));
+    sampler.add(Box::new(MemoryCollector));
+
+    let (tx, rx) = async_channel::bounded(1);
+    let handle = sampler.spawn(tx).unwrap();
+
+    let _ = rx.recv_blocking().unwrap();
+
+    // With a 10s interval, the next snapshot would take 10s.
+    // Changing interval to 10ms should wake and deliver very quickly.
+    let start = std::time::Instant::now();
+    handle.set_interval(Duration::from_millis(10));
+    let next = rx.recv_blocking().unwrap();
+    assert!(next.memory.is_some());
+    assert!(start.elapsed() < Duration::from_secs(2));
+
+    drop(handle);
+}
+
 // ---- Disk ------------------------------------------------------------------
 
 mod disk {

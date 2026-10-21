@@ -16,6 +16,12 @@ struct Slot {
     failures: FailureTracker,
 }
 
+/// Control messages sent to the running sampler thread.
+pub enum SamplerCommand {
+    Stop,
+    SetInterval(Duration),
+}
+
 pub struct Sampler {
     root: SysRoot,
     interval: Duration,
@@ -94,33 +100,38 @@ impl Sampler {
     /// Use a channel with capacity 1: `force_send` replaces an unread snapshot,
     /// so a slow UI always gets the newest one instead of a backlog.
     pub fn spawn(mut self, tx: async_channel::Sender<Snapshot>) -> std::io::Result<SamplerHandle> {
-        let (stop_tx, stop_rx) = mpsc::channel::<()>();
+        let (cmd_tx, cmd_rx) = mpsc::channel::<SamplerCommand>();
 
         let thread = std::thread::Builder::new()
             .name("corewatch-sampler".into())
             .spawn(move || {
+                let mut interval = self.interval;
                 let mut next = Instant::now();
                 loop {
                     if tx.force_send(self.sample_once()).is_err() {
                         break; // receiver dropped: the window is gone
                     }
 
-                    next += self.interval;
+                    next += interval;
                     let now = Instant::now();
                     if next <= now {
                         next = now; // fell behind: skip ticks instead of bursting
                     }
-                    // Sleep until the next tick, but wake at once when asked to stop.
-                    match stop_rx.recv_timeout(next - now) {
+                    // Sleep until the next tick, but wake at once when signaled.
+                    match cmd_rx.recv_timeout(next - now) {
                         Err(RecvTimeoutError::Timeout) => {}
-                        Ok(()) | Err(RecvTimeoutError::Disconnected) => break,
+                        Ok(SamplerCommand::SetInterval(new_interval)) => {
+                            interval = new_interval;
+                            next = Instant::now();
+                        }
+                        Ok(SamplerCommand::Stop) | Err(RecvTimeoutError::Disconnected) => break,
                     }
                 }
                 tracing::debug!("sampler stopped");
             })?;
 
         Ok(SamplerHandle {
-            stop: Some(stop_tx),
+            cmd: Some(cmd_tx),
             thread: Some(thread),
         })
     }
@@ -129,13 +140,24 @@ impl Sampler {
 /// Owns the sampler thread. Dropping it stops the thread right away and waits
 /// for it to finish.
 pub struct SamplerHandle {
-    stop: Option<mpsc::Sender<()>>,
+    cmd: Option<mpsc::Sender<SamplerCommand>>,
     thread: Option<JoinHandle<()>>,
+}
+
+impl SamplerHandle {
+    /// Update the sampling interval of the running thread. Takes effect immediately.
+    pub fn set_interval(&self, interval: Duration) {
+        if let Some(cmd) = &self.cmd {
+            let _ = cmd.send(SamplerCommand::SetInterval(interval));
+        }
+    }
 }
 
 impl Drop for SamplerHandle {
     fn drop(&mut self) {
-        drop(self.stop.take()); // disconnecting wakes the sleeping thread
+        if let Some(cmd) = self.cmd.take() {
+            let _ = cmd.send(SamplerCommand::Stop);
+        }
         if let Some(thread) = self.thread.take() {
             let _ = thread.join();
         }
