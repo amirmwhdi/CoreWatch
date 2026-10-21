@@ -188,8 +188,6 @@ mod imp {
             // Adapt visual scale to widget size (crisp rendering on 48px core boxes)
             let is_small = h < 60.0;
             let stroke_width = if is_small { 1.6 } else { 2.4 };
-            let dot_radius = if is_small { 2.2 } else { 3.5 };
-            let glow_radius = if is_small { 4.0 } else { 6.0 };
 
             // 1. Draw Solid Fill (using append_fill instead of gradient
             //    because GTK4's push_clip only accepts Rect, not arbitrary Paths)
@@ -200,19 +198,6 @@ mod imp {
             let stroke = gsk::Stroke::new(stroke_width);
             stroke.set_line_cap(gsk::LineCap::Round);
             snapshot.append_stroke(&line.to_path(), &stroke, &accent);
-
-            // 3. Draw a dot at the live edge point
-            let dot_builder = gsk::PathBuilder::new();
-            dot_builder.add_circle(&graphene::Point::new(w, live_y), dot_radius);
-
-            // Draw a subtle glow behind the dot
-            let glow_color = gdk::RGBA::new(accent.red(), accent.green(), accent.blue(), 0.3);
-            let glow_builder = gsk::PathBuilder::new();
-            glow_builder.add_circle(&graphene::Point::new(w, live_y), glow_radius);
-            snapshot.append_fill(&glow_builder.to_path(), gsk::FillRule::Winding, &glow_color);
-
-            // Draw the solid dot
-            snapshot.append_fill(&dot_builder.to_path(), gsk::FillRule::Winding, &accent);
         }
     }
 }
