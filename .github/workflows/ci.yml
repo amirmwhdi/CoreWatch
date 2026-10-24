@@ -41,3 +41,23 @@ jobs:
         run: ./scripts/run-with-display.sh cargo test --workspace
       - name: Build
         run: cargo build --workspace --release
+
+  flatpak:
+    name: flatpak (GNOME 49)
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-49
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check cargo-sources.json matches Cargo.lock
+        run: |
+          pip install --quiet aiohttp tomlkit 2>/dev/null || pip install --quiet --break-system-packages aiohttp tomlkit
+          curl -sSfL -o /tmp/fcg.py https://raw.githubusercontent.com/flatpak/flatpak-builder-tools/master/cargo/flatpak-cargo-generator.py
+          python3 /tmp/fcg.py Cargo.lock -o /tmp/cargo-sources.json
+          diff -u packaging/flatpak/cargo-sources.json /tmp/cargo-sources.json
+      - uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+        with:
+          bundle: corewatch.flatpak
+          manifest-path: packaging/flatpak/io.github.amirmwhdi.Corewatch.json
+          cache-key: flatpak-builder-${{ github.sha }}

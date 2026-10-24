@@ -1,0 +1,48 @@
+{
+  "id": "io.github.amirmwhdi.Corewatch",
+  "runtime": "org.gnome.Platform",
+  "runtime-version": "49",
+  "sdk": "org.gnome.Sdk",
+  "sdk-extensions": ["org.freedesktop.Sdk.Extension.rust-stable"],
+  "command": "corewatch",
+  "finish-args": [
+    "--share=ipc",
+    "--socket=fallback-x11",
+    "--socket=wayland",
+    "--device=dri"
+  ],
+  "build-options": {
+    "append-path": "/usr/lib/sdk/rust-stable/bin",
+    "env": {
+      "CARGO_HOME": "/run/build/corewatch/cargo",
+      "CARGO_NET_OFFLINE": "true"
+    }
+  },
+  "cleanup": ["/include", "/lib/pkgconfig", "/share/man", "*.a"],
+  "modules": [
+    {
+      "name": "blueprint-compiler",
+      "buildsystem": "meson",
+      "cleanup": ["*"],
+      "sources": [
+        {
+          "type": "git",
+          "url": "https://gitlab.gnome.org/GNOME/blueprint-compiler.git",
+          "tag": "v0.18.0",
+          "commit": "07c9c9df9cd1b6b4454ecba21ee58211e9144a4b"
+        }
+      ]
+    },
+    {
+      "name": "corewatch",
+      "buildsystem": "meson",
+      "sources": [
+        {
+          "type": "dir",
+          "path": "../.."
+        },
+        "cargo-sources.json"
+      ]
+    }
+  ]
+}
