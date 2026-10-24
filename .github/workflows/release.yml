@@ -40,6 +40,10 @@ jobs:
             appimage_arch: aarch64
 
     runs-on: ${{ matrix.runner }}
+    # Build on the floor distribution: Ubuntu 24.04 ships GTK 4.14 and
+    # libadwaita 1.5, older than the 4.18 / 1.7 the code needs. A binary
+    # built against Debian 13's glibc also runs on every newer distribution.
+    container: debian:trixie
 
     steps:
       - name: Checkout code
@@ -86,21 +90,19 @@ jobs:
         run: |
           set -euo pipefail
 
-          sudo apt-get update
+          apt-get update
 
-          sudo apt-get install -y \
+          apt-get install -y --no-install-recommends \
+            ca-certificates \
             build-essential \
             pkg-config \
             curl \
-            wget \
+            git \
             file \
             zstd \
-            dpkg-dev \
-            rpm \
             libgtk-4-dev \
             libadwaita-1-dev \
-            blueprint-compiler \
-            libfuse2
+            blueprint-compiler
 
       - name: Install nfpm
         run: |
@@ -115,7 +117,7 @@ jobs:
 
           tar -xzf nfpm.tar.gz nfpm
 
-          sudo install -m 755 nfpm /usr/local/bin/nfpm
+          install -m 755 nfpm /usr/local/bin/nfpm
 
           nfpm --version
 
@@ -207,6 +209,21 @@ jobs:
           description: "A modern Linux system monitor built with Rust and GTK 4"
           homepage: "https://github.com/amirmwhdi/corewatch"
           license: "GPL-3.0-or-later"
+
+          # Shared libraries the binary links against, per package format.
+          overrides:
+            deb:
+              depends:
+                - libgtk-4-1 (>= 4.18)
+                - libadwaita-1-0 (>= 1.7)
+            rpm:
+              depends:
+                - gtk4 >= 4.18
+                - libadwaita >= 1.7
+            archlinux:
+              depends:
+                - gtk4
+                - libadwaita
 
           contents:
             - src: "./target/${TARGET}/release/${APP_NAME}"
