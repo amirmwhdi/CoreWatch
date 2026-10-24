@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="data/icons/corewatch.svg" alt="Corewatch Logo" width="128" height="128">
+  <img src="data/icons/io.github.amirmwhdi.Corewatch.svg" alt="Corewatch Logo" width="128" height="128">
 </p>
 
 <h1 align="center">Corewatch</h1>
@@ -46,6 +46,18 @@ Corewatch needs GTK 4.18 or newer and libadwaita 1.7 or newer.
 cargo run -p corewatch --release
 ```
 
+To install it with its desktop entry, icon and AppStream metadata, use Meson
+(1.7 or newer):
+
+```sh
+meson setup build --prefix=/usr/local
+meson compile -C build
+sudo meson install -C build
+```
+
+`meson test -C build` validates the desktop entry and the metainfo when
+`desktop-file-validate` and `appstreamcli` are installed.
+
 Useful while developing:
 
 ```sh
@@ -75,6 +87,9 @@ your computer unless you attach them yourself.
 crates/core       corewatch-core: reads /proc and /sys, no GTK
 crates/app        corewatch: the GTK app
 data/ui/stable    Blueprint files for the UI, compiled into the binary
+data              desktop entry, metainfo, icon (installed by Meson)
+po                translation template; no translations ship yet
+packaging         Flatpak manifest, Arch PKGBUILD, Debian and RPM packaging
 ```
 
 The UI layout is written in [Blueprint](https://gnome.pages.gitlab.gnome.org/blueprint-compiler/).

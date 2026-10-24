@@ -11,8 +11,7 @@
     <file preprocess="xml-stripblanks">ui/battery-page.ui</file>
     <file preprocess="xml-stripblanks">ui/memory-page.ui</file>
     <file preprocess="xml-stripblanks">ui/disk-page.ui</file>
-    <file alias="icons/scalable/apps/corewatch.svg">icons/corewatch.svg</file>
-    <file alias="icons/scalable/apps/io.github.amirmwhdi.Corewatch.svg">icons/corewatch.svg</file>
+    <file alias="icons/scalable/apps/io.github.amirmwhdi.Corewatch.svg">icons/io.github.amirmwhdi.Corewatch.svg</file>
     <!-- Loaded automatically by AdwApplication from <app-id path>/style.css -->
     <file>style.css</file>
   </gresource>

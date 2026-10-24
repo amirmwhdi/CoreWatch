@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright 2026 Amirmahdi -->
+<component type="desktop-application">
+  <id>io.github.amirmwhdi.Corewatch</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+
+  <name>Corewatch</name>
+  <summary>Watch your processor, memory, disks and more</summary>
+  <description>
+    <p>
+      Corewatch is a native system monitor for Linux. It shows what your
+      computer is doing right now, with a live graph for every resource.
+    </p>
+    <ul>
+      <li>Processor: total usage, one graph per core, model and frequency</li>
+      <li>Memory: used, available, cache, buffers and swap</li>
+      <li>Graphics: usage or clock, video memory and temperature</li>
+      <li>Disks: activity, read and write speed, and free space</li>
+      <li>Battery: charge, time remaining, power draw and health</li>
+    </ul>
+    <p>
+      It follows the system light and dark style and accent color, and adapts
+      to narrow windows.
+    </p>
+  </description>
+
+  <developer id="io.github.amirmwhdi">
+    <name>Amirmahdi</name>
+  </developer>
+
+  <launchable type="desktop-id">io.github.amirmwhdi.Corewatch.desktop</launchable>
+  <provides>
+    <binary>corewatch</binary>
+  </provides>
+
+  <url type="homepage">https://github.com/amirmwhdi/CoreWatch</url>
+  <url type="bugtracker">https://github.com/amirmwhdi/CoreWatch/issues</url>
+  <url type="vcs-browser">https://github.com/amirmwhdi/CoreWatch</url>
+
+  <content_rating type="oars-1.1"/>
+
+  <requires>
+    <display_length compare="ge">360</display_length>
+  </requires>
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+    <control>touch</control>
+  </supports>
+
+  <categories>
+    <category>System</category>
+    <category>Monitor</category>
+  </categories>
+  <keywords>
+    <keyword>system</keyword>
+    <keyword>monitor</keyword>
+    <keyword>cpu</keyword>
+    <keyword>memory</keyword>
+    <keyword>disk</keyword>
+  </keywords>
+
+  <branding>
+    <color type="primary" scheme_preference="light">#99c1f1</color>
+    <color type="primary" scheme_preference="dark">#1a5fb4</color>
+  </branding>
+
+  <releases>
+    <release version="0.2.0" date="2026-10-24">
+      <description>
+        <ul>
+          <li>New Graphics, Disks and Battery pages</li>
+          <li>Preferences: color scheme and update speed</li>
+          <li>A banner tells you when a data source stops answering</li>
+          <li>Installable with Meson, and available as a Flatpak</li>
+        </ul>
+      </description>
+    </release>
+    <release version="0.1.1" date="2026-10-08">
+      <description>
+        <p>Log file and clearer error reports.</p>
+      </description>
+    </release>
+    <release version="0.1.0" date="2026-10-08">
+      <description>
+        <p>First preview: processor and memory.</p>
+      </description>
+    </release>
+  </releases>
+</component>

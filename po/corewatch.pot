@@ -1,0 +1,508 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the corewatch package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: corewatch\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-10-24 09:43+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
+
+#. Translators: a percentage, e.g. "37%"
+#: crates/app/src/i18n.rs:79
+msgid "{value}%"
+msgstr ""
+
+#: crates/app/src/modules/battery.rs:62
+msgid "Battery"
+msgstr ""
+
+#: crates/app/src/modules/battery.rs:85
+msgid "Charging"
+msgstr ""
+
+#: crates/app/src/modules/battery.rs:86
+msgid "Discharging"
+msgstr ""
+
+#: crates/app/src/modules/battery.rs:87
+msgid "Not charging"
+msgstr ""
+
+#: crates/app/src/modules/battery.rs:88
+msgid "Fully charged"
+msgstr ""
+
+#: crates/app/src/modules/battery.rs:89 crates/app/src/modules/cpu.rs:133
+#: crates/app/src/modules/gpu.rs:87 crates/app/src/modules/gpu.rs:108
+msgid "Unknown"
+msgstr ""
+
+#: crates/app/src/modules/battery.rs:101
+msgid "{h}h {m}m"
+msgstr ""
+
+#: crates/app/src/modules/battery.rs:103
+msgid "{m} minutes"
+msgstr ""
+
+#: crates/app/src/modules/battery.rs:107
+msgid "{time} until full"
+msgstr ""
+
+#: crates/app/src/modules/battery.rs:109
+msgid "{time} remaining"
+msgstr ""
+
+#. Translators: a power draw, e.g. "7.4 W"
+#: crates/app/src/modules/battery.rs:123
+msgid "{watts} W"
+msgstr ""
+
+#. Translators: e.g. "92% · 46.1 Wh of 50.0 Wh design"
+#: crates/app/src/modules/battery.rs:141
+msgid "{health} · {full} Wh of {design} Wh design"
+msgstr ""
+
+#: crates/app/src/modules/battery.rs:162
+msgid "Connected"
+msgstr ""
+
+#: crates/app/src/modules/battery.rs:164
+msgid "Disconnected (Running on battery)"
+msgstr ""
+
+#: crates/app/src/modules/battery.rs:175
+msgid "{c} cycles"
+msgstr ""
+
+#: crates/app/src/modules/battery.rs:180
+msgid "{model} · {tech} · {cycles}"
+msgstr ""
+
+#: crates/app/src/modules/battery.rs:189
+msgid "{model} · {tech}"
+msgstr ""
+
+#: crates/app/src/modules/battery.rs:208
+msgid "{pct} (Charging)"
+msgstr ""
+
+#: crates/app/src/modules/cpu.rs:82
+msgid "Processor"
+msgstr ""
+
+#: crates/app/src/modules/cpu.rs:102
+msgid "{n} thread"
+msgid_plural "{n} threads"
+msgstr[0] ""
+msgstr[1] ""
+
+#: crates/app/src/modules/cpu.rs:108
+msgid "{n} core"
+msgid_plural "{n} cores"
+msgstr[0] ""
+msgstr[1] ""
+
+#: crates/app/src/modules/cpu.rs:113
+msgid "{cores}, {threads}"
+msgstr ""
+
+#. Translators: e.g. "37% · 8 cores, 16 threads"
+#: crates/app/src/modules/cpu.rs:125
+msgid "{usage} · {threads}"
+msgstr ""
+
+#: crates/app/src/modules/cpu.rs:130
+msgid "{ghz} GHz (fastest core)"
+msgstr ""
+
+#. Translators: one logical core, e.g. "CPU 3 · 12%"
+#: crates/app/src/modules/cpu.rs:141
+msgid "CPU {id} · {usage}"
+msgstr ""
+
+#. Translators: e.g. "120 GiB of 500 GiB used · ext4 · /dev/nvme0n1p2"
+#: crates/app/src/modules/disk.rs:120
+msgid "{used} of {total} used · {type} · {device}"
+msgstr ""
+
+#: crates/app/src/modules/disk.rs:145
+msgid "Disks"
+msgstr ""
+
+#. Translators: disk type, size and kernel name, e.g. "NVMe · 512 GiB · nvme0n1"
+#: crates/app/src/modules/disk.rs:191
+msgid "{kind} · {size} · {name}"
+msgstr ""
+
+#: crates/app/src/modules/disk.rs:207
+msgid "Activity of {model}"
+msgstr ""
+
+#: crates/app/src/modules/disk.rs:212
+msgid "Read"
+msgstr ""
+
+#: crates/app/src/modules/disk.rs:212
+msgid "Write"
+msgstr ""
+
+#: crates/app/src/modules/disk.rs:249
+msgid "{speed} · {total} since boot"
+msgstr ""
+
+#: crates/app/src/modules/disk.rs:265
+msgid "{size}/s"
+msgstr ""
+
+#: crates/app/src/modules/disk.rs:275
+msgid "NVMe"
+msgstr ""
+
+#: crates/app/src/modules/disk.rs:276
+msgid "SSD"
+msgstr ""
+
+#: crates/app/src/modules/disk.rs:277
+msgid "Hard disk"
+msgstr ""
+
+#: crates/app/src/modules/disk.rs:278
+msgid "Removable"
+msgstr ""
+
+#: crates/app/src/modules/gpu.rs:61
+msgid "Graphics"
+msgstr ""
+
+#: crates/app/src/modules/gpu.rs:93
+msgid "Not reported by the driver"
+msgstr ""
+
+#: crates/app/src/modules/gpu.rs:99
+msgid "{cur} MHz / {max} MHz"
+msgstr ""
+
+#: crates/app/src/modules/gpu.rs:105 crates/app/src/modules/gpu.rs:159
+msgid "{cur} MHz"
+msgstr ""
+
+#: crates/app/src/modules/gpu.rs:115 crates/app/src/modules/memory.rs:92
+msgid "{used} of {total}"
+msgstr ""
+
+#: crates/app/src/modules/gpu.rs:132
+msgid "Shared / System RAM"
+msgstr ""
+
+#: crates/app/src/modules/gpu.rs:140
+msgid "{t} °C"
+msgstr ""
+
+#: crates/app/src/modules/memory.rs:56
+msgid "Memory"
+msgstr ""
+
+#. Translators: e.g. "6.2 GiB of 16 GiB (39%)"
+#: crates/app/src/modules/memory.rs:74
+msgid "{used} of {total} ({percent})"
+msgstr ""
+
+#: crates/app/src/modules/memory.rs:83
+msgid "{cache} cache · {buffers} buffers"
+msgstr ""
+
+#: crates/app/src/modules/memory.rs:88
+msgid "No swap configured"
+msgstr ""
+
+#: crates/app/src/window.rs:217
+msgid "Unavailable"
+msgstr ""
+
+#: data/io.github.amirmwhdi.Corewatch.desktop:2
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:8
+msgid "Corewatch"
+msgstr ""
+
+#: data/io.github.amirmwhdi.Corewatch.desktop:3
+msgid "A modern system monitor for Linux"
+msgstr ""
+
+#: data/io.github.amirmwhdi.Corewatch.desktop:9
+msgid "system;monitor;cpu;memory;disk;gpu;battery;performance;"
+msgstr ""
+
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:9
+msgid "Watch your processor, memory, disks and more"
+msgstr ""
+
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:11
+msgid ""
+"Corewatch is a native system monitor for Linux. It shows what your computer "
+"is doing right now, with a live graph for every resource."
+msgstr ""
+
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:16
+msgid "Processor: total usage, one graph per core, model and frequency"
+msgstr ""
+
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:17
+msgid "Memory: used, available, cache, buffers and swap"
+msgstr ""
+
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:18
+msgid "Graphics: usage or clock, video memory and temperature"
+msgstr ""
+
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:19
+msgid "Disks: activity, read and write speed, and free space"
+msgstr ""
+
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:20
+msgid "Battery: charge, time remaining, power draw and health"
+msgstr ""
+
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:22
+msgid ""
+"It follows the system light and dark style and accent color, and adapts to "
+"narrow windows."
+msgstr ""
+
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:29
+msgid "Amirmahdi"
+msgstr ""
+
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:57
+msgid "system"
+msgstr ""
+
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:58
+msgid "monitor"
+msgstr ""
+
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:59
+msgid "cpu"
+msgstr ""
+
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:60
+msgid "memory"
+msgstr ""
+
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:61
+msgid "disk"
+msgstr ""
+
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:73
+msgid "New Graphics, Disks and Battery pages"
+msgstr ""
+
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:74
+msgid "Preferences: color scheme and update speed"
+msgstr ""
+
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:75
+msgid "A banner tells you when a data source stops answering"
+msgstr ""
+
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:76
+msgid "Installable with Meson, and available as a Flatpak"
+msgstr ""
+
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:82
+msgid "Log file and clearer error reports."
+msgstr ""
+
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:87
+msgid "First preview: processor and memory."
+msgstr ""
+
+#: data/ui/stable/battery-page.blp:27
+msgid "Battery Details"
+msgstr ""
+
+#: data/ui/stable/battery-page.blp:30
+msgid "Status"
+msgstr ""
+
+#: data/ui/stable/battery-page.blp:36
+msgid "Charge Level"
+msgstr ""
+
+#: data/ui/stable/battery-page.blp:48
+msgid "Time Remaining"
+msgstr ""
+
+#: data/ui/stable/battery-page.blp:54
+msgid "Charge / Discharge Rate"
+msgstr ""
+
+#: data/ui/stable/battery-page.blp:60
+msgid "Health and Capacity"
+msgstr ""
+
+#: data/ui/stable/battery-page.blp:66
+msgid "AC Power Supply"
+msgstr ""
+
+#: data/ui/stable/battery-page.blp:72
+msgid "Hardware"
+msgstr ""
+
+#: data/ui/stable/cpu-page.blp:29 data/ui/stable/gpu-page.blp:30
+msgid "Model"
+msgstr ""
+
+#: data/ui/stable/cpu-page.blp:35
+msgid "Usage"
+msgstr ""
+
+#: data/ui/stable/cpu-page.blp:41
+msgid "Frequency"
+msgstr ""
+
+#: data/ui/stable/cpu-page.blp:48
+msgid "Logical cores"
+msgstr ""
+
+#: data/ui/stable/disk-page.blp:29
+msgid "No disks found"
+msgstr ""
+
+#: data/ui/stable/disk-page.blp:38
+msgid "Filesystems"
+msgstr ""
+
+#: data/ui/stable/gpu-page.blp:27
+msgid "Graphics Card"
+msgstr ""
+
+#: data/ui/stable/gpu-page.blp:36
+msgid "Driver"
+msgstr ""
+
+#: data/ui/stable/gpu-page.blp:42
+msgid "Core Usage"
+msgstr ""
+
+#: data/ui/stable/gpu-page.blp:48
+msgid "Clock Speed"
+msgstr ""
+
+#: data/ui/stable/gpu-page.blp:54
+msgid "Memory (VRAM)"
+msgstr ""
+
+#: data/ui/stable/gpu-page.blp:67
+msgid "Temperature"
+msgstr ""
+
+#: data/ui/stable/memory-page.blp:28
+msgid "Used"
+msgstr ""
+
+#: data/ui/stable/memory-page.blp:33
+msgid "Available"
+msgstr ""
+
+#: data/ui/stable/memory-page.blp:38
+msgid "Cache and buffers"
+msgstr ""
+
+#: data/ui/stable/memory-page.blp:43
+msgid "Swap"
+msgstr ""
+
+#: data/ui/stable/page-frame.blp:13
+msgid ""
+"Data unavailable. The values below are from the last successful reading."
+msgstr ""
+
+#: data/ui/stable/page-frame.blp:14
+msgid "Details"
+msgstr ""
+
+#: data/ui/stable/preferences.blp:7 data/ui/stable/window.blp:9
+msgid "Preferences"
+msgstr ""
+
+#: data/ui/stable/preferences.blp:10
+msgid "General"
+msgstr ""
+
+#: data/ui/stable/preferences.blp:14
+msgid "Appearance"
+msgstr ""
+
+#: data/ui/stable/preferences.blp:17
+msgid "Color Scheme"
+msgstr ""
+
+#: data/ui/stable/preferences.blp:18
+msgid "Choose light, dark, or follow system theme"
+msgstr ""
+
+#: data/ui/stable/preferences.blp:21
+msgid "Follow System"
+msgstr ""
+
+#: data/ui/stable/preferences.blp:22
+msgid "Light"
+msgstr ""
+
+#: data/ui/stable/preferences.blp:23
+msgid "Dark"
+msgstr ""
+
+#: data/ui/stable/preferences.blp:30
+msgid "Monitoring"
+msgstr ""
+
+#: data/ui/stable/preferences.blp:33
+msgid "Update Speed"
+msgstr ""
+
+#: data/ui/stable/preferences.blp:34
+msgid "How often graphs and statistics are sampled"
+msgstr ""
+
+#: data/ui/stable/preferences.blp:37
+msgid "0.5 seconds"
+msgstr ""
+
+#: data/ui/stable/preferences.blp:38
+msgid "1 second (Default)"
+msgstr ""
+
+#: data/ui/stable/preferences.blp:39
+msgid "2 seconds (Power Saver)"
+msgstr ""
+
+#: data/ui/stable/window.blp:16
+msgid "About Corewatch"
+msgstr ""
+
+#: data/ui/stable/window.blp:52
+msgid "Main Menu"
+msgstr ""
+
+#: data/ui/stable/window.blp:85
+msgid "No data sources available"
+msgstr ""
+
+#: data/ui/stable/window.blp:86
+msgid ""
+"Corewatch could not read /proc. Run corewatch --verbose from a terminal for "
+"details."
+msgstr ""

@@ -183,11 +183,11 @@ jobs:
 
           chmod +x AppDir/AppRun
 
-          cp data/corewatch.desktop "AppDir/${APP_NAME}.desktop"
-          cp data/corewatch.desktop "AppDir/usr/share/applications/${APP_NAME}.desktop"
-          cp data/icons/corewatch.svg "AppDir/${APP_NAME}.svg"
-          cp data/icons/corewatch.svg "AppDir/.DirIcon"
-          cp data/icons/corewatch.svg "AppDir/usr/share/icons/hicolor/scalable/apps/${APP_NAME}.svg"
+          cp data/io.github.amirmwhdi.Corewatch.desktop "AppDir/${APP_NAME}.desktop"
+          cp data/io.github.amirmwhdi.Corewatch.desktop "AppDir/usr/share/applications/${APP_NAME}.desktop"
+          cp data/icons/io.github.amirmwhdi.Corewatch.svg "AppDir/${APP_NAME}.svg"
+          cp data/icons/io.github.amirmwhdi.Corewatch.svg "AppDir/.DirIcon"
+          cp data/icons/io.github.amirmwhdi.Corewatch.svg "AppDir/usr/share/icons/hicolor/scalable/apps/${APP_NAME}.svg"
 
       - name: Build Linux packages
         env:
@@ -230,9 +230,9 @@ jobs:
               dst: "/usr/bin/${APP_NAME}"
               file_info:
                 mode: 0755
-            - src: "data/corewatch.desktop"
+            - src: "data/io.github.amirmwhdi.Corewatch.desktop"
               dst: "/usr/share/applications/${APP_NAME}.desktop"
-            - src: "data/icons/corewatch.svg"
+            - src: "data/icons/io.github.amirmwhdi.Corewatch.svg"
               dst: "/usr/share/icons/hicolor/scalable/apps/${APP_NAME}.svg"
           EOF
 
@@ -295,8 +295,8 @@ jobs:
           mkdir -p "${STAGE_DIR}/share/icons/hicolor/scalable/apps"
 
           cp "target/${{ matrix.target }}/release/${APP_NAME}" "${STAGE_DIR}/bin/${APP_NAME}"
-          cp data/corewatch.desktop "${STAGE_DIR}/share/applications/${APP_NAME}.desktop"
-          cp data/icons/corewatch.svg "${STAGE_DIR}/share/icons/hicolor/scalable/apps/${APP_NAME}.svg"
+          cp data/io.github.amirmwhdi.Corewatch.desktop "${STAGE_DIR}/share/applications/${APP_NAME}.desktop"
+          cp data/icons/io.github.amirmwhdi.Corewatch.svg "${STAGE_DIR}/share/icons/hicolor/scalable/apps/${APP_NAME}.svg"
           cp README.md LICENSE "${STAGE_DIR}/"
 
           tar -C staging \

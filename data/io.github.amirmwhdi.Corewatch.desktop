@@ -2,9 +2,9 @@
 Name=Corewatch
 Comment=A modern system monitor for Linux
 Exec=corewatch
-Icon=corewatch
+Icon=io.github.amirmwhdi.Corewatch
 Terminal=false
 Type=Application
-Categories=GNOME;GTK;System;Monitor;
-Keywords=system;process;task;manager;performance;cpu;memory;disk;
+Categories=GTK;System;Monitor;
+Keywords=system;monitor;cpu;memory;disk;gpu;battery;performance;
 StartupNotify=true
