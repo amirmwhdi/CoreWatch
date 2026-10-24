@@ -197,6 +197,7 @@ jobs:
         run: |
           v=${{ needs.source.outputs.version }}
           app=io.github.amirmwhdi.Corewatch
+          mkdir -p out
           mkdir -p AppDir
           cp -r stage/usr AppDir/usr
           cp "AppDir/usr/share/applications/$app.desktop" AppDir/
