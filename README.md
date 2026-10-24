@@ -47,9 +47,11 @@ sudo dnf install ./corewatch-0.2.0-linux-x86_64.rpm
 sudo pacman -U corewatch-0.2.0-linux-x86_64.pkg.tar.zst
 ```
 
-Recipes for distribution repositories (AUR, Debian, Fedora COPR) are in
-`packaging/`; each one builds offline from the release source tarball, which
-contains every Rust crate.
+Releases contain only installable packages: the program, its desktop entry,
+icon and metainfo. Recipes for distribution repositories are in `packaging/`:
+the AUR PKGBUILD and the Fedora COPR spec build from the tag tarball GitHub
+serves, and the Debian package builds offline from a tarball with vendored
+crates (`scripts/vendored-tarball.sh`).
 
 ## Build and run
 

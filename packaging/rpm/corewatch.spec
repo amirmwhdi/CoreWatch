@@ -4,8 +4,9 @@ Release:        1%{?dist}
 Summary:        A modern system monitor for Linux
 License:        GPL-3.0-or-later
 URL:            https://github.com/amirmwhdi/CoreWatch
-# The release tarball holds every crate in vendor/, so the build is offline.
-Source0:        %{url}/releases/download/v%{version}/%{name}-%{version}.tar.xz
+# The tag tarball from GitHub. Cargo downloads the crates in %prep, so on
+# COPR enable "Internet access during builds" for this package.
+Source0:        %{url}/archive/v%{version}/CoreWatch-%{version}.tar.gz
 
 # The release profile already strips the binary.
 %global debug_package %{nil}
@@ -29,10 +30,11 @@ processor, memory, graphics, disks and battery, and follows the system light
 and dark style.
 
 %prep
-%autosetup
+%autosetup -n CoreWatch-%{version}
+cargo fetch --locked
 
 %build
-. scripts/cargo-offline.sh
+export CARGO_NET_OFFLINE=true
 %meson
 %meson_build
 

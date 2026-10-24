@@ -46,11 +46,13 @@ jobs:
         run: |
           git config --global --add safe.directory "$PWD"
           scripts/vendored-tarball.sh "${{ steps.version.outputs.version }}" dist
+      # Build input for the Debian package only; never published.
       - uses: actions/upload-artifact@v4
         with:
           name: source
           path: dist/*
           if-no-files-found: error
+          retention-days: 1
 
   deb:
     name: deb (${{ matrix.arch }})
@@ -108,18 +110,17 @@ jobs:
     container: fedora:latest
     steps:
       - name: Install build dependencies
-        run: dnf install -y --setopt=install_weak_deps=False rpm-build rpmdevtools dnf-plugins-core xz
-      - uses: actions/download-artifact@v4
-        with:
-          name: source
+        run: dnf install -y --setopt=install_weak_deps=False rpm-build rpmdevtools dnf-plugins-core git
+      - uses: actions/checkout@v4
       - name: Build
         run: |
           v=${{ needs.source.outputs.version }}
-          tar -xf "corewatch-$v.tar.xz" "corewatch-$v/packaging/rpm/corewatch.spec"
-          spec="corewatch-$v/packaging/rpm/corewatch.spec"
+          spec=packaging/rpm/corewatch.spec
           dnf builddep -y "$spec"
           rpmdev-setuptree
-          cp "corewatch-$v.tar.xz" ~/rpmbuild/SOURCES/
+          # The same tarball GitHub serves for the tag, which the spec names.
+          git config --global --add safe.directory "$PWD"
+          git archive --prefix="CoreWatch-$v/" -o ~/rpmbuild/SOURCES/CoreWatch-$v.tar.gz HEAD
           rpmbuild -bb "$spec"
           mkdir -p out
           cp ~/rpmbuild/RPMS/*/corewatch-*.rpm "out/corewatch-$v-linux-${{ matrix.arch }}.rpm"
@@ -137,20 +138,18 @@ jobs:
     steps:
       - name: Install build dependencies
         run: |
-          pacman -Syu --noconfirm --needed base-devel cargo meson blueprint-compiler \
+          pacman -Syu --noconfirm --needed base-devel git cargo meson blueprint-compiler \
             gtk4 libadwaita appstream desktop-file-utils
           useradd -m builder
-      - uses: actions/download-artifact@v4
-        with:
-          name: source
+      - uses: actions/checkout@v4
       - name: Build
         run: |
           v=${{ needs.source.outputs.version }}
           mkdir -p /home/builder/pkg
-          tar -xf "corewatch-$v.tar.xz" -C /home/builder/pkg --strip-components=3 "corewatch-$v/packaging/arch/PKGBUILD"
-          cp "corewatch-$v.tar.xz" /home/builder/pkg/
-          # Build from the tarball of this run instead of downloading it.
-          sed -i "s|^source=.*|source=(\"corewatch-$v.tar.xz\")|" /home/builder/pkg/PKGBUILD
+          cp packaging/arch/PKGBUILD /home/builder/pkg/
+          # Build from this commit instead of the tag tarball on GitHub.
+          git config --global --add safe.directory "$PWD"
+          git archive --prefix="CoreWatch-$v/" -o "/home/builder/pkg/corewatch-$v.tar.gz" HEAD
           chown -R builder /home/builder/pkg
           su builder -c "cd /home/builder/pkg && makepkg --noconfirm"
           mkdir -p out
@@ -200,7 +199,8 @@ jobs:
           name="corewatch-$v-linux-${{ matrix.arch }}"
           mkdir -p out "$name"
           cp -r stage/usr/* "$name/"
-          cp "corewatch-$v/README.md" "corewatch-$v/LICENSE" "$name/"
+          # The GPL asks for the license text next to the binary.
+          cp "corewatch-$v/LICENSE" "$name/"
           tar -czf "out/$name.tar.gz" "$name"
       - name: AppImage
         run: |
@@ -262,6 +262,16 @@ jobs:
         with:
           path: artifacts
           merge-multiple: true
+      - name: Keep only installable packages
+        run: |
+          cd artifacts
+          rm -f corewatch-*[0-9].tar.xz
+          for f in *; do
+            case "$f" in
+              *.deb|*.rpm|*.pkg.tar.zst|*.AppImage|*-linux-*.tar.gz|*.flatpak) ;;
+              *) echo "Unexpected release file: $f"; exit 1 ;;
+            esac
+          done
       - name: Checksums
         run: |
           cd artifacts
