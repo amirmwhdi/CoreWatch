@@ -119,7 +119,8 @@ impl ResourcePage for BatteryPage {
         // Power rate
         match battery.power_w {
             Some(w) => {
-                let text = i18n::fmt(&gettext("{watts:.1} W"), &[("watts", &w)]);
+                // Translators: a power draw, e.g. "7.4 W"
+                let text = i18n::fmt(&gettext("{watts} W"), &[("watts", &format!("{w:.1}"))]);
                 self.rate.set_subtitle(&text);
                 self.rate.set_visible(true);
             }
@@ -136,11 +137,12 @@ impl ResourcePage for BatteryPage {
         ) {
             (Some(health_pct), Some(full), Some(design)) => {
                 let text = i18n::fmt(
-                    &gettext("{health} · {full:.1} Wh of {design:.1} Wh design"),
+                    // Translators: e.g. "92% · 46.1 Wh of 50.0 Wh design"
+                    &gettext("{health} · {full} Wh of {design} Wh design"),
                     &[
                         ("health", &i18n::percent(health_pct)),
-                        ("full", &full),
-                        ("design", &design),
+                        ("full", &format!("{full:.1}")),
+                        ("design", &format!("{design:.1}")),
                     ],
                 );
                 self.health.set_subtitle(&text);
@@ -148,23 +150,22 @@ impl ResourcePage for BatteryPage {
             (Some(health_pct), _, _) => {
                 self.health.set_subtitle(&i18n::percent(health_pct));
             }
-            _ => {
-                self.health.set_subtitle(&gettext("Good"));
-            }
+            // The driver does not report the design capacity: say nothing
+            // instead of guessing.
+            _ => self.health.set_visible(false),
         }
 
         // AC adapter
         match battery_sample.ac_online {
-            Some(true) => {
-                self.power_supply.set_subtitle(&gettext("Connected"));
+            Some(online) => {
+                self.power_supply.set_subtitle(&if online {
+                    gettext("Connected")
+                } else {
+                    gettext("Disconnected (Running on battery)")
+                });
+                self.power_supply.set_visible(true);
             }
-            Some(false) => {
-                self.power_supply
-                    .set_subtitle(&gettext("Disconnected (Running on battery)"));
-            }
-            None => {
-                self.power_supply.set_visible(false);
-            }
+            None => self.power_supply.set_visible(false),
         }
 
         // Static hardware facts
