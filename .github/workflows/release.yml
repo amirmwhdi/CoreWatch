@@ -154,7 +154,7 @@ jobs:
           chown -R builder /home/builder/pkg
           su builder -c "cd /home/builder/pkg && makepkg --noconfirm"
           mkdir -p out
-          cp /home/builder/pkg/corewatch-*.pkg.tar.zst "out/corewatch-$v-linux-x86_64.pkg.tar.zst"
+          cp /home/builder/pkg/corewatch-[0-9]*.pkg.tar.zst "out/corewatch-$v-linux-x86_64.pkg.tar.zst"
       - uses: actions/upload-artifact@v4
         with:
           name: arch
@@ -179,7 +179,7 @@ jobs:
         run: |
           apt-get update
           apt-get install -y --no-install-recommends ca-certificates curl xz-utils file \
-            build-essential meson blueprint-compiler \
+            build-essential meson blueprint-compiler desktop-file-utils \
             libgtk-4-dev libadwaita-1-dev
       - uses: dtolnay/rust-toolchain@stable
       - uses: actions/download-artifact@v4
