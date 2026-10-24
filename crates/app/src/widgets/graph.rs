@@ -27,6 +27,12 @@ mod imp {
         /// Blueprint as `capacity: 60;`.
         #[property(get, set = Self::set_capacity, minimum = 2, default = 60)]
         pub capacity: Cell<u32>,
+        /// Whole percent last written to the accessible description, so an
+        /// unchanged value does not reach the accessibility bus every tick.
+        pub announced: Cell<Option<u8>>,
+        /// StyleManager is global: its handlers must go when the graph does,
+        /// or every removed disk block would leave two closures behind.
+        pub style_handlers: RefCell<Vec<glib::SignalHandlerId>>,
     }
 
     impl Default for Graph {
@@ -34,6 +40,8 @@ mod imp {
             Self {
                 values: RefCell::default(),
                 capacity: Cell::new(60),
+                announced: Cell::new(None),
+                style_handlers: RefCell::default(),
             }
         }
     }
@@ -74,16 +82,24 @@ mod imp {
 
             // Follow the user's accent color and light/dark style without a restart.
             let style = adw::StyleManager::default();
-            style.connect_accent_color_notify(glib::clone!(
+            let accent = style.connect_accent_color_notify(glib::clone!(
                 #[weak]
                 graph,
                 move |_| graph.queue_draw()
             ));
-            style.connect_dark_notify(glib::clone!(
+            let dark = style.connect_dark_notify(glib::clone!(
                 #[weak]
                 graph,
                 move |_| graph.queue_draw()
             ));
+            *self.style_handlers.borrow_mut() = vec![accent, dark];
+        }
+
+        fn dispose(&self) {
+            let style = adw::StyleManager::default();
+            for handler in self.style_handlers.take() {
+                style.disconnect(handler);
+            }
         }
     }
 
@@ -118,7 +134,7 @@ mod imp {
                 .enumerate()
                 .map(|(i, v)| (x0 + step * i as f32, y(*v)));
 
-            let first = iter.next().unwrap();
+            let Some(first) = iter.next() else { return };
             let line = gsk::PathBuilder::new();
             let area = gsk::PathBuilder::new();
 
@@ -190,10 +206,12 @@ impl Graph {
                 values.pop_front();
             }
         }
-        self.update_property(&[gtk::accessible::Property::Description(&format!(
-            "{:.0}%",
-            value * 100.0
-        ))]);
+        let percent = (value.clamp(0.0, 1.0) * 100.0).round() as u8;
+        if imp.announced.replace(Some(percent)) != Some(percent) {
+            self.update_property(&[gtk::accessible::Property::Description(&format!(
+                "{percent}%"
+            ))]);
+        }
         self.queue_draw();
     }
 }

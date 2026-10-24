@@ -1,6 +1,7 @@
 //! CPU page: total usage graph, model, frequency, one small graph per core.
 
 use super::{Module, ResourcePage};
+use crate::config::HISTORY_LEN;
 use crate::i18n::{self, gettext, ngettext};
 use crate::widgets::Graph;
 use adw::prelude::*;
@@ -55,7 +56,7 @@ impl CpuPage {
     fn ensure_cores(&self, n: usize) {
         let mut cores = self.cores.borrow_mut();
         while cores.len() < n {
-            let graph = Graph::new(60, 48);
+            let graph = Graph::new(HISTORY_LEN, 48);
             graph.set_width_request(96);
             let label = gtk::Label::builder()
                 .xalign(0.0)
