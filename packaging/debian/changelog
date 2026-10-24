@@ -1,3 +1,9 @@
+corewatch (0.2.1-1) unstable; urgency=medium
+
+  * New upstream release: self-contained AppImage and portable tarball.
+
+ -- Amirmahdi <amirmwhdi@users.noreply.github.com>  Sat, 24 Oct 2026 13:00:00 +0000
+
 corewatch (0.2.0-1) unstable; urgency=medium
 
   * New upstream release: Graphics, Disks and Battery pages, preferences,

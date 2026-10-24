@@ -45,11 +45,11 @@ anything. They are larger (about 110 MB) for the same reason. Unpack the
 tarball anywhere and run `./corewatch` inside it.
 
 ```sh
-flatpak install --user corewatch-0.2.0-x86_64.flatpak
-sudo apt install ./corewatch-0.2.0-linux-amd64.deb
-sudo dnf install ./corewatch-0.2.0-linux-x86_64.rpm
-sudo pacman -U corewatch-0.2.0-linux-x86_64.pkg.tar.zst
-chmod +x corewatch-0.2.0-linux-x86_64.AppImage && ./corewatch-0.2.0-linux-x86_64.AppImage
+flatpak install --user corewatch-0.2.1-x86_64.flatpak
+sudo apt install ./corewatch-0.2.1-linux-amd64.deb
+sudo dnf install ./corewatch-0.2.1-linux-x86_64.rpm
+sudo pacman -U corewatch-0.2.1-linux-x86_64.pkg.tar.zst
+chmod +x corewatch-0.2.1-linux-x86_64.AppImage && ./corewatch-0.2.1-linux-x86_64.AppImage
 ```
 
 Releases contain only installable packages: the program, its desktop entry,

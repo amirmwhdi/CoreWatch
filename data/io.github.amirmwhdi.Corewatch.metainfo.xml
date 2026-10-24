@@ -67,6 +67,13 @@
   </branding>
 
   <releases>
+    <release version="0.2.1" date="2026-10-24">
+      <description>
+        <p>The AppImage and the portable tarball now bring their own GTK and
+        libadwaita and run on any distribution. Releases contain only
+        installable packages.</p>
+      </description>
+    </release>
     <release version="0.2.0" date="2026-10-24">
       <description>
         <ul>
