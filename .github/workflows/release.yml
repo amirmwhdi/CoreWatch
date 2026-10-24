@@ -161,7 +161,7 @@ jobs:
           if-no-files-found: error
 
   binary:
-    name: AppImage and portable tarball (${{ matrix.arch }})
+    name: AppImage (${{ matrix.arch }})
     needs: source
     strategy:
       fail-fast: false
@@ -170,70 +170,45 @@ jobs:
           - { arch: x86_64, runner: ubuntu-latest }
           - { arch: aarch64, runner: ubuntu-24.04-arm }
     runs-on: ${{ matrix.runner }}
-    # Self-contained builds: GTK, libadwaita, Mesa and glibc itself travel
-    # inside the AppImage and the tarball (sharun), so they run on any
-    # distribution, old or new, even without GTK 4 installed. Built from
-    # Arch so the bundled GTK and libadwaita are the newest releases.
-    container: ghcr.io/pkgforge-dev/archlinux:latest
+    # Built against Debian 13's glibc, the binary runs on every newer distro.
+    # GTK and libadwaita come from the system: both need 4.18 / 1.7 or newer.
+    container: debian:trixie
     steps:
       - name: Install build dependencies
         run: |
-          pacman -Syu --noconfirm --needed base-devel git curl wget xz zsync \
-            patchelf strace file binutils rust meson blueprint-compiler \
-            gtk4 libadwaita mesa vulkan-icd-loader librsvg desktop-file-utils
-      - uses: actions/checkout@v4
-      - name: Build and install into /usr
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates curl xz-utils file \
+            build-essential meson blueprint-compiler desktop-file-utils \
+            libgtk-4-dev libadwaita-1-dev
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/download-artifact@v4
+        with:
+          name: source
+      - name: Build and install into a staging tree
         run: |
+          v=${{ needs.source.outputs.version }}
+          tar -xf "corewatch-$v.tar.xz"
+          cd "corewatch-$v"
+          . scripts/cargo-offline.sh
           meson setup build --prefix=/usr
           meson compile -C build
-          meson install -C build
-      - name: Bundle the dependencies
-        env:
-          ARCH: ${{ matrix.arch }}
-          APPIMAGE_ARCH: ${{ matrix.arch }}
-          DESKTOP: /usr/share/applications/io.github.amirmwhdi.Corewatch.desktop
-          ICON: /usr/share/icons/hicolor/scalable/apps/io.github.amirmwhdi.Corewatch.svg
-          DEPLOY_OPENGL: 1
-          DEPLOY_VULKAN: 1
-          # Tracing would start the app, which needs a display.
-          STRACE_MODE: 0
-          OUTPATH: ${{ github.workspace }}/out
-        run: |
-          curl -fsSL -o quick-sharun \
-            https://raw.githubusercontent.com/pkgforge-dev/Anylinux-AppImages/main/useful-tools/quick-sharun.sh
-          chmod +x quick-sharun
-          mkdir -p "$OUTPATH"
-          ./quick-sharun /usr/bin/corewatch
-      - name: Portable tarball
-        run: |
-          v=${{ needs.source.outputs.version }}
-          name="corewatch-$v-linux-${{ matrix.arch }}"
-          # The bundled tree: run ./corewatch (or ./AppRun) from anywhere.
-          cp -a AppDir "$name"
-          ln -sf AppRun "$name/corewatch"
-          cp LICENSE "$name/"
-          tar -cJf "out/$name.tar.xz" "$name"
+          DESTDIR="$GITHUB_WORKSPACE/stage" meson install -C build
       - name: AppImage
-        env:
-          ARCH: ${{ matrix.arch }}
-          APPIMAGE_ARCH: ${{ matrix.arch }}
-          OUTPATH: ${{ github.workspace }}/out
-          OUTNAME: corewatch-${{ needs.source.outputs.version }}-linux-${{ matrix.arch }}.AppImage
-          VERSION: ${{ needs.source.outputs.version }}
-          # AppImageUpdate and similar tools find newer releases through this.
-          UPINFO: gh-releases-zsync|amirmwhdi|CoreWatch|latest|corewatch-*-linux-${{ matrix.arch }}.AppImage.zsync
         run: |
-          ./quick-sharun --make-appimage
-          # Build metadata from appimagetool, not a release file.
-          rm -f "$OUTPATH/appinfo"
-      - name: Smoke test
-        run: |
-          ls -la out
           v=${{ needs.source.outputs.version }}
-          # No FUSE in a container: let the AppImage unpack itself instead.
-          APPIMAGE_EXTRACT_AND_RUN=1 "out/corewatch-$v-linux-${{ matrix.arch }}.AppImage" --version
-          tar -xJf "out/corewatch-$v-linux-${{ matrix.arch }}.tar.xz" -C /tmp
-          "/tmp/corewatch-$v-linux-${{ matrix.arch }}/corewatch" --version
+          app=io.github.amirmwhdi.Corewatch
+          mkdir -p AppDir
+          cp -r stage/usr AppDir/usr
+          cp "AppDir/usr/share/applications/$app.desktop" AppDir/
+          cp "AppDir/usr/share/icons/hicolor/scalable/apps/$app.svg" AppDir/
+          ln -s "$app.svg" AppDir/.DirIcon
+          printf '#!/bin/sh\nHERE="$(dirname "$(readlink -f "$0")")"\nexec "$HERE/usr/bin/corewatch" "$@"\n' > AppDir/AppRun
+          chmod +x AppDir/AppRun
+          tool="appimagetool-${{ matrix.arch }}.AppImage"
+          curl -fL -o "$tool" "https://github.com/AppImage/appimagetool/releases/download/continuous/$tool"
+          chmod +x "$tool"
+          ARCH=${{ matrix.arch }} "./$tool" --appimage-extract-and-run AppDir \
+            "out/corewatch-$v-linux-${{ matrix.arch }}.AppImage"
       - uses: actions/upload-artifact@v4
         with:
           name: binary-${{ matrix.arch }}
@@ -284,7 +259,7 @@ jobs:
           rm -f corewatch-*[0-9].tar.xz
           for f in *; do
             case "$f" in
-              *.deb|*.rpm|*.pkg.tar.zst|*.AppImage|*.AppImage.zsync|*-linux-*.tar.xz|*.flatpak) ;;
+              *.deb|*.rpm|*.pkg.tar.zst|*.AppImage|*.flatpak) ;;
               *) echo "Unexpected release file: $f"; exit 1 ;;
             esac
           done

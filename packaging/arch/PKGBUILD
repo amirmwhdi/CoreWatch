@@ -1,6 +1,6 @@
 # Maintainer: Amirmahdi <https://github.com/amirmwhdi>
 pkgname=corewatch
-pkgver=0.2.1
+pkgver=0.2.0
 pkgrel=1
 pkgdesc='A modern system monitor for Linux'
 arch=('x86_64' 'aarch64')

@@ -1,6 +1,6 @@
 project(
   'corewatch',
-  version: '0.2.1',
+  version: '0.2.0',
   license: 'GPL-3.0-or-later',
   # Debian 13 ships Meson 1.7.
   meson_version: '>= 1.7.0',
