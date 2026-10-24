@@ -1,0 +1,22 @@
+#!/usr/bin/make -f
+# The upstream tarball holds every crate in vendor/; cargo-offline.sh points
+# Cargo at it, so the build never needs network.
+
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+
+%:
+	dh $@ --buildsystem=meson
+
+override_dh_auto_build:
+	. ./scripts/cargo-offline.sh && dh_auto_build
+
+override_dh_auto_test:
+	. ./scripts/cargo-offline.sh && dh_auto_test
+
+override_dh_auto_clean:
+	dh_auto_clean
+	rm -rf .cargo-home
+
+# vendor/*/Cargo.toml.orig are part of each crate's checksum: keep them.
+override_dh_clean:
+	dh_clean -XCargo.toml.orig

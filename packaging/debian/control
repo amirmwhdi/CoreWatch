@@ -1,0 +1,24 @@
+Source: corewatch
+Section: utils
+Priority: optional
+Maintainer: Amirmahdi <amirmwhdi@users.noreply.github.com>
+Build-Depends: debhelper-compat (= 13),
+               meson (>= 1.7),
+               cargo (>= 1.92),
+               rustc (>= 1.92),
+               blueprint-compiler,
+               libgtk-4-dev (>= 4.18),
+               libadwaita-1-dev (>= 1.7),
+               desktop-file-utils,
+               appstream
+Standards-Version: 4.7.2
+Homepage: https://github.com/amirmwhdi/CoreWatch
+Rules-Requires-Root: no
+
+Package: corewatch
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: modern system monitor for Linux
+ Corewatch is a native system monitor built with GTK 4 and libadwaita. It
+ shows live graphs for the processor, memory, graphics, disks and battery,
+ and follows the system light and dark style.

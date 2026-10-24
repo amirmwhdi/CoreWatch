@@ -1,0 +1,31 @@
+# Maintainer: Amirmahdi <https://github.com/amirmwhdi>
+pkgname=corewatch
+pkgver=0.2.0
+pkgrel=1
+pkgdesc='A modern system monitor for Linux'
+arch=('x86_64' 'aarch64')
+url='https://github.com/amirmwhdi/CoreWatch'
+license=('GPL-3.0-or-later')
+depends=('gtk4' 'libadwaita' 'gcc-libs' 'glibc')
+makedepends=('cargo' 'meson' 'blueprint-compiler')
+checkdepends=('appstream' 'desktop-file-utils')
+# The release tarball holds every crate in vendor/, so the build is offline.
+source=("$url/releases/download/v$pkgver/$pkgname-$pkgver.tar.xz")
+sha256sums=('SKIP')
+
+build() {
+  cd "$pkgname-$pkgver"
+  . scripts/cargo-offline.sh
+  arch-meson . build
+  meson compile -C build
+}
+
+check() {
+  cd "$pkgname-$pkgver"
+  meson test -C build --print-errorlogs
+}
+
+package() {
+  cd "$pkgname-$pkgver"
+  meson install -C build --destdir "$pkgdir"
+}

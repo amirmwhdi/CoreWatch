@@ -1,0 +1,15 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: corewatch
+Source: https://github.com/amirmwhdi/CoreWatch
+
+Files: *
+Copyright: 2026 Amirmahdi
+License: GPL-3.0-or-later
+
+Files: vendor/*
+Copyright: The authors of each crate, see vendor/*/Cargo.toml
+License: MIT or Apache-2.0 or other licenses listed in each crate
+
+License: GPL-3.0-or-later
+ On Debian systems, the full text of the GNU General Public License
+ version 3 can be found in /usr/share/common-licenses/GPL-3.
