@@ -32,7 +32,8 @@ pub struct GpuDevice {
     pub name: String,
     pub vendor: GpuVendor,
     pub driver: Option<String>,
-    /// GPU usage between 0.0 and 1.0.
+    /// GPU busy share between 0.0 and 1.0, when the driver reports one
+    /// (amdgpu does; i915/xe and the NVIDIA driver do not expose it in sysfs).
     pub usage: Option<f32>,
     /// VRAM in bytes: used and total.
     pub vram_used: Option<u64>,
@@ -45,6 +46,14 @@ pub struct GpuDevice {
 }
 
 impl GpuDevice {
+    /// Current clock as a share of the maximum clock.
+    pub fn freq_fraction(&self) -> Option<f32> {
+        match (self.freq_mhz, self.max_freq_mhz) {
+            (Some(cur), Some(max)) if max > 0 => Some((cur as f32 / max as f32).clamp(0.0, 1.0)),
+            _ => None,
+        }
+    }
+
     pub fn vram_fraction(&self) -> Option<f32> {
         match (self.vram_used, self.vram_total) {
             (Some(used), Some(total)) if total > 0 => {
@@ -61,7 +70,7 @@ pub struct GpuSample {
 }
 
 impl GpuSample {
-    /// Aggregate usage across all GPUs (highest or average).
+    /// The busiest GPU's usage.
     pub fn max_usage(&self) -> Option<f32> {
         self.devices
             .iter()
@@ -70,12 +79,21 @@ impl GpuSample {
     }
 }
 
+/// One card with the files it is read from, resolved once at start-up so a
+/// tick only reads files and never searches for them.
 struct GpuDetector {
     card_name: String,
-    device_path: PathBuf,
     vendor: GpuVendor,
     name: String,
     driver: Option<String>,
+    /// AMD: `gpu_busy_percent`, `mem_info_vram_used`, `mem_info_vram_total`.
+    busy: Option<PathBuf>,
+    vram_used: Option<PathBuf>,
+    vram_total: Option<PathBuf>,
+    /// Intel: actual and maximum GT frequency.
+    act_freq: Option<PathBuf>,
+    max_freq: Option<PathBuf>,
+    temp: Option<PathBuf>,
 }
 
 pub struct GpuCollector {
@@ -141,9 +159,50 @@ impl GpuCollector {
                     }
                 };
 
+                let existing = |p: PathBuf| p.exists().then_some(p);
+                let (mut act_freq, mut max_freq) = (None, None);
+                if vendor == GpuVendor::Intel {
+                    let gt_dir = [
+                        dev_link.join("drm").join(&card),
+                        dev_link.join(&card),
+                        dev_link.join("drm").join(&card).join("gt").join("gt0"),
+                    ]
+                    .into_iter()
+                    .find(|d| {
+                        d.join("gt_act_freq_mhz").exists() || d.join("rps_act_freq_mhz").exists()
+                    });
+                    if let Some(dir) = gt_dir {
+                        act_freq = existing(dir.join("gt_act_freq_mhz"))
+                            .or_else(|| existing(dir.join("rps_act_freq_mhz")));
+                        max_freq = existing(dir.join("gt_max_freq_mhz"))
+                            .or_else(|| existing(dir.join("rps_max_freq_mhz")));
+                    }
+                }
+                let amd = |file: &str| {
+                    if vendor == GpuVendor::Amd {
+                        existing(dev_link.join(file))
+                    } else {
+                        None
+                    }
+                };
+                let temp = fs::read_dir(dev_link.join("hwmon")).ok().and_then(|dirs| {
+                    let mut paths: Vec<PathBuf> = dirs
+                        .flatten()
+                        .map(|d| d.path().join("temp1_input"))
+                        .filter(|p| p.exists())
+                        .collect();
+                    paths.sort();
+                    paths.into_iter().next()
+                });
+
                 detectors.push(GpuDetector {
+                    busy: amd("gpu_busy_percent"),
+                    vram_used: amd("mem_info_vram_used"),
+                    vram_total: amd("mem_info_vram_total"),
+                    act_freq,
+                    max_freq,
+                    temp,
                     card_name: card,
-                    device_path: dev_link,
                     vendor,
                     name,
                     driver,
@@ -171,103 +230,29 @@ impl Collector for GpuCollector {
         let mut devices = Vec::new();
 
         for det in &self.detectors {
-            let mut usage = None;
-            let mut vram_used = None;
-            let mut vram_total = None;
-            let mut freq_mhz = None;
-            let mut max_freq_mhz = None;
-            let mut temp_c = None;
-
-            match det.vendor {
-                GpuVendor::Amd => {
-                    // AMD exposes gpu_busy_percent, mem_info_vram_total / used
-                    if let Ok(s) = fs::read_to_string(det.device_path.join("gpu_busy_percent")) {
-                        if let Ok(pct) = s.trim().parse::<f32>() {
-                            usage = Some((pct / 100.0).clamp(0.0, 1.0));
-                        }
-                    }
-                    if let Ok(s) = fs::read_to_string(det.device_path.join("mem_info_vram_total")) {
-                        vram_total = s.trim().parse::<u64>().ok();
-                    }
-                    if let Ok(s) = fs::read_to_string(det.device_path.join("mem_info_vram_used")) {
-                        vram_used = s.trim().parse::<u64>().ok();
-                    }
-                }
-                GpuVendor::Intel => {
-                    // Intel exposes gt_act_freq_mhz, gt_cur_freq_mhz, gt_max_freq_mhz
-                    // and rc6 residency
-                    let drm_card = det.device_path.join("drm").join(&det.card_name);
-                    let gt_dir = if drm_card.join("gt_act_freq_mhz").exists() {
-                        drm_card
-                    } else if det
-                        .device_path
-                        .join(&det.card_name)
-                        .join("gt_act_freq_mhz")
-                        .exists()
-                    {
-                        det.device_path.join(&det.card_name)
-                    } else {
-                        det.device_path
-                            .join("drm")
-                            .join(&det.card_name)
-                            .join("gt")
-                            .join("gt0")
-                    };
-
-                    let act = fs::read_to_string(gt_dir.join("gt_act_freq_mhz"))
-                        .or_else(|_| fs::read_to_string(gt_dir.join("rps_act_freq_mhz")))
-                        .ok()
-                        .and_then(|s| s.trim().parse::<u32>().ok());
-
-                    let max = fs::read_to_string(gt_dir.join("gt_max_freq_mhz"))
-                        .or_else(|_| fs::read_to_string(gt_dir.join("rps_max_freq_mhz")))
-                        .ok()
-                        .and_then(|s| s.trim().parse::<u32>().ok());
-
-                    if let (Some(act_val), Some(max_val)) = (act, max) {
-                        freq_mhz = Some(act_val);
-                        max_freq_mhz = Some(max_val);
-                        if max_val > 0 {
-                            usage = Some((act_val as f32 / max_val as f32).clamp(0.0, 1.0));
-                        }
-                    } else if let Some(act_val) = act {
-                        freq_mhz = Some(act_val);
-                    }
-                }
-                _ => {}
-            }
-
-            // Temperature from hwmon
-            let hwmon_base = det.device_path.join("hwmon");
-            if let Ok(hwmon_entries) = fs::read_dir(hwmon_base) {
-                for h_entry in hwmon_entries.flatten() {
-                    let temp_file = h_entry.path().join("temp1_input");
-                    if let Ok(s) = fs::read_to_string(temp_file) {
-                        if let Ok(millicelsius) = s.trim().parse::<u32>() {
-                            temp_c = Some(millicelsius / 1000);
-                            break;
-                        }
-                    }
-                }
-            }
-
+            let freq_mhz = read_num::<u32>(&det.act_freq);
+            let max_freq_mhz = read_num::<u32>(&det.max_freq).filter(|m| *m > 0);
             devices.push(GpuDevice {
                 id: det.card_name.clone(),
                 name: det.name.clone(),
                 vendor: det.vendor,
                 driver: det.driver.clone(),
-                usage,
-                vram_used,
-                vram_total,
+                usage: read_num::<f32>(&det.busy).map(|pct| (pct / 100.0).clamp(0.0, 1.0)),
+                vram_used: read_num(&det.vram_used),
+                vram_total: read_num(&det.vram_total),
                 freq_mhz,
                 max_freq_mhz,
-                temp_c,
+                temp_c: read_num::<u32>(&det.temp).map(|mc| mc / 1000),
             });
         }
 
         out.gpu = Some(GpuSample { devices });
         Ok(())
     }
+}
+
+fn read_num<T: std::str::FromStr>(path: &Option<PathBuf>) -> Option<T> {
+    fs::read_to_string(path.as_ref()?).ok()?.trim().parse().ok()
 }
 
 #[cfg(test)]

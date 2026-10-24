@@ -75,17 +75,23 @@ impl ResourcePage for GpuPage {
             return;
         };
 
-        let current_usage = first.usage.unwrap_or(0.0);
-        self.graph.push(current_usage);
+        // amdgpu reports how busy the GPU is; i915/xe only report the clock,
+        // so the graph shows the clock share there instead of a made-up usage.
+        if let Some(value) = first.usage.or_else(|| first.freq_fraction()) {
+            self.graph.push(value);
+        }
 
         if !self.static_info_set.get() {
             self.model.set_subtitle(&first.name);
             self.driver
-                .set_subtitle(&first.driver.clone().unwrap_or_else(|| gettext("Unknown")));
+                .set_subtitle(first.driver.as_deref().unwrap_or(&gettext("Unknown")));
             self.static_info_set.set(true);
         }
 
-        self.usage.set_subtitle(&i18n::percent(current_usage));
+        self.usage.set_subtitle(&match first.usage {
+            Some(usage) => i18n::percent(usage),
+            None => gettext("Not reported by the driver"),
+        });
 
         match (first.freq_mhz, first.max_freq_mhz) {
             (Some(cur), Some(max)) => {
@@ -105,11 +111,6 @@ impl ResourcePage for GpuPage {
 
         match (first.vram_used, first.vram_total) {
             (Some(used), Some(total)) => {
-                let frac = if total > 0 {
-                    (used as f64 / total as f64).clamp(0.0, 1.0)
-                } else {
-                    0.0
-                };
                 self.vram.set_subtitle(&i18n::fmt(
                     &gettext("{used} of {total}"),
                     &[
@@ -124,7 +125,8 @@ impl ResourcePage for GpuPage {
                     ],
                 ));
                 self.vram_bar.set_visible(true);
-                self.vram_bar.set_value(frac);
+                self.vram_bar
+                    .set_value(f64::from(first.vram_fraction().unwrap_or(0.0)));
             }
             _ => {
                 self.vram.set_subtitle(&gettext("Shared / System RAM"));
@@ -145,11 +147,12 @@ impl ResourcePage for GpuPage {
     }
 
     fn summary(&self, snapshot: &Snapshot) -> Option<String> {
-        snapshot
-            .gpu
-            .as_ref()
-            .and_then(|g| g.max_usage())
-            .map(i18n::percent)
+        let gpu = snapshot.gpu.as_ref()?;
+        if let Some(usage) = gpu.max_usage() {
+            return Some(i18n::percent(usage));
+        }
+        let mhz = gpu.devices.first()?.freq_mhz?;
+        Some(i18n::fmt(&gettext("{cur} MHz"), &[("cur", &mhz)]))
     }
 }
 

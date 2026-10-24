@@ -298,3 +298,62 @@ mod disk {
         assert_eq!(error.kind(), "io.not_found");
     }
 }
+
+#[test]
+fn battery_collector_skips_peripherals_and_reads_charge_units() {
+    use corewatch_core::battery::{BatteryCollector, BatteryState, REFRESH};
+    use std::time::Instant;
+
+    let root = fixture("laptop");
+    let mut collector = BatteryCollector::new(&root).unwrap();
+    let start = Instant::now();
+    let mut snap = Snapshot::new();
+    collector.collect_at(&mut snap, start);
+
+    let sample = snap.battery.unwrap();
+    assert_eq!(sample.ac_online, Some(false));
+    // The wireless mouse (scope = Device) is not listed.
+    assert_eq!(sample.batteries.len(), 1);
+    let bat = &sample.batteries[0];
+    assert_eq!(bat.name, "BAT0");
+    assert_eq!(bat.model, "Fixture Cell");
+    assert_eq!(bat.state, BatteryState::Discharging);
+    assert_eq!(bat.capacity, 0.8);
+    // 3 Ah at 12 V = 36 Wh; a negative current still means 12 W.
+    assert_eq!(bat.energy_wh, Some(36.0));
+    assert_eq!(bat.power_w, Some(12.0));
+    assert_eq!(bat.time_remaining_secs, Some(3 * 3600));
+    assert_eq!(bat.health, Some(0.9375));
+
+    // Within REFRESH the last reading is reused.
+    let mut again = Snapshot::new();
+    collector.collect_at(&mut again, start + REFRESH / 2);
+    assert_eq!(again.battery.unwrap(), sample);
+}
+
+#[test]
+fn missing_power_supply_disables_battery() {
+    use corewatch_core::battery::BatteryCollector;
+    assert!(BatteryCollector::new(&fixture("basic")).is_err());
+}
+
+#[test]
+fn intel_gpu_reports_clock_but_no_made_up_usage() {
+    use corewatch_core::gpu::{GpuCollector, GpuVendor};
+
+    let root = fixture("laptop");
+    let mut collector = GpuCollector::new(&root).unwrap();
+    let mut snap = Snapshot::new();
+    collector.collect(&root, &mut snap).unwrap();
+
+    let gpu = snap.gpu.unwrap();
+    // card0-eDP-1 is a connector, not a second card.
+    assert_eq!(gpu.devices.len(), 1);
+    let dev = &gpu.devices[0];
+    assert_eq!(dev.vendor, GpuVendor::Intel);
+    assert_eq!(dev.driver.as_deref(), Some("i915"));
+    assert_eq!(dev.usage, None);
+    assert_eq!(dev.freq_mhz, Some(700));
+    assert_eq!(dev.freq_fraction(), Some(0.5));
+    assert_eq!(dev.temp_c, Some(45));
+}
