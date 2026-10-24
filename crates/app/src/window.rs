@@ -3,7 +3,9 @@
 //! The layout lives in `data/ui/stable/window.blp` (the `CwWindow` template).
 //! This file never names a resource: it only loops over `modules::all()`.
 
+use crate::i18n::gettext;
 use crate::modules::{self, ResourcePage};
+use crate::widgets::PageFrame;
 use crate::{config, logging};
 use adw::prelude::*;
 use adw::subclass::prelude::*;
@@ -92,7 +94,7 @@ pub fn present(app: &adw::Application) {
     let content_page = ui.content_page.get();
 
     // Each module: collector into the sampler, page into the stack, row into the sidebar.
-    let mut pages: Vec<(Box<dyn ResourcePage>, adw::ActionRow)> = Vec::new();
+    let mut pages: Vec<(Box<dyn ResourcePage>, PageFrame, adw::ActionRow)> = Vec::new();
     for module in modules::all() {
         let page = (module.page)();
         match (module.collector)(&root) {
@@ -110,13 +112,14 @@ pub fn present(app: &adw::Application) {
                 continue;
             }
         }
-        stack.add_named(&page.widget(), Some(page.id()));
+        let frame = PageFrame::new(&page.widget());
+        stack.add_named(&frame, Some(page.id()));
 
         let row = adw::ActionRow::builder().title(page.title()).build();
         row.add_prefix(&gtk::Image::from_icon_name(page.icon_name()));
         row.set_widget_name(page.id());
         sidebar.append(&row);
-        pages.push((page, row));
+        pages.push((page, frame, row));
     }
     ui.main_stack
         .set_visible_child_name(if pages.is_empty() { "empty" } else { "pages" });
@@ -186,10 +189,34 @@ pub fn present(app: &adw::Application) {
     ));
     app.add_action(&about_action);
 
+    // The banner's "Details" button: open the folder with the log file.
+    let log_action = gio::SimpleAction::new("show-log", None);
+    log_action.connect_activate(glib::clone!(
+        #[weak]
+        window,
+        move |_, _| {
+            let dir = gio::File::for_path(logging::log_dir());
+            gtk::FileLauncher::new(Some(&dir)).launch(
+                Some(&window),
+                gio::Cancellable::NONE,
+                |result| {
+                    if let Err(error) = result {
+                        tracing::warn!(%error, "cannot open the log folder");
+                    }
+                },
+            );
+        }
+    ));
+    app.add_action(&log_action);
+
     let pages = Rc::new(pages);
     glib::spawn_future_local(async move {
         while let Ok(snapshot) = rx.recv().await {
-            for (page, row) in pages.iter() {
+            for (page, frame, row) in pages.iter() {
+                if frame.set_has_data(page.has_data(&snapshot)) {
+                    row.set_subtitle(&gettext("Unavailable"));
+                    continue;
+                }
                 page.update(&snapshot);
                 if let Some(text) = page.summary(&snapshot) {
                     row.set_subtitle(&text);

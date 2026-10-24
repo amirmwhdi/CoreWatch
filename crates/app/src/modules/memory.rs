@@ -97,6 +97,10 @@ impl ResourcePage for MemoryPage {
         }
     }
 
+    fn has_data(&self, snapshot: &Snapshot) -> bool {
+        snapshot.memory.is_some()
+    }
+
     fn summary(&self, snapshot: &Snapshot) -> Option<String> {
         snapshot
             .memory

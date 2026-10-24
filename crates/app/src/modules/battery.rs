@@ -195,6 +195,10 @@ impl ResourcePage for BatteryPage {
         }
     }
 
+    fn has_data(&self, snapshot: &Snapshot) -> bool {
+        snapshot.battery.is_some()
+    }
+
     fn summary(&self, snapshot: &Snapshot) -> Option<String> {
         let b = snapshot.battery.as_ref()?;
         let dev = b.batteries.first()?;

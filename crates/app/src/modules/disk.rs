@@ -159,6 +159,10 @@ impl ResourcePage for DiskPage {
         self.sync_filesystems(&disk.filesystems);
     }
 
+    fn has_data(&self, snapshot: &Snapshot) -> bool {
+        snapshot.disk.is_some()
+    }
+
     fn summary(&self, snapshot: &Snapshot) -> Option<String> {
         snapshot.disk.as_ref().map(|d| speed(d.total_bps()))
     }

@@ -144,6 +144,10 @@ impl ResourcePage for CpuPage {
         }
     }
 
+    fn has_data(&self, snapshot: &Snapshot) -> bool {
+        snapshot.cpu.is_some()
+    }
+
     fn summary(&self, snapshot: &Snapshot) -> Option<String> {
         snapshot.cpu.as_ref().map(|c| i18n::percent(c.usage))
     }

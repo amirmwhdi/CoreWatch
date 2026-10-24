@@ -51,6 +51,7 @@ fn main() -> glib::ExitCode {
 fn register_resources() -> Result<(), glib::Error> {
     gio::resources_register_include!("corewatch.gresource")?;
     widgets::Graph::ensure_type();
+    widgets::PageFrame::ensure_type();
     preferences::PreferencesDialog::ensure_type();
     Ok(())
 }
@@ -95,7 +96,13 @@ mod tests {
             std::cell::RefCell::new(None),
         ));
         for module in super::modules::all() {
-            let _page = (module.page)();
+            let page = (module.page)();
+            let frame = super::widgets::PageFrame::new(&page.widget());
+            // Two misses are tolerated, the third shows the banner, data hides it.
+            assert!(!frame.set_has_data(false));
+            assert!(!frame.set_has_data(false));
+            assert!(frame.set_has_data(false));
+            assert!(!frame.set_has_data(true));
         }
     }
 }

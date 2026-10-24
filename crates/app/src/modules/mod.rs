@@ -32,6 +32,10 @@ pub trait ResourcePage {
     /// their history.
     fn update(&self, snapshot: &Snapshot);
 
+    /// Whether this tick holds the page's data. Three misses in a row show
+    /// the "Data unavailable" banner (see `widgets::PageFrame`).
+    fn has_data(&self, snapshot: &Snapshot) -> bool;
+
     /// Short live text for the sidebar row, e.g. `"37%"`.
     fn summary(&self, snapshot: &Snapshot) -> Option<String>;
 }

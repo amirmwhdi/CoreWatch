@@ -146,6 +146,10 @@ impl ResourcePage for GpuPage {
         }
     }
 
+    fn has_data(&self, snapshot: &Snapshot) -> bool {
+        snapshot.gpu.is_some()
+    }
+
     fn summary(&self, snapshot: &Snapshot) -> Option<String> {
         let gpu = snapshot.gpu.as_ref()?;
         if let Some(usage) = gpu.max_usage() {
