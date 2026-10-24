@@ -18,9 +18,9 @@
 
 Corewatch is a native Linux system monitor built with Rust, GTK 4 and libadwaita.
 
-**Status: 0.1, early preview.** It shows live CPU, GPU, memory and disk usage.
+**Status: 0.2, preview.** It shows live CPU, GPU, memory, disk and battery usage.
 
-## Features in 0.1
+## Features in 0.2
 
 - CPU: model, cores and threads, total usage graph, one graph per logical core, current frequency
 - GPU: model, driver, core usage graph, clock speed, VRAM, and temperature
@@ -30,6 +30,26 @@ Corewatch is a native Linux system monitor built with Rust, GTK 4 and libadwaita
 - Follows the system light/dark style and accent color
 - Configurable update speeds (0.5s, 1s, 2s) and preferences dialog
 - Adaptive layout down to 360 px wide
+- A banner tells you when a data source stops answering
+
+## Install
+
+Every [release](https://github.com/amirmwhdi/CoreWatch/releases) has a Flatpak
+bundle, `.deb` (Debian 13 and newer, Ubuntu 26.04), `.rpm` (Fedora), an Arch
+package, an AppImage and a plain tarball, for x86_64 and aarch64 (the Arch
+package is x86_64 only). The AppImage and the tarball use the GTK and
+libadwaita of your system.
+
+```sh
+flatpak install --user corewatch-0.2.0-x86_64.flatpak
+sudo apt install ./corewatch-0.2.0-linux-amd64.deb
+sudo dnf install ./corewatch-0.2.0-linux-x86_64.rpm
+sudo pacman -U corewatch-0.2.0-linux-x86_64.pkg.tar.zst
+```
+
+Recipes for distribution repositories (AUR, Debian, Fedora COPR) are in
+`packaging/`; each one builds offline from the release source tarball, which
+contains every Rust crate.
 
 ## Build and run
 

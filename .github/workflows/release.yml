@@ -1,15 +1,14 @@
 name: Release
 
+# A tag v<version> builds every package and publishes a GitHub release.
+# Run it by hand (Actions → Release → Run workflow) to build the packages
+# without publishing anything.
+
 on:
   push:
     tags:
       - "v*"
   workflow_dispatch:
-    inputs:
-      version:
-        description: "Release version (e.g. 1.0.0)"
-        required: true
-        type: string
 
 permissions:
   contents: write
@@ -18,374 +17,260 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
-    name: Build (${{ matrix.arch }})
+  source:
+    name: Source tarball
+    runs-on: ubuntu-latest
+    container: debian:trixie
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Install dependencies
+        run: apt-get update && apt-get install -y --no-install-recommends ca-certificates curl git xz-utils gcc libc6-dev
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Read the version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n 1)
+          meson_version=$(sed -n "s/^  version: '\(.*\)',/\1/p" meson.build)
+          if [[ "$version" != "$meson_version" ]]; then
+            echo "Cargo.toml says $version, meson.build says $meson_version"; exit 1
+          fi
+          if [[ "$GITHUB_REF_TYPE" == tag && "$GITHUB_REF_NAME" != "v$version" ]]; then
+            echo "Tag $GITHUB_REF_NAME does not match version $version"; exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: Build the tarball with vendored crates
+        run: |
+          git config --global --add safe.directory "$PWD"
+          scripts/vendored-tarball.sh "${{ steps.version.outputs.version }}" dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: source
+          path: dist/*
+          if-no-files-found: error
 
+  deb:
+    name: deb (${{ matrix.arch }})
+    needs: source
     strategy:
       fail-fast: false
       matrix:
         include:
-          - arch: x86_64
-            runner: ubuntu-24.04
-            target: x86_64-unknown-linux-gnu
-            nfpm_arch: amd64
-            nfpm_download_arch: x86_64
-            appimage_arch: x86_64
-
-          - arch: aarch64
-            runner: ubuntu-24.04-arm
-            target: aarch64-unknown-linux-gnu
-            nfpm_arch: arm64
-            nfpm_download_arch: arm64
-            appimage_arch: aarch64
-
+          - { arch: amd64, runner: ubuntu-latest }
+          - { arch: arm64, runner: ubuntu-24.04-arm }
     runs-on: ${{ matrix.runner }}
-    # Build on the floor distribution: Ubuntu 24.04 ships GTK 4.14 and
-    # libadwaita 1.5, older than the 4.18 / 1.7 the code needs. A binary
-    # built against Debian 13's glibc also runs on every newer distribution.
+    # Debian 13 is the floor: the package installs on it and on anything newer.
     container: debian:trixie
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Determine version
-        id: vars
-        shell: bash
-        env:
-          INPUT_VERSION: ${{ inputs.version }}
+      - name: Install build dependencies
         run: |
-          set -euo pipefail
-
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-            VERSION="${GITHUB_REF_NAME#v}"
-          else
-            VERSION="$INPUT_VERSION"
-          fi
-
-          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
-            echo "Invalid version: $VERSION"
-            exit 1
-          fi
-
-          if grep -q '^\[package\]' Cargo.toml; then
-            APP_NAME="$(sed -n '/^\[package\]/,/^\[/{s/^name[[:space:]]*=[[:space:]]*"\(.*\)"/\1/p;}' Cargo.toml | head -n 1)"
-          else
-            APP_NAME="$(sed -n '/^\[package\]/,/^\[/{s/^name[[:space:]]*=[[:space:]]*"\(.*\)"/\1/p;}' crates/app/Cargo.toml | head -n 1)"
-          fi
-
-          if [[ -z "$APP_NAME" ]]; then
-            echo "Could not determine package name"
-            exit 1
-          fi
-
-          echo "app_name=$APP_NAME" >> "$GITHUB_OUTPUT"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-
-          echo "Application: $APP_NAME"
-          echo "Version: $VERSION"
-          echo "Architecture: ${{ matrix.arch }}"
-
-      - name: Install system dependencies
-        run: |
-          set -euo pipefail
-
           apt-get update
-
-          apt-get install -y --no-install-recommends \
-            ca-certificates \
-            build-essential \
-            pkg-config \
-            curl \
-            git \
-            file \
-            zstd \
-            libgtk-4-dev \
-            libadwaita-1-dev \
-            blueprint-compiler
-
-      - name: Install nfpm
-        run: |
-          set -euo pipefail
-
-          NFPM_VERSION="2.38.0"
-          NFPM_ARCH="${{ matrix.nfpm_download_arch }}"
-
-          URL="https://github.com/goreleaser/nfpm/releases/download/v${NFPM_VERSION}/nfpm_${NFPM_VERSION}_Linux_${NFPM_ARCH}.tar.gz"
-
-          curl -fL "$URL" -o nfpm.tar.gz
-
-          tar -xzf nfpm.tar.gz nfpm
-
-          install -m 755 nfpm /usr/local/bin/nfpm
-
-          nfpm --version
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+          apt-get install -y --no-install-recommends ca-certificates curl xz-utils \
+            build-essential debhelper meson blueprint-compiler \
+            libgtk-4-dev libadwaita-1-dev desktop-file-utils appstream
+      # gtk4-rs 0.11 needs Rust 1.92; Debian 13 ships 1.85.
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/download-artifact@v4
         with:
-          toolchain: stable
-          targets: ${{ matrix.target }}
-
-      - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@v2
+          name: source
+      - name: Build
+        run: |
+          v=${{ needs.source.outputs.version }}
+          cp "corewatch-$v.tar.xz" "corewatch_$v.orig.tar.xz"
+          tar -xf "corewatch-$v.tar.xz"
+          cd "corewatch-$v"
+          cp -r packaging/debian debian
+          # -d: cargo and rustc come from rustup above, not from apt. debhelper
+          # points HOME elsewhere, so tell rustup where its toolchains are.
+          export RUSTUP_HOME="$HOME/.rustup"
+          dpkg-buildpackage -us -uc -b -d
+          mkdir -p ../out
+          cp ../corewatch_*.deb "../out/corewatch-$v-linux-${{ matrix.arch }}.deb"
+      - uses: actions/upload-artifact@v4
         with:
-          key: ${{ matrix.target }}
-
-      - name: Build Rust project
-        run: |
-          set -euo pipefail
-
-          cargo build \
-            --locked \
-            --release \
-            -p corewatch \
-            --target "${{ matrix.target }}"
-
-      - name: Verify binary
-        env:
-          APP_NAME: ${{ steps.vars.outputs.app_name }}
-        run: |
-          set -euo pipefail
-
-          BINARY="target/${{ matrix.target }}/release/${APP_NAME}"
-
-          if [[ ! -f "$BINARY" ]]; then
-            echo "Binary not found: $BINARY"
-            exit 1
-          fi
-
-          file "$BINARY"
-          test -x "$BINARY"
-
-      - name: Prepare packaging directory
-        env:
-          APP_NAME: ${{ steps.vars.outputs.app_name }}
-          VERSION: ${{ steps.vars.outputs.version }}
-        run: |
-          set -euo pipefail
-
-          mkdir -p dist
-          mkdir -p AppDir/usr/bin
-          mkdir -p AppDir/usr/share/applications
-          mkdir -p AppDir/usr/share/icons/hicolor/scalable/apps
-
-          cp "target/${{ matrix.target }}/release/${APP_NAME}" \
-             "AppDir/usr/bin/${APP_NAME}"
-
-          chmod +x "AppDir/usr/bin/${APP_NAME}"
-
-          cat > AppDir/AppRun <<EOF
-          #!/bin/sh
-          HERE="\$(dirname "\$(readlink -f "\$0")")"
-          exec "\$HERE/usr/bin/${APP_NAME}" "\$@"
-          EOF
-
-          chmod +x AppDir/AppRun
-
-          cp data/io.github.amirmwhdi.Corewatch.desktop "AppDir/${APP_NAME}.desktop"
-          cp data/io.github.amirmwhdi.Corewatch.desktop "AppDir/usr/share/applications/${APP_NAME}.desktop"
-          cp data/icons/io.github.amirmwhdi.Corewatch.svg "AppDir/${APP_NAME}.svg"
-          cp data/icons/io.github.amirmwhdi.Corewatch.svg "AppDir/.DirIcon"
-          cp data/icons/io.github.amirmwhdi.Corewatch.svg "AppDir/usr/share/icons/hicolor/scalable/apps/${APP_NAME}.svg"
-
-      - name: Build Linux packages
-        env:
-          APP_NAME: ${{ steps.vars.outputs.app_name }}
-          VERSION: ${{ steps.vars.outputs.version }}
-          NFPM_ARCH: ${{ matrix.nfpm_arch }}
-          TARGET: ${{ matrix.target }}
-        run: |
-          set -euo pipefail
-
-          cat > nfpm.yaml <<EOF
-          name: "${APP_NAME}"
-          arch: "${NFPM_ARCH}"
-          platform: "linux"
-          version: "${VERSION}"
-          section: "utils"
-          priority: "optional"
-          maintainer: "Amirmahdi <https://github.com/amirmwhdi>"
-          description: "A modern Linux system monitor built with Rust and GTK 4"
-          homepage: "https://github.com/amirmwhdi/corewatch"
-          license: "GPL-3.0-or-later"
-
-          # Shared libraries the binary links against, per package format.
-          overrides:
-            deb:
-              depends:
-                - libgtk-4-1 (>= 4.18)
-                - libadwaita-1-0 (>= 1.7)
-            rpm:
-              depends:
-                - gtk4 >= 4.18
-                - libadwaita >= 1.7
-            archlinux:
-              depends:
-                - gtk4
-                - libadwaita
-
-          contents:
-            - src: "./target/${TARGET}/release/${APP_NAME}"
-              dst: "/usr/bin/${APP_NAME}"
-              file_info:
-                mode: 0755
-            - src: "data/io.github.amirmwhdi.Corewatch.desktop"
-              dst: "/usr/share/applications/${APP_NAME}.desktop"
-            - src: "data/icons/io.github.amirmwhdi.Corewatch.svg"
-              dst: "/usr/share/icons/hicolor/scalable/apps/${APP_NAME}.svg"
-          EOF
-
-          # Debian package
-          nfpm pkg \
-            --config nfpm.yaml \
-            --packager deb \
-            --target "dist/${APP_NAME}-${VERSION}-linux-${{ matrix.arch }}.deb"
-
-          # RPM package
-          nfpm pkg \
-            --config nfpm.yaml \
-            --packager rpm \
-            --target "dist/${APP_NAME}-${VERSION}-linux-${{ matrix.arch }}.rpm"
-
-          # Arch Linux package
-          nfpm pkg \
-            --config nfpm.yaml \
-            --packager archlinux \
-            --target "dist/${APP_NAME}-${VERSION}-linux-${{ matrix.arch }}.pkg.tar.zst"
-
-      - name: Create AppImage
-        env:
-          APP_NAME: ${{ steps.vars.outputs.app_name }}
-          VERSION: ${{ steps.vars.outputs.version }}
-        run: |
-          set -euo pipefail
-
-          ARCH="${{ matrix.appimage_arch }}"
-          TOOL="appimagetool-${ARCH}.AppImage"
-          OUTPUT="dist/${APP_NAME}-${VERSION}-linux-${{ matrix.arch }}.AppImage"
-
-          URL="https://github.com/AppImage/AppImageKit/releases/download/continuous/${TOOL}"
-
-          if ! curl -fL "$URL" -o "$TOOL"; then
-            echo "Could not download appimagetool for ${ARCH}"
-            exit 1
-          fi
-
-          chmod +x "$TOOL"
-
-          ARCH="$ARCH" "./$TOOL" \
-            AppDir \
-            "$OUTPUT" \
-            --appimage-extract-and-run
-
-          test -s "$OUTPUT"
-          file "$OUTPUT"
-
-      - name: Create binary archive
-        env:
-          APP_NAME: ${{ steps.vars.outputs.app_name }}
-          VERSION: ${{ steps.vars.outputs.version }}
-        run: |
-          set -euo pipefail
-
-          STAGE_DIR="staging/${APP_NAME}-${VERSION}-linux-${{ matrix.arch }}"
-          mkdir -p "${STAGE_DIR}/bin"
-          mkdir -p "${STAGE_DIR}/share/applications"
-          mkdir -p "${STAGE_DIR}/share/icons/hicolor/scalable/apps"
-
-          cp "target/${{ matrix.target }}/release/${APP_NAME}" "${STAGE_DIR}/bin/${APP_NAME}"
-          cp data/io.github.amirmwhdi.Corewatch.desktop "${STAGE_DIR}/share/applications/${APP_NAME}.desktop"
-          cp data/icons/io.github.amirmwhdi.Corewatch.svg "${STAGE_DIR}/share/icons/hicolor/scalable/apps/${APP_NAME}.svg"
-          cp README.md LICENSE "${STAGE_DIR}/"
-
-          tar -C staging \
-            -czf "dist/${APP_NAME}-${VERSION}-linux-${{ matrix.arch }}.tar.gz" \
-            "${APP_NAME}-${VERSION}-linux-${{ matrix.arch }}"
-
-          rm -rf staging
-
-      - name: Generate checksums
-        run: |
-          set -euo pipefail
-
-          cd dist
-
-          sha256sum * > "SHA256SUMS-${{ matrix.arch }}"
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-${{ matrix.arch }}
-          path: dist/*
+          name: deb-${{ matrix.arch }}
+          path: out/*
           if-no-files-found: error
-          retention-days: 7
+
+  rpm:
+    name: rpm (${{ matrix.arch }})
+    needs: source
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { arch: x86_64, runner: ubuntu-latest }
+          - { arch: aarch64, runner: ubuntu-24.04-arm }
+    runs-on: ${{ matrix.runner }}
+    container: fedora:latest
+    steps:
+      - name: Install build dependencies
+        run: dnf install -y --setopt=install_weak_deps=False rpm-build rpmdevtools dnf-plugins-core xz
+      - uses: actions/download-artifact@v4
+        with:
+          name: source
+      - name: Build
+        run: |
+          v=${{ needs.source.outputs.version }}
+          tar -xf "corewatch-$v.tar.xz" "corewatch-$v/packaging/rpm/corewatch.spec"
+          spec="corewatch-$v/packaging/rpm/corewatch.spec"
+          dnf builddep -y "$spec"
+          rpmdev-setuptree
+          cp "corewatch-$v.tar.xz" ~/rpmbuild/SOURCES/
+          rpmbuild -bb "$spec"
+          mkdir -p out
+          cp ~/rpmbuild/RPMS/*/corewatch-*.rpm "out/corewatch-$v-linux-${{ matrix.arch }}.rpm"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rpm-${{ matrix.arch }}
+          path: out/*
+          if-no-files-found: error
+
+  arch:
+    name: Arch package
+    needs: source
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    steps:
+      - name: Install build dependencies
+        run: |
+          pacman -Syu --noconfirm --needed base-devel cargo meson blueprint-compiler \
+            gtk4 libadwaita appstream desktop-file-utils
+          useradd -m builder
+      - uses: actions/download-artifact@v4
+        with:
+          name: source
+      - name: Build
+        run: |
+          v=${{ needs.source.outputs.version }}
+          mkdir -p /home/builder/pkg
+          tar -xf "corewatch-$v.tar.xz" -C /home/builder/pkg --strip-components=3 "corewatch-$v/packaging/arch/PKGBUILD"
+          cp "corewatch-$v.tar.xz" /home/builder/pkg/
+          # Build from the tarball of this run instead of downloading it.
+          sed -i "s|^source=.*|source=(\"corewatch-$v.tar.xz\")|" /home/builder/pkg/PKGBUILD
+          chown -R builder /home/builder/pkg
+          su builder -c "cd /home/builder/pkg && makepkg --noconfirm"
+          mkdir -p out
+          cp /home/builder/pkg/corewatch-*.pkg.tar.zst "out/corewatch-$v-linux-x86_64.pkg.tar.zst"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: arch
+          path: out/*
+          if-no-files-found: error
+
+  binary:
+    name: AppImage and tarball (${{ matrix.arch }})
+    needs: source
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { arch: x86_64, runner: ubuntu-latest }
+          - { arch: aarch64, runner: ubuntu-24.04-arm }
+    runs-on: ${{ matrix.runner }}
+    # Built against Debian 13's glibc, the binary runs on every newer distro.
+    # GTK and libadwaita come from the system: both need 4.18 / 1.7 or newer.
+    container: debian:trixie
+    steps:
+      - name: Install build dependencies
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates curl xz-utils file \
+            build-essential meson blueprint-compiler \
+            libgtk-4-dev libadwaita-1-dev
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/download-artifact@v4
+        with:
+          name: source
+      - name: Build and install into a staging tree
+        run: |
+          v=${{ needs.source.outputs.version }}
+          tar -xf "corewatch-$v.tar.xz"
+          cd "corewatch-$v"
+          . scripts/cargo-offline.sh
+          meson setup build --prefix=/usr
+          meson compile -C build
+          DESTDIR="$GITHUB_WORKSPACE/stage" meson install -C build
+      - name: Generic tarball
+        run: |
+          v=${{ needs.source.outputs.version }}
+          name="corewatch-$v-linux-${{ matrix.arch }}"
+          mkdir -p out "$name"
+          cp -r stage/usr/* "$name/"
+          cp "corewatch-$v/README.md" "corewatch-$v/LICENSE" "$name/"
+          tar -czf "out/$name.tar.gz" "$name"
+      - name: AppImage
+        run: |
+          v=${{ needs.source.outputs.version }}
+          app=io.github.amirmwhdi.Corewatch
+          mkdir -p AppDir
+          cp -r stage/usr AppDir/usr
+          cp "AppDir/usr/share/applications/$app.desktop" AppDir/
+          cp "AppDir/usr/share/icons/hicolor/scalable/apps/$app.svg" AppDir/
+          ln -s "$app.svg" AppDir/.DirIcon
+          printf '#!/bin/sh\nHERE="$(dirname "$(readlink -f "$0")")"\nexec "$HERE/usr/bin/corewatch" "$@"\n' > AppDir/AppRun
+          chmod +x AppDir/AppRun
+          tool="appimagetool-${{ matrix.arch }}.AppImage"
+          curl -fL -o "$tool" "https://github.com/AppImage/appimagetool/releases/download/continuous/$tool"
+          chmod +x "$tool"
+          ARCH=${{ matrix.arch }} "./$tool" --appimage-extract-and-run AppDir \
+            "out/corewatch-$v-linux-${{ matrix.arch }}.AppImage"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: binary-${{ matrix.arch }}
+          path: out/*
+          if-no-files-found: error
+
+  flatpak:
+    name: Flatpak (${{ matrix.arch }})
+    needs: source
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { arch: x86_64, runner: ubuntu-latest }
+          - { arch: aarch64, runner: ubuntu-24.04-arm }
+    runs-on: ${{ matrix.runner }}
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-49
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v4
+      - uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+        with:
+          bundle: corewatch-${{ needs.source.outputs.version }}-${{ matrix.arch }}.flatpak
+          manifest-path: packaging/flatpak/io.github.amirmwhdi.Corewatch.json
+          arch: ${{ matrix.arch }}
+          cache-key: flatpak-release-${{ github.sha }}
+          upload-artifact: false
+      - uses: actions/upload-artifact@v4
+        with:
+          name: flatpak-${{ matrix.arch }}
+          path: corewatch-*.flatpak
+          if-no-files-found: error
 
   publish:
-    name: Publish GitHub Release
-    needs: build
-    runs-on: ubuntu-24.04
-
+    name: Publish GitHub release
+    if: github.ref_type == 'tag'
+    needs: [source, deb, rpm, arch, binary, flatpak]
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Determine version
-        id: vars
-        shell: bash
-        env:
-          INPUT_VERSION: ${{ inputs.version }}
-        run: |
-          set -euo pipefail
-
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-            VERSION="${GITHUB_REF_NAME#v}"
-          else
-            VERSION="$INPUT_VERSION"
-          fi
-
-          if grep -q '^\[package\]' Cargo.toml; then
-            APP_NAME="$(sed -n '/^\[package\]/,/^\[/{s/^name[[:space:]]*=[[:space:]]*"\(.*\)"/\1/p;}' Cargo.toml | head -n 1)"
-          else
-            APP_NAME="$(sed -n '/^\[package\]/,/^\[/{s/^name[[:space:]]*=[[:space:]]*"\(.*\)"/\1/p;}' crates/app/Cargo.toml | head -n 1)"
-          fi
-
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "app_name=$APP_NAME" >> "$GITHUB_OUTPUT"
-
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
-          pattern: release-*
           path: artifacts
           merge-multiple: true
-
-      - name: Consolidate checksums
+      - name: Checksums
         run: |
-          set -euo pipefail
-
           cd artifacts
-          cat SHA256SUMS-* > SHA256SUMS
-          rm -f SHA256SUMS-*
-
-      - name: List release files
-        run: |
-          set -euo pipefail
-
-          find artifacts -maxdepth 1 -type f -print
-
-          test -n "$(find artifacts -maxdepth 1 -type f -print -quit)"
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+          sha256sum * > SHA256SUMS
+          cat SHA256SUMS
+      - uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || format('v{0}', inputs.version) }}
-          name: ${{ steps.vars.outputs.app_name }} v${{ steps.vars.outputs.version }}
-          target_commitish: ${{ github.sha }}
+          name: Corewatch ${{ needs.source.outputs.version }}
           files: artifacts/*
-          generate_release_notes: true
           fail_on_unmatched_files: true
-          draft: false
-          prerelease: ${{ contains(steps.vars.outputs.version, '-') }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          generate_release_notes: true
+          prerelease: ${{ contains(needs.source.outputs.version, '-') }}
