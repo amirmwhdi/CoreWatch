@@ -212,7 +212,7 @@ jobs:
           cp -a AppDir "$name"
           ln -sf AppRun "$name/corewatch"
           cp LICENSE "$name/"
-          tar -czf "out/$name.tar.gz" "$name"
+          tar -cJf "out/$name.tar.xz" "$name"
       - name: AppImage
         env:
           ARCH: ${{ matrix.arch }}
@@ -222,14 +222,17 @@ jobs:
           VERSION: ${{ needs.source.outputs.version }}
           # AppImageUpdate and similar tools find newer releases through this.
           UPINFO: gh-releases-zsync|amirmwhdi|CoreWatch|latest|corewatch-*-linux-${{ matrix.arch }}.AppImage.zsync
-        run: ./quick-sharun --make-appimage
+        run: |
+          ./quick-sharun --make-appimage
+          # Build metadata from appimagetool, not a release file.
+          rm -f "$OUTPATH/appinfo"
       - name: Smoke test
         run: |
           ls -la out
           v=${{ needs.source.outputs.version }}
           # No FUSE in a container: let the AppImage unpack itself instead.
           APPIMAGE_EXTRACT_AND_RUN=1 "out/corewatch-$v-linux-${{ matrix.arch }}.AppImage" --version
-          tar -xzf "out/corewatch-$v-linux-${{ matrix.arch }}.tar.gz" -C /tmp
+          tar -xJf "out/corewatch-$v-linux-${{ matrix.arch }}.tar.xz" -C /tmp
           "/tmp/corewatch-$v-linux-${{ matrix.arch }}/corewatch" --version
       - uses: actions/upload-artifact@v4
         with:
@@ -281,7 +284,7 @@ jobs:
           rm -f corewatch-*[0-9].tar.xz
           for f in *; do
             case "$f" in
-              *.deb|*.rpm|*.pkg.tar.zst|*.AppImage|*.AppImage.zsync|*-linux-*.tar.gz|*.flatpak) ;;
+              *.deb|*.rpm|*.pkg.tar.zst|*.AppImage|*.AppImage.zsync|*-linux-*.tar.xz|*.flatpak) ;;
               *) echo "Unexpected release file: $f"; exit 1 ;;
             esac
           done

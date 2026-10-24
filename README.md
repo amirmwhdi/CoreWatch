@@ -36,15 +36,20 @@ Corewatch is a native Linux system monitor built with Rust, GTK 4 and libadwaita
 
 Every [release](https://github.com/amirmwhdi/CoreWatch/releases) has a Flatpak
 bundle, `.deb` (Debian 13 and newer, Ubuntu 26.04), `.rpm` (Fedora), an Arch
-package, an AppImage and a plain tarball, for x86_64 and aarch64 (the Arch
-package is x86_64 only). The AppImage and the tarball use the GTK and
-libadwaita of your system.
+package, an AppImage and a portable tarball, for x86_64 and aarch64 (the Arch
+package is x86_64 only).
+
+The AppImage and the portable tarball carry their own GTK, libadwaita, Mesa
+and glibc, so they run on any distribution, old or new, without installing
+anything. They are larger (about 110 MB) for the same reason. Unpack the
+tarball anywhere and run `./corewatch` inside it.
 
 ```sh
 flatpak install --user corewatch-0.2.0-x86_64.flatpak
 sudo apt install ./corewatch-0.2.0-linux-amd64.deb
 sudo dnf install ./corewatch-0.2.0-linux-x86_64.rpm
 sudo pacman -U corewatch-0.2.0-linux-x86_64.pkg.tar.zst
+chmod +x corewatch-0.2.0-linux-x86_64.AppImage && ./corewatch-0.2.0-linux-x86_64.AppImage
 ```
 
 Releases contain only installable packages: the program, its desktop entry,
