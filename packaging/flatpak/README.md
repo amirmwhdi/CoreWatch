@@ -37,6 +37,11 @@ These permissions are there for single pages:
   "End Process" runs the host's `kill`. The per-process download and upload
   speeds come from the kernel's socket statistics (netlink), which the
   shared network namespace already allows.
+- `--system-talk-name=org.freedesktop.UDisks2`: the Disks page shows SATA
+  drive temperatures, which the kernel only exposes with the `drivetemp`
+  module loaded; otherwise they come from UDisks, which reads the drives'
+  SMART data (see `crates/app/src/drive_temps.rs`). Only
+  `GetManagedObjects` is called.
 - `--filesystem=host-os:ro`, the two Flatpak `exports/share` folders and
   `xdg-data/applications` and `xdg-data/icons`, all read-only: the
   Processes page shows each app's icon, so it reads the `.desktop` files

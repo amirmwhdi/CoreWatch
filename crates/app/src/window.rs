@@ -81,6 +81,7 @@ pub fn present(app: &adw::Application) {
     crate::i18n::set_units(settings.units);
     crate::widgets::graph::set_history(settings.speed.history_points());
     crate::widgets::graph::set_smooth(settings.smooth_graphs);
+    crate::drive_temps::start();
 
     if let Some(display) = gtk::gdk::Display::default() {
         let theme = gtk::IconTheme::for_display(&display);

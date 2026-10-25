@@ -3,6 +3,7 @@
 mod app_icons;
 mod compat;
 mod config;
+mod drive_temps;
 mod i18n;
 mod logging;
 mod modules;

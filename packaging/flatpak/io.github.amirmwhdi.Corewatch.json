@@ -12,6 +12,7 @@
     "--device=dri",
     "--share=network",
     "--talk-name=org.freedesktop.Flatpak",
+    "--system-talk-name=org.freedesktop.UDisks2",
     "--filesystem=host-os:ro",
     "--filesystem=/var/lib/flatpak/exports/share:ro",
     "--filesystem=xdg-data/flatpak/exports/share:ro",

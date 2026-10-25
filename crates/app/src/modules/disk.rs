@@ -241,8 +241,12 @@ impl DiskBlock {
             .set_subtitle(&transfer(device.read_bps, device.read_total));
         self.write
             .set_subtitle(&transfer(device.write_bps, device.written_total));
-        self.temp.set_visible(device.temp_c.is_some());
-        if let Some(temp) = device.temp_c {
+        // The kernel's sensor when there is one, otherwise UDisks (SMART).
+        let temp_c = device
+            .temp_c
+            .or_else(|| crate::drive_temps::celsius(&device.name));
+        self.temp.set_visible(temp_c.is_some());
+        if let Some(temp) = temp_c {
             let text = i18n::celsius(temp);
             if self.temp.subtitle().as_deref() != Some(text.as_str()) {
                 self.temp.set_subtitle(&text);

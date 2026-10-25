@@ -36,8 +36,9 @@ temperature and battery usage, and the running processes.
 - CPU: model, cores and threads, total usage graph, one graph per logical core, current frequency
 - GPU: model, driver, core usage graph, clock speed, VRAM, and temperature
 - Memory: used, available, cache and buffers, swap, usage graph
-- Disks: activity graph, read/write speeds, temperature of each drive, and
-  mounted filesystem space
+- Disks: activity graph, read/write speeds, temperature of each drive (from
+  the kernel's sensor, or for SATA drives from UDisks' SMART data when the
+  `drivetemp` module is not loaded), and mounted filesystem space
 - Battery: charge level graph, charging status, time remaining, health, power rate, and cycles
 - Follows the system light/dark style and accent color
 - Smooth, continuously scrolling graphs (can be turned off to save power)
