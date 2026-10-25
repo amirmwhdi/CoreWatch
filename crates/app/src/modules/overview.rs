@@ -1,8 +1,9 @@
 //! Overview page: one card per resource with its main number and a small
 //! graph. A card opens its resource's page.
 //!
-//! This page reads every field of the snapshot and has no collector: it only
-//! repeats what the other modules collected.
+//! This page reads every field of the snapshot. Its own collector only reads
+//! uptime and load average, for the System card; everything else repeats
+//! what the other modules collected.
 
 use super::{battery, network, Module, ResourcePage};
 use crate::config::HISTORY_LEN;
@@ -10,19 +11,21 @@ use crate::i18n::{self, gettext};
 use crate::widgets::Graph;
 use adw::prelude::*;
 use adw::subclass::prelude::ObjectSubclassIsExt;
-use corewatch_core::Snapshot;
+use corewatch_core::system::SystemCollector;
+use corewatch_core::{CollectError, Collector, Snapshot, SysRoot};
+
+fn collector(_root: &SysRoot) -> Result<Box<dyn Collector>, CollectError> {
+    Ok(Box::new(SystemCollector))
+}
 
 fn page() -> Box<dyn ResourcePage> {
     Box::new(OverviewPage::new())
 }
 
 pub const MODULE: Module = Module {
-    collector: None,
+    collector: Some(collector),
     page,
 };
-
-/// Temperatures are drawn as a share of this many degrees.
-const TEMPERATURE_TOP: f32 = 100.0;
 
 struct OverviewPage {
     root: gtk::Widget,
@@ -31,7 +34,7 @@ struct OverviewPage {
     gpu: Card,
     disk: Card,
     network: Card,
-    sensors: Card,
+    system: Card,
     battery: Card,
 }
 
@@ -51,7 +54,11 @@ impl OverviewPage {
                 &gettext("Network"),
                 "network-wireless-symbolic",
             ),
-            sensors: card("sensors", gettext("Temperature"), "cw-temperature-symbolic"),
+            system: card(
+                "processes",
+                gettext("System"),
+                "preferences-system-symbolic",
+            ),
             battery: card("battery", gettext("Battery"), "battery-symbolic"),
             root: view.upcast(),
         }
@@ -153,14 +160,27 @@ impl ResourcePage for OverviewPage {
             );
         }
 
-        if let Some(sensors) = &s.sensors {
-            if let Some(hottest) = sensors.hottest_celsius() {
-                self.sensors.set(
-                    Some(hottest / TEMPERATURE_TOP),
-                    &i18n::celsius(hottest),
-                    &gettext("Hottest sensor"),
-                );
-            }
+        if let Some(sys) = &s.system {
+            // Load per core: 1.0 means every core had work waiting on average.
+            let cores = s.cpu.as_ref().map_or(1, |c| c.info.logical.max(1));
+            let load = sys.load[0] / cores as f32;
+            let load_text = format!("{:.2}", sys.load[0]);
+            let detail = match &s.processes {
+                Some(p) => i18n::fmt(
+                    &i18n::ngettext(
+                        "Load {load} · {n} process",
+                        "Load {load} · {n} processes",
+                        i18n::count(p.processes.len()),
+                    ),
+                    &[("load", &load_text), ("n", &p.processes.len())],
+                ),
+                None => i18n::fmt(&gettext("Load {load}"), &[("load", &load_text)]),
+            };
+            self.system.set(
+                Some(load.clamp(0.0, 1.0)),
+                &uptime(sys.uptime_secs),
+                &detail,
+            );
         }
 
         if let Some(b) = s.battery.as_ref().and_then(|b| b.batteries.first()) {
@@ -178,6 +198,31 @@ impl ResourcePage for OverviewPage {
 
     fn summary(&self, _: &Snapshot) -> Option<String> {
         None
+    }
+}
+
+/// Time since boot: "2 days 3 h", "3 h 12 min", "12 min".
+fn uptime(secs: u64) -> String {
+    let (days, hours, minutes) = (secs / 86_400, secs / 3600 % 24, secs / 60 % 60);
+    if days > 0 {
+        i18n::fmt(
+            // Translators: uptime, e.g. "2 days 3 h"
+            &i18n::ngettext(
+                "{days} day {hours} h",
+                "{days} days {hours} h",
+                u32::try_from(days).unwrap_or(u32::MAX),
+            ),
+            &[("days", &days), ("hours", &hours)],
+        )
+    } else if hours > 0 {
+        // Translators: uptime, e.g. "3 h 12 min"
+        i18n::fmt(
+            &gettext("{hours} h {minutes} min"),
+            &[("hours", &hours), ("minutes", &minutes)],
+        )
+    } else {
+        // Translators: uptime, e.g. "12 min"
+        i18n::fmt(&gettext("{minutes} min"), &[("minutes", &minutes)])
     }
 }
 

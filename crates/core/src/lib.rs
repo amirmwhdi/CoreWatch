@@ -25,6 +25,7 @@ pub mod root;
 pub mod sampler;
 pub mod sensors;
 pub mod snapshot;
+pub mod system;
 pub mod throttle;
 
 pub use collector::Collector;

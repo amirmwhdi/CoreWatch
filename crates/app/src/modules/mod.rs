@@ -23,7 +23,7 @@ use corewatch_core::{CollectError, Collector, Snapshot, SysRoot};
 /// - format numbers here, never in `corewatch-core`.
 ///
 /// The overview page is the one exception to the first rule: it shows a
-/// little of every field and has no collector of its own.
+/// little of every field, next to its own (uptime and load).
 pub trait ResourcePage {
     /// Stable id, used as the stack page name, e.g. `"cpu"`.
     fn id(&self) -> &'static str;

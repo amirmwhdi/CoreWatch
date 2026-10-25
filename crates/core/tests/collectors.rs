@@ -448,3 +448,16 @@ fn process_collector_lists_processes_with_full_names() {
     assert_eq!(list[1].cpu, 0.0);
     assert_eq!(sample.generation, 2);
 }
+
+#[test]
+fn system_collector_reads_uptime_and_load() {
+    use corewatch_core::system::SystemCollector;
+
+    let mut snap = Snapshot::new();
+    SystemCollector
+        .collect(&fixture("desktop"), &mut snap)
+        .unwrap();
+    let system = snap.system.unwrap();
+    assert_eq!(system.uptime_secs, 93784);
+    assert_eq!(system.load, [0.52, 0.58, 0.59]);
+}
