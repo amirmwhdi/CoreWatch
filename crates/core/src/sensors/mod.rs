@@ -43,6 +43,12 @@ impl Chip {
         index == 1 && matches!(self.kind, ChipKind::Gpu | ChipKind::Storage)
     }
 
+    /// Whether fan `index` is the one the chip's page already shows: `fan1`
+    /// of a graphics card on the Graphics page.
+    pub fn fan_shown_by_page(&self, index: u32) -> bool {
+        index == 1 && self.kind == ChipKind::Gpu
+    }
+
     /// Where the sensor with `label` on this chip belongs. A motherboard
     /// sensor labeled for the processor (`CPU_FAN`, `CPUTIN`) goes with the
     /// processor.
@@ -80,6 +86,8 @@ pub struct Temperature {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Fan {
     pub label: Option<String>,
+    /// The `N` of the driver's `fanN_input`.
+    pub index: u32,
     pub rpm: u32,
 }
 
@@ -205,6 +213,7 @@ impl Collector for SensorCollector {
                     .filter_map(|f| {
                         Some(Fan {
                             label: f.label.clone(),
+                            index: f.index,
                             rpm: read_number(&f.path)?.try_into().ok()?,
                         })
                     })
@@ -356,6 +365,8 @@ mod tests {
         assert!(!chip("amdgpu").shown_by_page(2));
         assert!(chip("nvme").shown_by_page(1));
         assert!(!chip("k10temp").shown_by_page(1));
+        assert!(chip("amdgpu").fan_shown_by_page(1));
+        assert!(!chip("nct6798").fan_shown_by_page(1));
     }
 
     #[test]

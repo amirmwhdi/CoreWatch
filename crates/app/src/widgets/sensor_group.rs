@@ -120,7 +120,7 @@ pub fn readings(sensors: &SensorSample, home: Home) -> Vec<Reading<'_>> {
             });
         }
         for (i, f) in chip.fans.iter().enumerate() {
-            if chip.home(f.label.as_deref()) != home {
+            if chip.home(f.label.as_deref()) != home || chip.fan_shown_by_page(f.index) {
                 continue;
             }
             let title = f
