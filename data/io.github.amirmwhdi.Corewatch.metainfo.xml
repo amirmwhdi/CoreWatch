@@ -40,20 +40,28 @@
 
   <screenshots>
     <screenshot type="default">
-      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.3.0/data/screenshots/overview.png</image>
+      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.3.0/data/screenshots/light/overview.png</image>
       <caption>Every resource at a glance</caption>
     </screenshot>
     <screenshot>
-      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.3.0/data/screenshots/processes.png</image>
-      <caption>Sort, search and end processes</caption>
+      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.3.0/data/screenshots/light/processes.png</image>
+      <caption>Sort, search and end processes, with each app's download and upload speed</caption>
     </screenshot>
     <screenshot>
-      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.3.0/data/screenshots/network.png</image>
+      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.3.0/data/screenshots/light/processor.png</image>
+      <caption>Total and per-core usage, frequency and CPU sensors</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.3.0/data/screenshots/light/graphics.png</image>
+      <caption>Load, clocks, memory, temperature, power and fan of every graphics card</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.3.0/data/screenshots/light/disks.png</image>
+      <caption>Activity, speeds and temperature of each drive</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.3.0/data/screenshots/light/network.png</image>
       <caption>Download and upload speed per interface</caption>
-    </screenshot>
-    <screenshot>
-      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.3.0/data/screenshots/sensors.png</image>
-      <caption>Temperatures and fan speeds</caption>
     </screenshot>
   </screenshots>
 
