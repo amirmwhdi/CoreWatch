@@ -21,5 +21,16 @@ CI fails when the file is out of date.
 
 Inside the sandbox `/proc/self/mountinfo` lists the sandbox's own mounts, so
 the Filesystems group on the Disks page is not meaningful there yet. CPU,
-memory, disks, graphics and battery read global kernel files and work as
-on the host.
+memory, disks, graphics, sensors and battery read global kernel files and
+work as on the host.
+
+Two permissions are there for single pages:
+
+- `--share=network`: without it the sandbox has its own network namespace
+  with only `lo`, and the Network page would show nothing. Corewatch itself
+  never connects anywhere.
+- `--talk-name=org.freedesktop.Flatpak`: the sandbox has its own process
+  namespace, so the Processes page runs a small shell script on the host
+  with `flatpak-spawn --host` (see `crates/core/src/process/source.rs`). The
+  script only reads `/proc` and `/etc/passwd`, using shell built-ins, and
+  "End Process" runs the host's `kill`.

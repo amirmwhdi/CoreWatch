@@ -1,5 +1,5 @@
 Name:           corewatch
-Version:        0.2.0
+Version:        0.3.0
 Release:        1%{?dist}
 Summary:        A modern system monitor for Linux
 License:        GPL-3.0-or-later
@@ -53,5 +53,8 @@ export CARGO_NET_OFFLINE=true
 %{_datadir}/icons/hicolor/scalable/apps/io.github.amirmwhdi.Corewatch.svg
 
 %changelog
+* Sun Oct 25 2026 Amirmahdi <amirmwhdi@users.noreply.github.com> - 0.3.0-1
+- Overview, Processes, Network and Sensors pages
+
 * Sat Oct 24 2026 Amirmahdi <amirmwhdi@users.noreply.github.com> - 0.2.0-1
 - Graphics, Disks and Battery pages, preferences, Meson install, Flatpak

@@ -18,10 +18,17 @@
 
 Corewatch is a native Linux system monitor built with Rust, GTK 4 and libadwaita.
 
-**Status: 0.2, preview.** It shows live CPU, GPU, memory, disk and battery usage.
+**Status: 0.3, preview.** It shows live CPU, GPU, memory, disk, network,
+temperature and battery usage, and the running processes.
 
-## Features in 0.2
+## Features in 0.3
 
+- Overview: every resource on one page, each card opens its page
+- Processes: sortable table with CPU, memory, user and ID, search, "only my
+  processes", and End Process / Force Stop
+- Network: download and upload graph per interface, addresses, link speed,
+  Wi-Fi signal
+- Sensors: temperatures of processor, drives and motherboard, and fan speeds
 - CPU: model, cores and threads, total usage graph, one graph per logical core, current frequency
 - GPU: model, driver, core usage graph, clock speed, VRAM, and temperature
 - Memory: used, available, cache and buffers, swap, usage graph (binary IEC units)
@@ -41,10 +48,10 @@ package is x86_64 only). The AppImage uses the GTK and libadwaita of your
 system.
 
 ```sh
-flatpak install --user corewatch-0.2.0-x86_64.flatpak
-sudo apt install ./corewatch-0.2.0-linux-amd64.deb
-sudo dnf install ./corewatch-0.2.0-linux-x86_64.rpm
-sudo pacman -U corewatch-0.2.0-linux-x86_64.pkg.tar.zst
+flatpak install --user corewatch-0.3.0-x86_64.flatpak
+sudo apt install ./corewatch-0.3.0-linux-amd64.deb
+sudo dnf install ./corewatch-0.3.0-linux-x86_64.rpm
+sudo pacman -U corewatch-0.3.0-linux-x86_64.pkg.tar.zst
 ```
 
 Releases contain only installable packages: the program, its desktop entry,

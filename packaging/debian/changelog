@@ -1,3 +1,9 @@
+corewatch (0.3.0-1) unstable; urgency=medium
+
+  * New upstream release: Overview, Processes, Network and Sensors pages.
+
+ -- Amirmahdi <amirmwhdi@users.noreply.github.com>  Sun, 25 Oct 2026 12:00:00 +0000
+
 corewatch (0.2.0-1) unstable; urgency=medium
 
   * New upstream release: Graphics, Disks and Battery pages, preferences,
