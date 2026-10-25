@@ -2,6 +2,10 @@
 //!
 //! Keeps the last N values and draws them as a filled line in the accent color.
 //! Every page reuses this widget; no page draws by itself.
+//!
+//! A graph can also scale itself to the largest value it holds (for speeds,
+//! which have no fixed maximum) and draw a second series as a plain line in
+//! the text color (upload next to download).
 
 use adw::prelude::*;
 use gtk::subclass::prelude::*;
@@ -23,6 +27,11 @@ mod imp {
     #[properties(wrapper_type = super::Graph)]
     pub struct Graph {
         pub values: RefCell<VecDeque<f32>>,
+        /// Optional second series, drawn as a line without fill.
+        pub secondary: RefCell<VecDeque<f32>>,
+        /// `Some(floor)`: values are raw and the top of the graph is the
+        /// largest value held, but never less than `floor`.
+        pub autoscale: Cell<Option<f32>>,
         /// Points kept; older ones scroll out on the left. Settable from
         /// Blueprint as `capacity: 60;`.
         #[property(get, set = Self::set_capacity, minimum = 2, default = 60)]
@@ -39,6 +48,8 @@ mod imp {
         fn default() -> Self {
             Self {
                 values: RefCell::default(),
+                secondary: RefCell::default(),
+                autoscale: Cell::new(None),
                 capacity: Cell::new(60),
                 announced: Cell::new(None),
                 style_handlers: RefCell::default(),
@@ -49,11 +60,12 @@ mod imp {
     impl Graph {
         fn set_capacity(&self, capacity: u32) {
             self.capacity.set(capacity.max(2));
-            let mut values = self.values.borrow_mut();
-            while values.len() > self.capacity.get() as usize {
-                values.pop_front();
+            for series in [&self.values, &self.secondary] {
+                let mut values = series.borrow_mut();
+                while values.len() > self.capacity.get() as usize {
+                    values.pop_front();
+                }
             }
-            drop(values);
             self.obj().queue_draw();
         }
     }
@@ -120,65 +132,76 @@ mod imp {
             }
 
             let values = self.values.borrow();
+            let secondary = self.secondary.borrow();
             if values.len() < 2 {
                 return;
             }
 
-            // Newest value at the right edge (w); older values move left.
+            // Fixed graphs hold 0.0..=1.0; self-scaling ones divide by the peak.
+            let top = match self.autoscale.get() {
+                Some(floor) => values
+                    .iter()
+                    .chain(secondary.iter())
+                    .copied()
+                    .fold(floor, f32::max),
+                None => 1.0,
+            };
             let step = w / (self.capacity.get().max(2) - 1) as f32;
-            let x0 = w - step * (values.len() - 1) as f32;
-            let y = |v: f32| h - v.clamp(0.0, 1.0) * (h - 2.0) - 1.0;
-
-            let mut iter = values
-                .iter()
-                .enumerate()
-                .map(|(i, v)| (x0 + step * i as f32, y(*v)));
-
-            let Some(first) = iter.next() else { return };
-            let line = gsk::PathBuilder::new();
-            let area = gsk::PathBuilder::new();
-
-            // Setup initial points for both line and area
-            line.move_to(first.0, first.1);
-            area.move_to(first.0, h); // Area starts from bottom
-            area.line_to(first.0, first.1);
-
-            let mut prev = first;
-
-            // Draw smooth curves using cubic beziers across all points up to the latest point
-            for curr in iter {
-                let cp1_x = prev.0 + step / 2.0;
-                let cp1_y = prev.1;
-                let cp2_x = curr.0 - step / 2.0;
-                let cp2_y = curr.1;
-
-                line.cubic_to(cp1_x, cp1_y, cp2_x, cp2_y, curr.0, curr.1);
-                area.cubic_to(cp1_x, cp1_y, cp2_x, cp2_y, curr.0, curr.1);
-
-                prev = curr;
-            }
-
-            // Close the area path at the bottom right
-            area.line_to(w, h);
-            area.close();
+            let y = |v: f32| h - (v / top).clamp(0.0, 1.0) * (h - 2.0) - 1.0;
 
             let accent = adw::StyleManager::default().accent_color_rgba();
-
             // Adapt visual scale to widget size (crisp rendering on 48px core boxes)
-            let is_small = h < 60.0;
-            let stroke_width = if is_small { 1.6 } else { 2.4 };
-
-            // 1. Draw Solid Fill (using append_fill instead of gradient
-            //    because GTK4's push_clip only accepts Rect, not arbitrary Paths)
-            let fill = gdk::RGBA::new(accent.red(), accent.green(), accent.blue(), 0.25);
-            snapshot.append_fill(&area.to_path(), gsk::FillRule::Winding, &fill);
-
-            // 2. Draw the Line Stroke with rounded caps
-            let stroke = gsk::Stroke::new(stroke_width);
+            let stroke = gsk::Stroke::new(if h < 60.0 { 1.6 } else { 2.4 });
             stroke.set_line_cap(gsk::LineCap::Round);
-            snapshot.append_stroke(&line.to_path(), &stroke, &accent);
+
+            let (line, area) = series_paths(&values, step, w, h, y);
+            // Solid fill (append_fill instead of a gradient, because GTK4's
+            // push_clip only accepts Rect, not arbitrary paths), then the line.
+            let fill = gdk::RGBA::new(accent.red(), accent.green(), accent.blue(), 0.25);
+            snapshot.append_fill(&area, gsk::FillRule::Winding, &fill);
+            snapshot.append_stroke(&line, &stroke, &accent);
+
+            if secondary.len() >= 2 {
+                let (line, _) = series_paths(&secondary, step, w, h, y);
+                let color = gdk::RGBA::new(fg.red(), fg.green(), fg.blue(), 0.55);
+                snapshot.append_stroke(&line, &stroke, &color);
+            }
         }
     }
+}
+
+/// The line through `values` (newest at the right edge, older ones to the
+/// left) as smooth cubic curves, and the same line closed down to the bottom
+/// for the fill.
+fn series_paths(
+    values: &VecDeque<f32>,
+    step: f32,
+    w: f32,
+    h: f32,
+    y: impl Fn(f32) -> f32 + Copy,
+) -> (gsk::Path, gsk::Path) {
+    let x0 = w - step * (values.len() - 1) as f32;
+    let mut points = values
+        .iter()
+        .enumerate()
+        .map(|(i, v)| (x0 + step * i as f32, y(*v)));
+    let line = gsk::PathBuilder::new();
+    let area = gsk::PathBuilder::new();
+    if let Some(first) = points.next() {
+        line.move_to(first.0, first.1);
+        area.move_to(first.0, h);
+        area.line_to(first.0, first.1);
+        let mut prev = first;
+        for curr in points {
+            let (c1, c2) = ((prev.0 + step / 2.0, prev.1), (curr.0 - step / 2.0, curr.1));
+            line.cubic_to(c1.0, c1.1, c2.0, c2.1, curr.0, curr.1);
+            area.cubic_to(c1.0, c1.1, c2.0, c2.1, curr.0, curr.1);
+            prev = curr;
+        }
+        area.line_to(w, h);
+        area.close();
+    }
+    (line.to_path(), area.to_path())
 }
 
 glib::wrapper! {
@@ -196,15 +219,21 @@ impl Graph {
             .build()
     }
 
+    /// A graph for values without a fixed maximum (speeds): the top of the
+    /// graph follows the largest value shown, but stays at least `floor`.
+    pub fn new_autoscale(capacity: usize, height: i32, floor: f32) -> Self {
+        let graph = Self::new(capacity, height);
+        graph.imp().autoscale.set(Some(floor));
+        graph
+    }
+
     /// Append a value in 0.0..=1.0 and redraw.
     pub fn push(&self, value: f32) {
         let imp = self.imp();
-        {
-            let mut values = imp.values.borrow_mut();
-            values.push_back(value);
-            while values.len() > imp.capacity.get() as usize {
-                values.pop_front();
-            }
+        push_capped(&imp.values, value, imp.capacity.get());
+        if imp.autoscale.get().is_some() {
+            self.queue_draw();
+            return;
         }
         let percent = (value.clamp(0.0, 1.0) * 100.0).round() as u8;
         if imp.announced.replace(Some(percent)) != Some(percent) {
@@ -213,5 +242,22 @@ impl Graph {
             ))]);
         }
         self.queue_draw();
+    }
+
+    /// Append one value to each series and redraw. The accessible text is
+    /// left to the page, which knows what the numbers mean.
+    pub fn push_pair(&self, primary: f32, secondary: f32) {
+        let imp = self.imp();
+        push_capped(&imp.values, primary, imp.capacity.get());
+        push_capped(&imp.secondary, secondary, imp.capacity.get());
+        self.queue_draw();
+    }
+}
+
+fn push_capped(series: &RefCell<VecDeque<f32>>, value: f32, capacity: u32) {
+    let mut values = series.borrow_mut();
+    values.push_back(value);
+    while values.len() > capacity as usize {
+        values.pop_front();
     }
 }

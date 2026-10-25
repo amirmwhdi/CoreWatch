@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/core", "crates/app"]
 
 [workspace.package]
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 license = "GPL-3.0-or-later"
 authors = ["Amirmahdi <https://github.com/amirmwhdi>"]
@@ -16,7 +16,8 @@ gtk = { package = "gtk4", version = "0.11", features = ["v4_18"] }
 adw = { package = "libadwaita", version = "0.9", features = ["v1_7"] }
 async-channel = "2.3"
 thiserror = "2"
-rustix = { version = "1.1", features = ["fs"] }
+rustix = { version = "1.1", features = ["fs", "param", "process"] }
+libc = "0.2"
 tracing = "0.1"
 gettext-rs = { version = "0.8", features = ["gettext-system"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }

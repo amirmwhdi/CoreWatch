@@ -101,7 +101,7 @@ dependencies = [
 
 [[package]]
 name = "corewatch"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "async-channel",
  "corewatch-core",
@@ -116,9 +116,10 @@ dependencies = [
 
 [[package]]
 name = "corewatch-core"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "async-channel",
+ "libc",
  "rustix",
  "thiserror",
  "tracing",

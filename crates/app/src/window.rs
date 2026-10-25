@@ -97,8 +97,12 @@ pub fn present(app: &adw::Application) {
     let mut pages: Vec<(Box<dyn ResourcePage>, PageFrame, adw::ActionRow)> = Vec::new();
     for module in modules::all() {
         let page = (module.page)();
-        match (module.collector)(&root) {
-            Ok(collector) => {
+        match module
+            .collector
+            .map_or(Ok(None), |new| new(&root).map(Some))
+        {
+            Ok(None) => {}
+            Ok(Some(collector)) => {
                 tracing::info!(module = page.id(), "module enabled");
                 sampler.add(collector);
             }
@@ -208,6 +212,27 @@ pub fn present(app: &adw::Application) {
         }
     ));
     app.add_action(&log_action);
+
+    // Overview cards open their page: `app.show-page("cpu")`.
+    let show_page = gio::SimpleAction::new("show-page", Some(glib::VariantTy::STRING));
+    show_page.connect_activate(glib::clone!(
+        #[weak]
+        sidebar,
+        move |_, param| {
+            let Some(id) = param.and_then(|p| p.str()) else {
+                return;
+            };
+            let mut index = 0;
+            while let Some(row) = sidebar.row_at_index(index) {
+                if row.widget_name() == id {
+                    sidebar.select_row(Some(&row));
+                    return;
+                }
+                index += 1;
+            }
+        }
+    ));
+    app.add_action(&show_page);
 
     let pages = Rc::new(pages);
     glib::spawn_future_local(async move {

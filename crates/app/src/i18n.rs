@@ -79,6 +79,24 @@ pub fn percent(fraction: f32) -> String {
     fmt(&gettext("{value}%"), &[("value", &value)])
 }
 
+/// A size in binary units, e.g. "4.1 GiB".
+pub fn size(bytes: u64) -> String {
+    gtk::glib::format_size_full(bytes, gtk::glib::FormatSizeFlags::IEC_UNITS).into()
+}
+
+/// A transfer speed in binary units, e.g. "12.3 MiB/s".
+pub fn speed(bytes_per_sec: u64) -> String {
+    // Translators: a transfer speed, e.g. "12.3 MiB/s"
+    fmt(&gettext("{size}/s"), &[("size", &size(bytes_per_sec))])
+}
+
+/// A temperature in whole degrees Celsius, e.g. "54 °C".
+pub fn celsius(value: f32) -> String {
+    let value = format!("{value:.0}");
+    // Translators: a temperature, e.g. "54 °C"
+    fmt(&gettext("{value} °C"), &[("value", &value)])
+}
+
 /// `ngettext` needs a `u32`; counts above that are not a real concern here.
 pub fn count(n: usize) -> u32 {
     u32::try_from(n).unwrap_or(u32::MAX)

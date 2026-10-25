@@ -11,7 +11,12 @@
     <file preprocess="xml-stripblanks">ui/battery-page.ui</file>
     <file preprocess="xml-stripblanks">ui/memory-page.ui</file>
     <file preprocess="xml-stripblanks">ui/disk-page.ui</file>
+    <file preprocess="xml-stripblanks">ui/network-page.ui</file>
+    <file preprocess="xml-stripblanks">ui/overview-page.ui</file>
+    <file preprocess="xml-stripblanks">ui/processes-page.ui</file>
+    <file preprocess="xml-stripblanks">ui/sensors-page.ui</file>
     <file alias="icons/scalable/apps/io.github.amirmwhdi.Corewatch.svg">icons/io.github.amirmwhdi.Corewatch.svg</file>
+    <file alias="icons/scalable/status/cw-temperature-symbolic.svg" preprocess="xml-stripblanks">icons/symbolic/cw-temperature-symbolic.svg</file>
     <!-- Loaded automatically by AdwApplication from <app-id path>/style.css -->
     <file>style.css</file>
   </gresource>

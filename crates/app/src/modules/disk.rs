@@ -22,7 +22,10 @@ fn page() -> Box<dyn ResourcePage> {
     Box::new(DiskPage::new())
 }
 
-pub const MODULE: Module = Module { collector, page };
+pub const MODULE: Module = Module {
+    collector: Some(collector),
+    page,
+};
 
 /// Filesystems above this share of used space get the warning colour.
 const SPACE_WARNING: f64 = 0.9;
@@ -164,7 +167,7 @@ impl ResourcePage for DiskPage {
     }
 
     fn summary(&self, snapshot: &Snapshot) -> Option<String> {
-        snapshot.disk.as_ref().map(|d| speed(d.total_bps()))
+        snapshot.disk.as_ref().map(|d| i18n::speed(d.total_bps()))
     }
 }
 
@@ -248,7 +251,7 @@ fn transfer(bps: Option<u64>, total: u64) -> String {
         Some(bps) => i18n::fmt(
             &gettext("{speed} · {total} since boot"),
             &[
-                ("speed", &speed(bps)),
+                ("speed", &i18n::speed(bps)),
                 (
                     "total",
                     &glib::format_size_full(total, glib::FormatSizeFlags::IEC_UNITS),
@@ -257,17 +260,6 @@ fn transfer(bps: Option<u64>, total: u64) -> String {
         ),
         None => "…".to_owned(),
     }
-}
-
-fn speed(bps: u64) -> String {
-    // Translators: a transfer speed, e.g. "12.3 MiB/s"
-    i18n::fmt(
-        &gettext("{size}/s"),
-        &[(
-            "size",
-            &glib::format_size_full(bps, glib::FormatSizeFlags::IEC_UNITS),
-        )],
-    )
 }
 
 fn kind_label(kind: DiskKind) -> String {

@@ -1,0 +1,53 @@
+using Gtk 4.0;
+using Adw 1;
+
+translation-domain "corewatch";
+
+// Processes page: a search bar and buttons above a sortable table. The
+// table's columns and model are set up in processes.rs.
+template $CwProcessesPage: Adw.Bin {
+  child: Adw.ToastOverlay toasts {
+    child: Box {
+      orientation: vertical;
+
+      Box {
+        spacing: 6;
+
+        styles [
+          "cw-toolbar",
+        ]
+
+        SearchEntry search {
+          placeholder-text: _("Search processes");
+          hexpand: true;
+        }
+
+        ToggleButton mine {
+          icon-name: "avatar-default-symbolic";
+          tooltip-text: _("Only My Processes");
+        }
+
+        Button end_button {
+          label: _("End Process…");
+          sensitive: false;
+
+          styles [
+            "destructive-action",
+          ]
+        }
+      }
+
+      ScrolledWindow {
+        vexpand: true;
+
+        child: ColumnView columns {
+          reorderable: false;
+
+          styles [
+            "data-table",
+          ]
+        };
+      }
+    };
+  };
+}

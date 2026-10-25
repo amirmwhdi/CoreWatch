@@ -4,6 +4,10 @@ crates/app/src/modules/cpu.rs
 crates/app/src/modules/disk.rs
 crates/app/src/modules/gpu.rs
 crates/app/src/modules/memory.rs
+crates/app/src/modules/network.rs
+crates/app/src/modules/overview.rs
+crates/app/src/modules/processes.rs
+crates/app/src/modules/sensors.rs
 crates/app/src/window.rs
 data/io.github.amirmwhdi.Corewatch.desktop
 data/io.github.amirmwhdi.Corewatch.metainfo.xml
@@ -12,6 +16,10 @@ data/ui/stable/cpu-page.blp
 data/ui/stable/disk-page.blp
 data/ui/stable/gpu-page.blp
 data/ui/stable/memory-page.blp
+data/ui/stable/network-page.blp
+data/ui/stable/overview-page.blp
 data/ui/stable/page-frame.blp
 data/ui/stable/preferences.blp
+data/ui/stable/processes-page.blp
+data/ui/stable/sensors-page.blp
 data/ui/stable/window.blp

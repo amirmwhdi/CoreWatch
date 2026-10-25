@@ -18,7 +18,10 @@ fn page() -> Box<dyn ResourcePage> {
     Box::new(GpuPage::new())
 }
 
-pub const MODULE: Module = Module { collector, page };
+pub const MODULE: Module = Module {
+    collector: Some(collector),
+    page,
+};
 
 struct GpuPage {
     root: gtk::Widget,

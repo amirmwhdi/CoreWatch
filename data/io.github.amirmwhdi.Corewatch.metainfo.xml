@@ -6,17 +6,21 @@
   <project_license>GPL-3.0-or-later</project_license>
 
   <name>Corewatch</name>
-  <summary>Watch your processor, memory, disks and more</summary>
+  <summary>Watch your processor, memory, processes and more</summary>
   <description>
     <p>
       Corewatch is a native system monitor for Linux. It shows what your
       computer is doing right now, with a live graph for every resource.
     </p>
     <ul>
+      <li>Overview: every resource on one page</li>
+      <li>Processes: sort by CPU or memory, search, and end a stuck program</li>
       <li>Processor: total usage, one graph per core, model and frequency</li>
       <li>Memory: used, available, cache, buffers and swap</li>
       <li>Graphics: usage or clock, video memory and temperature</li>
       <li>Disks: activity, read and write speed, and free space</li>
+      <li>Network: download and upload speed, addresses and Wi-Fi signal</li>
+      <li>Sensors: temperatures and fan speeds</li>
       <li>Battery: charge, time remaining, power draw and health</li>
     </ul>
     <p>
@@ -33,6 +37,25 @@
   <provides>
     <binary>corewatch</binary>
   </provides>
+
+  <screenshots>
+    <screenshot type="default">
+      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.3.0/data/screenshots/overview.png</image>
+      <caption>Every resource at a glance</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.3.0/data/screenshots/processes.png</image>
+      <caption>Sort, search and end processes</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.3.0/data/screenshots/network.png</image>
+      <caption>Download and upload speed per interface</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.3.0/data/screenshots/sensors.png</image>
+      <caption>Temperatures and fan speeds</caption>
+    </screenshot>
+  </screenshots>
 
   <url type="homepage">https://github.com/amirmwhdi/CoreWatch</url>
   <url type="bugtracker">https://github.com/amirmwhdi/CoreWatch/issues</url>
@@ -59,6 +82,9 @@
     <keyword>cpu</keyword>
     <keyword>memory</keyword>
     <keyword>disk</keyword>
+    <keyword>process</keyword>
+    <keyword>network</keyword>
+    <keyword>temperature</keyword>
   </keywords>
 
   <branding>
@@ -67,6 +93,16 @@
   </branding>
 
   <releases>
+    <release version="0.3.0" date="2026-10-25">
+      <description>
+        <ul>
+          <li>New Overview page with every resource at a glance</li>
+          <li>New Processes page: sort, search, and end or force-stop a process</li>
+          <li>New Network page: speeds, addresses, link speed and Wi-Fi signal</li>
+          <li>New Sensors page: temperatures and fan speeds</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.2.0" date="2026-10-24">
       <description>
         <ul>

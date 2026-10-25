@@ -1,0 +1,40 @@
+using Gtk 4.0;
+using Adw 1;
+
+translation-domain "corewatch";
+
+// Network page. One block per interface is added to interfaces_box at run
+// time (interfaces come and go: USB adapters, VPNs).
+template $CwNetworkPage: Adw.Bin {
+  child: ScrolledWindow {
+    hscrollbar-policy: never;
+
+    child: Adw.Clamp {
+      maximum-size: 1000;
+
+      child: Box {
+        orientation: vertical;
+        spacing: 24;
+
+        styles [
+          "cw-page",
+        ]
+
+        Box interfaces_box {
+          orientation: vertical;
+          spacing: 24;
+        }
+
+        Adw.StatusPage no_interfaces {
+          icon-name: "network-offline-symbolic";
+          title: _("No network interfaces");
+          visible: false;
+
+          styles [
+            "compact",
+          ]
+        }
+      };
+    };
+  };
+}

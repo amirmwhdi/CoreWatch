@@ -6,3 +6,34 @@
 .cw-page {
   margin: 24px 12px;
 }
+
+/* The search bar above the process table. */
+.cw-toolbar {
+  margin: 6px 12px;
+}
+
+/* Legend dots that tie a row to its line in a two-line graph: the filled
+   accent series and the plain line in the text color. */
+.cw-dot {
+  min-width: 10px;
+  min-height: 10px;
+  border-radius: 5px;
+}
+
+.cw-dot.primary {
+  background-color: var(--accent-bg-color);
+}
+
+.cw-dot.secondary {
+  background-color: alpha(currentColor, 0.55);
+}
+
+/* Overview cards. */
+.cw-card {
+  padding: 12px;
+}
+
+.cw-card .cw-value {
+  font-size: 1.6em;
+  font-weight: 700;
+}

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: corewatch\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-24 09:43+0000\n"
+"POT-Creation-Date: 2026-10-25 10:51+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -19,215 +19,433 @@ msgstr ""
 "Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
 
 #. Translators: a percentage, e.g. "37%"
-#: crates/app/src/i18n.rs:79
+#: crates/app/src/i18n.rs:79 crates/app/src/modules/processes.rs:427
 msgid "{value}%"
 msgstr ""
 
-#: crates/app/src/modules/battery.rs:62
+#. Translators: a transfer speed, e.g. "12.3 MiB/s"
+#: crates/app/src/i18n.rs:90
+msgid "{size}/s"
+msgstr ""
+
+#. Translators: a temperature, e.g. "54 °C"
+#: crates/app/src/i18n.rs:97
+msgid "{value} °C"
+msgstr ""
+
+#: crates/app/src/modules/battery.rs:65 crates/app/src/modules/overview.rs:55
 msgid "Battery"
 msgstr ""
 
-#: crates/app/src/modules/battery.rs:85
-msgid "Charging"
-msgstr ""
-
-#: crates/app/src/modules/battery.rs:86
-msgid "Discharging"
-msgstr ""
-
-#: crates/app/src/modules/battery.rs:87
-msgid "Not charging"
-msgstr ""
-
-#: crates/app/src/modules/battery.rs:88
-msgid "Fully charged"
-msgstr ""
-
-#: crates/app/src/modules/battery.rs:89 crates/app/src/modules/cpu.rs:133
-#: crates/app/src/modules/gpu.rs:87 crates/app/src/modules/gpu.rs:108
-msgid "Unknown"
-msgstr ""
-
-#: crates/app/src/modules/battery.rs:101
+#: crates/app/src/modules/battery.rs:97
 msgid "{h}h {m}m"
 msgstr ""
 
-#: crates/app/src/modules/battery.rs:103
+#: crates/app/src/modules/battery.rs:99
 msgid "{m} minutes"
 msgstr ""
 
-#: crates/app/src/modules/battery.rs:107
+#: crates/app/src/modules/battery.rs:103
 msgid "{time} until full"
 msgstr ""
 
-#: crates/app/src/modules/battery.rs:109
+#: crates/app/src/modules/battery.rs:105
 msgid "{time} remaining"
 msgstr ""
 
 #. Translators: a power draw, e.g. "7.4 W"
-#: crates/app/src/modules/battery.rs:123
+#: crates/app/src/modules/battery.rs:119
 msgid "{watts} W"
 msgstr ""
 
 #. Translators: e.g. "92% · 46.1 Wh of 50.0 Wh design"
-#: crates/app/src/modules/battery.rs:141
+#: crates/app/src/modules/battery.rs:137
 msgid "{health} · {full} Wh of {design} Wh design"
 msgstr ""
 
-#: crates/app/src/modules/battery.rs:162
+#: crates/app/src/modules/battery.rs:158 crates/app/src/modules/network.rs:263
 msgid "Connected"
 msgstr ""
 
-#: crates/app/src/modules/battery.rs:164
+#: crates/app/src/modules/battery.rs:160
 msgid "Disconnected (Running on battery)"
 msgstr ""
 
-#: crates/app/src/modules/battery.rs:175
+#: crates/app/src/modules/battery.rs:171
 msgid "{c} cycles"
 msgstr ""
 
-#: crates/app/src/modules/battery.rs:180
+#: crates/app/src/modules/battery.rs:176
 msgid "{model} · {tech} · {cycles}"
 msgstr ""
 
-#: crates/app/src/modules/battery.rs:189
+#: crates/app/src/modules/battery.rs:185
 msgid "{model} · {tech}"
 msgstr ""
 
-#: crates/app/src/modules/battery.rs:208
+#: crates/app/src/modules/battery.rs:204
 msgid "{pct} (Charging)"
 msgstr ""
 
-#: crates/app/src/modules/cpu.rs:82
+#: crates/app/src/modules/battery.rs:213
+msgid "Charging"
+msgstr ""
+
+#: crates/app/src/modules/battery.rs:214
+msgid "Discharging"
+msgstr ""
+
+#: crates/app/src/modules/battery.rs:215
+msgid "Not charging"
+msgstr ""
+
+#: crates/app/src/modules/battery.rs:216
+msgid "Fully charged"
+msgstr ""
+
+#: crates/app/src/modules/battery.rs:217 crates/app/src/modules/cpu.rs:136
+#: crates/app/src/modules/gpu.rs:90 crates/app/src/modules/gpu.rs:111
+msgid "Unknown"
+msgstr ""
+
+#: crates/app/src/modules/cpu.rs:85 crates/app/src/modules/overview.rs:44
+#: crates/app/src/modules/sensors.rs:178
 msgid "Processor"
 msgstr ""
 
-#: crates/app/src/modules/cpu.rs:102
+#: crates/app/src/modules/cpu.rs:105
 msgid "{n} thread"
 msgid_plural "{n} threads"
 msgstr[0] ""
 msgstr[1] ""
 
-#: crates/app/src/modules/cpu.rs:108
+#: crates/app/src/modules/cpu.rs:111
 msgid "{n} core"
 msgid_plural "{n} cores"
 msgstr[0] ""
 msgstr[1] ""
 
-#: crates/app/src/modules/cpu.rs:113
+#: crates/app/src/modules/cpu.rs:116
 msgid "{cores}, {threads}"
 msgstr ""
 
 #. Translators: e.g. "37% · 8 cores, 16 threads"
-#: crates/app/src/modules/cpu.rs:125
+#: crates/app/src/modules/cpu.rs:128
 msgid "{usage} · {threads}"
 msgstr ""
 
-#: crates/app/src/modules/cpu.rs:130
+#: crates/app/src/modules/cpu.rs:133
 msgid "{ghz} GHz (fastest core)"
 msgstr ""
 
 #. Translators: one logical core, e.g. "CPU 3 · 12%"
-#: crates/app/src/modules/cpu.rs:141
+#: crates/app/src/modules/cpu.rs:144
 msgid "CPU {id} · {usage}"
 msgstr ""
 
 #. Translators: e.g. "120 GiB of 500 GiB used · ext4 · /dev/nvme0n1p2"
-#: crates/app/src/modules/disk.rs:120
+#: crates/app/src/modules/disk.rs:123
 msgid "{used} of {total} used · {type} · {device}"
 msgstr ""
 
-#: crates/app/src/modules/disk.rs:145
+#: crates/app/src/modules/disk.rs:148 crates/app/src/modules/overview.rs:47
 msgid "Disks"
 msgstr ""
 
 #. Translators: disk type, size and kernel name, e.g. "NVMe · 512 GiB · nvme0n1"
-#: crates/app/src/modules/disk.rs:191
+#: crates/app/src/modules/disk.rs:194
 msgid "{kind} · {size} · {name}"
 msgstr ""
 
-#: crates/app/src/modules/disk.rs:207
+#: crates/app/src/modules/disk.rs:210
 msgid "Activity of {model}"
 msgstr ""
 
-#: crates/app/src/modules/disk.rs:212
+#: crates/app/src/modules/disk.rs:215
 msgid "Read"
 msgstr ""
 
-#: crates/app/src/modules/disk.rs:212
+#: crates/app/src/modules/disk.rs:215
 msgid "Write"
 msgstr ""
 
-#: crates/app/src/modules/disk.rs:249
+#: crates/app/src/modules/disk.rs:252
 msgid "{speed} · {total} since boot"
 msgstr ""
 
-#: crates/app/src/modules/disk.rs:265
-msgid "{size}/s"
-msgstr ""
-
-#: crates/app/src/modules/disk.rs:275
+#: crates/app/src/modules/disk.rs:267
 msgid "NVMe"
 msgstr ""
 
-#: crates/app/src/modules/disk.rs:276
+#: crates/app/src/modules/disk.rs:268
 msgid "SSD"
 msgstr ""
 
-#: crates/app/src/modules/disk.rs:277
+#: crates/app/src/modules/disk.rs:269
 msgid "Hard disk"
 msgstr ""
 
-#: crates/app/src/modules/disk.rs:278
+#: crates/app/src/modules/disk.rs:270
 msgid "Removable"
 msgstr ""
 
-#: crates/app/src/modules/gpu.rs:61
+#: crates/app/src/modules/gpu.rs:64 crates/app/src/modules/overview.rs:46
+#: crates/app/src/modules/sensors.rs:179
 msgid "Graphics"
 msgstr ""
 
-#: crates/app/src/modules/gpu.rs:93
+#: crates/app/src/modules/gpu.rs:96
 msgid "Not reported by the driver"
 msgstr ""
 
-#: crates/app/src/modules/gpu.rs:99
+#: crates/app/src/modules/gpu.rs:102
 msgid "{cur} MHz / {max} MHz"
 msgstr ""
 
-#: crates/app/src/modules/gpu.rs:105 crates/app/src/modules/gpu.rs:159
+#: crates/app/src/modules/gpu.rs:108 crates/app/src/modules/gpu.rs:162
+#: crates/app/src/modules/overview.rs:112
 msgid "{cur} MHz"
 msgstr ""
 
-#: crates/app/src/modules/gpu.rs:115 crates/app/src/modules/memory.rs:92
+#: crates/app/src/modules/gpu.rs:118 crates/app/src/modules/memory.rs:95
+#: crates/app/src/modules/overview.rs:99
 msgid "{used} of {total}"
 msgstr ""
 
-#: crates/app/src/modules/gpu.rs:132
+#: crates/app/src/modules/gpu.rs:135
 msgid "Shared / System RAM"
 msgstr ""
 
-#: crates/app/src/modules/gpu.rs:140
+#: crates/app/src/modules/gpu.rs:143
 msgid "{t} °C"
 msgstr ""
 
-#: crates/app/src/modules/memory.rs:56
+#: crates/app/src/modules/memory.rs:59 crates/app/src/modules/overview.rs:45
+#: crates/app/src/modules/processes.rs:111
 msgid "Memory"
 msgstr ""
 
 #. Translators: e.g. "6.2 GiB of 16 GiB (39%)"
-#: crates/app/src/modules/memory.rs:74
+#: crates/app/src/modules/memory.rs:77
 msgid "{used} of {total} ({percent})"
 msgstr ""
 
-#: crates/app/src/modules/memory.rs:83
+#: crates/app/src/modules/memory.rs:86
 msgid "{cache} cache · {buffers} buffers"
 msgstr ""
 
-#: crates/app/src/modules/memory.rs:88
+#: crates/app/src/modules/memory.rs:91
 msgid "No swap configured"
 msgstr ""
 
-#: crates/app/src/window.rs:217
+#: crates/app/src/modules/network.rs:98 crates/app/src/modules/network.rs:300
+#: crates/app/src/modules/overview.rs:51
+msgid "Network"
+msgstr ""
+
+#: crates/app/src/modules/network.rs:155
+msgid "Traffic of {name}"
+msgstr ""
+
+#: crates/app/src/modules/network.rs:166
+msgid "Download"
+msgstr ""
+
+#: crates/app/src/modules/network.rs:166
+msgid "Upload"
+msgstr ""
+
+#: crates/app/src/modules/network.rs:169
+msgid "IPv4 address"
+msgstr ""
+
+#: crates/app/src/modules/network.rs:169
+msgid "IPv6 address"
+msgstr ""
+
+#: crates/app/src/modules/network.rs:176
+msgid "Hardware address"
+msgstr ""
+
+#: crates/app/src/modules/network.rs:209
+msgid "{total} received"
+msgstr ""
+
+#: crates/app/src/modules/network.rs:216
+msgid "{total} sent"
+msgstr ""
+
+#: crates/app/src/modules/network.rs:254
+msgid "Disconnected"
+msgstr ""
+
+#: crates/app/src/modules/network.rs:257
+msgid "Signal {percent}"
+msgstr ""
+
+#. Translators: interface name and state, e.g. "wlp2s0 · Signal 80%"
+#: crates/app/src/modules/network.rs:267
+msgid "{name} · {state}"
+msgstr ""
+
+#. Translators: a network link speed in gigabits, e.g. "2.5 Gb/s"
+#: crates/app/src/modules/network.rs:277
+msgid "{value} Gb/s"
+msgstr ""
+
+#. Translators: a network link speed in megabits, e.g. "100 Mb/s"
+#: crates/app/src/modules/network.rs:280
+msgid "{value} Mb/s"
+msgstr ""
+
+#: crates/app/src/modules/network.rs:288
+msgid "{speed} · {total}"
+msgstr ""
+
+#: crates/app/src/modules/network.rs:297
+msgid "Ethernet"
+msgstr ""
+
+#: crates/app/src/modules/network.rs:298
+msgid "Wi-Fi"
+msgstr ""
+
+#: crates/app/src/modules/network.rs:299
+msgid "VPN"
+msgstr ""
+
+#: crates/app/src/modules/overview.rs:54 crates/app/src/modules/sensors.rs:66
+#: data/ui/stable/gpu-page.blp:67
+msgid "Temperature"
+msgstr ""
+
+#: crates/app/src/modules/overview.rs:67
+msgid "Overview"
+msgstr ""
+
+#: crates/app/src/modules/overview.rs:128
+msgid "Read {read} · Write {write}"
+msgstr ""
+
+#. Translators: download speed, e.g. "↓ 1.2 MiB/s"
+#: crates/app/src/modules/overview.rs:145
+msgid "↓ {speed}"
+msgstr ""
+
+#. Translators: upload speed, e.g. "↑ 40 KiB/s"
+#: crates/app/src/modules/overview.rs:150
+msgid "↑ {speed}"
+msgstr ""
+
+#: crates/app/src/modules/overview.rs:161
+msgid "Hottest sensor"
+msgstr ""
+
+#. Translators: a processor clock, e.g. "3.4 GHz"
+#: crates/app/src/modules/overview.rs:188
+msgid "{value} GHz"
+msgstr ""
+
+#: crates/app/src/modules/overview.rs:246
+msgid "Open {page}"
+msgstr ""
+
+#: crates/app/src/modules/processes.rs:105
+msgid "Name"
+msgstr ""
+
+#: crates/app/src/modules/processes.rs:107
+msgid "User"
+msgstr ""
+
+#: crates/app/src/modules/processes.rs:108
+msgid "CPU"
+msgstr ""
+
+#: crates/app/src/modules/processes.rs:116
+msgid "ID"
+msgstr ""
+
+#: crates/app/src/modules/processes.rs:190
+msgid "Processes"
+msgstr ""
+
+#: crates/app/src/modules/processes.rs:221
+msgid "{n} process"
+msgid_plural "{n} processes"
+msgstr[0] ""
+msgstr[1] ""
+
+#: crates/app/src/modules/processes.rs:282
+msgid "End “{name}”?"
+msgstr ""
+
+#: crates/app/src/modules/processes.rs:286
+msgid ""
+"Unsaved work in this program may be lost. Force Stop ends it at once, "
+"without letting it clean up."
+msgstr ""
+
+#: crates/app/src/modules/processes.rs:290
+msgid "_Cancel"
+msgstr ""
+
+#: crates/app/src/modules/processes.rs:291
+msgid "_Force Stop"
+msgstr ""
+
+#: crates/app/src/modules/processes.rs:292
+msgid "_End Process"
+msgstr ""
+
+#: crates/app/src/modules/processes.rs:313
+msgid "You can only end your own processes"
+msgstr ""
+
+#: crates/app/src/modules/processes.rs:316
+msgid "The process has already ended"
+msgstr ""
+
+#: crates/app/src/modules/processes.rs:320
+#: crates/app/src/modules/processes.rs:322
+msgid "Could not end the process"
+msgstr ""
+
+#: crates/app/src/modules/sensors.rs:70
+msgid "Critical at {value}"
+msgstr ""
+
+#: crates/app/src/modules/sensors.rs:81
+msgid "Fan"
+msgstr ""
+
+#: crates/app/src/modules/sensors.rs:101
+msgid "Sensors"
+msgstr ""
+
+#. Translators: an unnamed sensor and its number, e.g. "Fan 2"
+#: crates/app/src/modules/sensors.rs:166
+msgid "{what} {number}"
+msgstr ""
+
+#. Translators: fan speed in revolutions per minute, e.g. "1200 RPM"
+#: crates/app/src/modules/sensors.rs:173
+msgid "{value} RPM"
+msgstr ""
+
+#: crates/app/src/modules/sensors.rs:180
+msgid "Drive"
+msgstr ""
+
+#: crates/app/src/modules/sensors.rs:181
+msgid "Motherboard"
+msgstr ""
+
+#: crates/app/src/modules/sensors.rs:182
+msgid "Wireless card"
+msgstr ""
+
+#: crates/app/src/window.rs:242
 msgid "Unavailable"
 msgstr ""
 
@@ -245,7 +463,7 @@ msgid "system;monitor;cpu;memory;disk;gpu;battery;performance;"
 msgstr ""
 
 #: data/io.github.amirmwhdi.Corewatch.metainfo.xml:9
-msgid "Watch your processor, memory, disks and more"
+msgid "Watch your processor, memory, processes and more"
 msgstr ""
 
 #: data/io.github.amirmwhdi.Corewatch.metainfo.xml:11
@@ -255,76 +473,136 @@ msgid ""
 msgstr ""
 
 #: data/io.github.amirmwhdi.Corewatch.metainfo.xml:16
-msgid "Processor: total usage, one graph per core, model and frequency"
+msgid "Overview: every resource on one page"
 msgstr ""
 
 #: data/io.github.amirmwhdi.Corewatch.metainfo.xml:17
-msgid "Memory: used, available, cache, buffers and swap"
+msgid "Processes: sort by CPU or memory, search, and end a stuck program"
 msgstr ""
 
 #: data/io.github.amirmwhdi.Corewatch.metainfo.xml:18
-msgid "Graphics: usage or clock, video memory and temperature"
+msgid "Processor: total usage, one graph per core, model and frequency"
 msgstr ""
 
 #: data/io.github.amirmwhdi.Corewatch.metainfo.xml:19
-msgid "Disks: activity, read and write speed, and free space"
+msgid "Memory: used, available, cache, buffers and swap"
 msgstr ""
 
 #: data/io.github.amirmwhdi.Corewatch.metainfo.xml:20
-msgid "Battery: charge, time remaining, power draw and health"
+msgid "Graphics: usage or clock, video memory and temperature"
+msgstr ""
+
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:21
+msgid "Disks: activity, read and write speed, and free space"
 msgstr ""
 
 #: data/io.github.amirmwhdi.Corewatch.metainfo.xml:22
+msgid "Network: download and upload speed, addresses and Wi-Fi signal"
+msgstr ""
+
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:23
+msgid "Sensors: temperatures and fan speeds"
+msgstr ""
+
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:24
+msgid "Battery: charge, time remaining, power draw and health"
+msgstr ""
+
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:26
 msgid ""
 "It follows the system light and dark style and accent color, and adapts to "
 "narrow windows."
 msgstr ""
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:29
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:33
 msgid "Amirmahdi"
 msgstr ""
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:57
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:44
+msgid "Every resource at a glance"
+msgstr ""
+
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:48
+msgid "Sort, search and end processes"
+msgstr ""
+
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:52
+msgid "Download and upload speed per interface"
+msgstr ""
+
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:56
+msgid "Temperatures and fan speeds"
+msgstr ""
+
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:80
 msgid "system"
 msgstr ""
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:58
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:81
 msgid "monitor"
 msgstr ""
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:59
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:82
 msgid "cpu"
 msgstr ""
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:60
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:83
 msgid "memory"
 msgstr ""
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:61
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:84
 msgid "disk"
 msgstr ""
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:73
-msgid "New Graphics, Disks and Battery pages"
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:85
+msgid "process"
 msgstr ""
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:74
-msgid "Preferences: color scheme and update speed"
-msgstr ""
-
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:75
-msgid "A banner tells you when a data source stops answering"
-msgstr ""
-
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:76
-msgid "Installable with Meson, and available as a Flatpak"
-msgstr ""
-
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:82
-msgid "Log file and clearer error reports."
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:86
+msgid "network"
 msgstr ""
 
 #: data/io.github.amirmwhdi.Corewatch.metainfo.xml:87
+msgid "temperature"
+msgstr ""
+
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:99
+msgid "New Overview page with every resource at a glance"
+msgstr ""
+
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:100
+msgid "New Processes page: sort, search, and end or force-stop a process"
+msgstr ""
+
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:101
+msgid "New Network page: speeds, addresses, link speed and Wi-Fi signal"
+msgstr ""
+
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:102
+msgid "New Sensors page: temperatures and fan speeds"
+msgstr ""
+
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:109
+msgid "New Graphics, Disks and Battery pages"
+msgstr ""
+
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:110
+msgid "Preferences: color scheme and update speed"
+msgstr ""
+
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:111
+msgid "A banner tells you when a data source stops answering"
+msgstr ""
+
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:112
+msgid "Installable with Meson, and available as a Flatpak"
+msgstr ""
+
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:118
+msgid "Log file and clearer error reports."
+msgstr ""
+
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:123
 msgid "First preview: processor and memory."
 msgstr ""
 
@@ -404,10 +682,6 @@ msgstr ""
 msgid "Memory (VRAM)"
 msgstr ""
 
-#: data/ui/stable/gpu-page.blp:67
-msgid "Temperature"
-msgstr ""
-
 #: data/ui/stable/memory-page.blp:28
 msgid "Used"
 msgstr ""
@@ -422,6 +696,10 @@ msgstr ""
 
 #: data/ui/stable/memory-page.blp:43
 msgid "Swap"
+msgstr ""
+
+#: data/ui/stable/network-page.blp:30
+msgid "No network interfaces"
 msgstr ""
 
 #: data/ui/stable/page-frame.blp:13
@@ -487,6 +765,18 @@ msgstr ""
 
 #: data/ui/stable/preferences.blp:39
 msgid "2 seconds (Power Saver)"
+msgstr ""
+
+#: data/ui/stable/processes-page.blp:21
+msgid "Search processes"
+msgstr ""
+
+#: data/ui/stable/processes-page.blp:27
+msgid "Only My Processes"
+msgstr ""
+
+#: data/ui/stable/processes-page.blp:31
+msgid "End Process…"
 msgstr ""
 
 #: data/ui/stable/window.blp:16

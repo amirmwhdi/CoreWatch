@@ -17,7 +17,10 @@ fn page() -> Box<dyn ResourcePage> {
     Box::new(BatteryPage::new())
 }
 
-pub const MODULE: Module = Module { collector, page };
+pub const MODULE: Module = Module {
+    collector: Some(collector),
+    page,
+};
 
 struct BatteryPage {
     root: gtk::Widget,
@@ -81,14 +84,7 @@ impl ResourcePage for BatteryPage {
         self.graph.push(battery.capacity);
         self.level_bar.set_value(f64::from(battery.capacity));
 
-        let status_text = match battery.state {
-            BatteryState::Charging => gettext("Charging"),
-            BatteryState::Discharging => gettext("Discharging"),
-            BatteryState::NotCharging => gettext("Not charging"),
-            BatteryState::Full => gettext("Fully charged"),
-            BatteryState::Unknown => gettext("Unknown"),
-        };
-        self.status.set_subtitle(&status_text);
+        self.status.set_subtitle(&state_label(battery.state));
 
         self.level.set_subtitle(&i18n::percent(battery.capacity));
 
@@ -209,6 +205,16 @@ impl ResourcePage for BatteryPage {
             }
             _ => Some(pct),
         }
+    }
+}
+
+pub fn state_label(state: BatteryState) -> String {
+    match state {
+        BatteryState::Charging => gettext("Charging"),
+        BatteryState::Discharging => gettext("Discharging"),
+        BatteryState::NotCharging => gettext("Not charging"),
+        BatteryState::Full => gettext("Fully charged"),
+        BatteryState::Unknown => gettext("Unknown"),
     }
 }
 

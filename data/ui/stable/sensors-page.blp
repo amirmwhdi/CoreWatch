@@ -1,0 +1,25 @@
+using Gtk 4.0;
+using Adw 1;
+
+translation-domain "corewatch";
+
+// Sensors page. One group per chip (processor, drives, motherboard) is added
+// to chips_box at run time.
+template $CwSensorsPage: Adw.Bin {
+  child: ScrolledWindow {
+    hscrollbar-policy: never;
+
+    child: Adw.Clamp {
+      maximum-size: 1000;
+
+      child: Box chips_box {
+        orientation: vertical;
+        spacing: 24;
+
+        styles [
+          "cw-page",
+        ]
+      };
+    };
+  };
+}
