@@ -99,7 +99,7 @@ pub fn readings(sensors: &SensorSample, home: Home) -> Vec<Reading<'_>> {
     let mut out = Vec::new();
     for chip in &sensors.chips {
         for (i, t) in chip.temperatures.iter().enumerate() {
-            if chip.home(t.label.as_deref()) != home {
+            if chip.home(t.label.as_deref()) != home || chip.shown_by_page(t.index) {
                 continue;
             }
             let title = t

@@ -50,18 +50,6 @@ template $CwPreferencesDialog: Adw.PreferencesDialog {
           ]
         };
       }
-
-      Adw.ComboRow history_row {
-        title: _("Graph History");
-        subtitle: _("How far back every graph reaches");
-        model: Gtk.StringList {
-          strings [
-            _("1 minute"),
-            _("5 minutes"),
-            _("10 minutes"),
-          ]
-        };
-      }
     }
 
     Adw.PreferencesGroup {
@@ -79,11 +67,10 @@ template $CwPreferencesDialog: Adw.PreferencesDialog {
 
       Adw.ComboRow sizes_row {
         title: _("Sizes");
-        subtitle: _("Memory, disk and file sizes");
         model: Gtk.StringList {
           strings [
-            _("Binary (1 KiB = 1024 bytes)"),
-            _("Decimal (1 kB = 1000 bytes)"),
+            _("Binary"),
+            _("Decimal"),
           ]
         };
       }

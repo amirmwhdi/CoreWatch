@@ -6,12 +6,25 @@
 //! A graph can also scale itself to the largest value it holds (for speeds,
 //! which have no fixed maximum) and draw a second series as a plain line in
 //! the text color (upload next to download).
+//!
+//! The line scrolls smoothly, as in GNOME System Monitor: the newest value
+//! enters just past the right edge and slides into view over one update
+//! interval, and a self-scaling graph eases to its new top. While on screen
+//! the graph redraws only when the line has moved by half a pixel, so a slow
+//! scroll costs few frames, and a hidden graph costs nothing.
 
 use adw::prelude::*;
 use gtk::subclass::prelude::*;
 use gtk::{gdk, glib, graphene, gsk};
 use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
+
+/// Assumed time between values until two have arrived.
+const DEFAULT_INTERVAL_US: i64 = 1_000_000;
+/// Bounds for the measured interval: a stalled tick must not freeze the
+/// scroll for long, a burst must not race it.
+const MIN_INTERVAL_US: i64 = 250_000;
+const MAX_INTERVAL_US: i64 = 4_000_000;
 
 thread_local! {
     /// Points every graph keeps: the history length from Preferences divided
@@ -52,6 +65,15 @@ mod imp {
         /// Whole percent last written to the accessible description, so an
         /// unchanged value does not reach the accessibility bus every tick.
         pub announced: Cell<Option<u8>>,
+        /// `glib::monotonic_time` of the last value, in µs.
+        pub pushed_at: Cell<i64>,
+        /// Time between values, measured and smoothed, in µs.
+        pub interval: Cell<i64>,
+        /// Scroll offset and top of the last frame drawn, to skip frames
+        /// that would look the same.
+        pub drawn_shift: Cell<f32>,
+        pub drawn_top: Cell<f32>,
+        pub tick: RefCell<Option<gtk::TickCallbackId>>,
         /// StyleManager is global: its handlers must go when the graph does,
         /// or every removed disk block would leave two closures behind.
         pub style_handlers: RefCell<Vec<glib::SignalHandlerId>>,
@@ -65,12 +87,60 @@ mod imp {
                 autoscale: Cell::new(None),
                 capacity: Cell::new(HISTORY.with(Cell::get)),
                 announced: Cell::new(None),
+                pushed_at: Cell::new(0),
+                interval: Cell::new(DEFAULT_INTERVAL_US),
+                drawn_shift: Cell::new(0.0),
+                drawn_top: Cell::new(1.0),
+                tick: RefCell::default(),
                 style_handlers: RefCell::default(),
             }
         }
     }
 
     impl Graph {
+        /// How far into the current interval we are, 0.0..=1.0: the share of
+        /// one step the line has scrolled left since the last value.
+        pub fn phase(&self) -> f32 {
+            if self.pushed_at.get() == 0 {
+                return 1.0;
+            }
+            let elapsed = glib::monotonic_time() - self.pushed_at.get();
+            (elapsed as f32 / self.interval.get().max(1) as f32).clamp(0.0, 1.0)
+        }
+
+        /// The top the graph scales to: 1.0, or the largest value held.
+        pub fn target_top(&self) -> f32 {
+            match self.autoscale.get() {
+                Some(floor) => self
+                    .values
+                    .borrow()
+                    .iter()
+                    .chain(self.secondary.borrow().iter())
+                    .copied()
+                    .fold(floor, f32::max),
+                None => 1.0,
+            }
+        }
+
+        /// Distance between two points in pixels. One point lies past each
+        /// edge, so the line always reaches both sides while it scrolls.
+        pub fn step(&self, width: f32) -> f32 {
+            width / (self.capacity.get().max(3) - 2) as f32
+        }
+
+        /// Record a new value's time and learn the interval from it.
+        pub fn mark_push(&self) {
+            let now = glib::monotonic_time();
+            let last = self.pushed_at.replace(now);
+            if last != 0 {
+                let measured = (now - last).clamp(MIN_INTERVAL_US, MAX_INTERVAL_US);
+                // Smooth out timer jitter; follow a new update speed in a few values.
+                let smoothed = (self.interval.get() * 2 + measured) / 3;
+                self.interval.set(smoothed);
+            }
+            self.obj().queue_draw();
+        }
+
         pub fn set_capacity(&self, capacity: u32) {
             self.capacity.set(capacity.max(2));
             for series in [&self.values, &self.secondary] {
@@ -118,6 +188,27 @@ mod imp {
                 move |_| graph.queue_draw()
             ));
             *self.style_handlers.borrow_mut() = vec![accent, dark];
+
+            // Scroll only while on screen.
+            graph.connect_map(|graph| {
+                let id = graph.add_tick_callback(|graph, _| {
+                    let imp = graph.imp();
+                    let shift = imp.phase() * imp.step(graph.width() as f32);
+                    let top = imp.target_top();
+                    let moved = (shift - imp.drawn_shift.get()).abs() >= 1.0;
+                    let rescaling = (top - imp.drawn_top.get()).abs() > top * 0.002;
+                    if moved || rescaling {
+                        graph.queue_draw();
+                    }
+                    glib::ControlFlow::Continue
+                });
+                graph.imp().tick.replace(Some(id));
+            });
+            graph.connect_unmap(|graph| {
+                if let Some(id) = graph.imp().tick.take() {
+                    id.remove();
+                }
+            });
         }
 
         fn dispose(&self) {
@@ -150,24 +241,27 @@ mod imp {
                 return;
             }
 
-            // Fixed graphs hold 0.0..=1.0; self-scaling ones divide by the peak.
-            let top = match self.autoscale.get() {
-                Some(floor) => values
-                    .iter()
-                    .chain(secondary.iter())
-                    .copied()
-                    .fold(floor, f32::max),
-                None => 1.0,
+            // Fixed graphs hold 0.0..=1.0; self-scaling ones divide by the
+            // peak, easing toward a new peak instead of jumping to it.
+            let target = self.target_top();
+            let top = if self.autoscale.get().is_some() {
+                let shown = self.drawn_top.get();
+                if shown <= 0.0 || (target - shown).abs() <= target * 0.002 {
+                    target
+                } else {
+                    shown + (target - shown) * 0.15
+                }
+            } else {
+                1.0
             };
-            // Long histories hold more points than the graph has pixels:
-            // draw the peak of every few points, one point per ~3 px.
-            let capacity = self.capacity.get().max(2) as usize;
-            let bucket = capacity.div_ceil(((w / 3.0) as usize).max(2));
-            let (values, secondary) = (downsample(&values, bucket), downsample(&secondary, bucket));
-            if values.len() < 2 {
-                return;
-            }
-            let step = w / (capacity.div_ceil(bucket).max(2) - 1) as f32;
+            self.drawn_top.set(top);
+
+            let step = self.step(w);
+            let shift = self.phase() * step;
+            self.drawn_shift.set(shift);
+            // The newest point starts one step past the right edge and
+            // reaches it as the next value is due.
+            let newest_x = w + step - shift;
             let y = |v: f32| h - (v / top).clamp(0.0, 1.0) * (h - 2.0) - 1.0;
 
             let accent = adw::StyleManager::default().accent_color_rgba();
@@ -175,7 +269,7 @@ mod imp {
             let stroke = gsk::Stroke::new(if h < 60.0 { 1.6 } else { 2.4 });
             stroke.set_line_cap(gsk::LineCap::Round);
 
-            let (line, area) = series_paths(&values, step, w, h, y);
+            let (line, area) = series_paths(&values, newest_x, step, h, y);
             // Solid fill (append_fill instead of a gradient, because GTK4's
             // push_clip only accepts Rect, not arbitrary paths), then the line.
             let fill = gdk::RGBA::new(accent.red(), accent.green(), accent.blue(), 0.25);
@@ -183,7 +277,7 @@ mod imp {
             snapshot.append_stroke(&line, &stroke, &accent);
 
             if secondary.len() >= 2 {
-                let (line, _) = series_paths(&secondary, step, w, h, y);
+                let (line, _) = series_paths(&secondary, newest_x, step, h, y);
                 let color = gdk::RGBA::new(fg.red(), fg.green(), fg.blue(), 0.55);
                 snapshot.append_stroke(&line, &stroke, &color);
             }
@@ -191,32 +285,17 @@ mod imp {
     }
 }
 
-/// The peak of every `bucket` values, counted from the newest so the right
-/// edge stays steady while the graph scrolls. `bucket` 1 borrows as is.
-fn downsample(values: &VecDeque<f32>, bucket: usize) -> std::borrow::Cow<'_, VecDeque<f32>> {
-    if bucket <= 1 {
-        return std::borrow::Cow::Borrowed(values);
-    }
-    let mut reduced: VecDeque<f32> = VecDeque::with_capacity(values.len() / bucket + 1);
-    let mut iter = values.iter().rev().peekable();
-    while iter.peek().is_some() {
-        let peak = iter.by_ref().take(bucket).copied().fold(f32::MIN, f32::max);
-        reduced.push_front(peak);
-    }
-    std::borrow::Cow::Owned(reduced)
-}
-
-/// The line through `values` (newest at the right edge, older ones to the
-/// left) as smooth cubic curves, and the same line closed down to the bottom
-/// for the fill.
+/// The line through `values` (newest at `newest_x`, older ones `step` apart
+/// to the left) as smooth cubic curves, and the same line closed down to the
+/// bottom for the fill.
 fn series_paths(
     values: &VecDeque<f32>,
+    newest_x: f32,
     step: f32,
-    w: f32,
     h: f32,
     y: impl Fn(f32) -> f32 + Copy,
 ) -> (gsk::Path, gsk::Path) {
-    let x0 = w - step * (values.len() - 1) as f32;
+    let x0 = newest_x - step * (values.len() - 1) as f32;
     let mut points = values
         .iter()
         .enumerate()
@@ -234,7 +313,7 @@ fn series_paths(
             area.cubic_to(c1.0, c1.1, c2.0, c2.1, curr.0, curr.1);
             prev = curr;
         }
-        area.line_to(w, h);
+        area.line_to(prev.0, h);
         area.close();
     }
     (line.to_path(), area.to_path())
@@ -266,8 +345,8 @@ impl Graph {
     pub fn push(&self, value: f32) {
         let imp = self.imp();
         push_capped(&imp.values, value, imp.capacity.get());
+        imp.mark_push();
         if imp.autoscale.get().is_some() {
-            self.queue_draw();
             return;
         }
         let percent = (value.clamp(0.0, 1.0) * 100.0).round() as u8;
@@ -276,7 +355,6 @@ impl Graph {
                 "{percent}%"
             ))]);
         }
-        self.queue_draw();
     }
 
     /// Append one value to each series and redraw. The accessible text is
@@ -285,7 +363,7 @@ impl Graph {
         let imp = self.imp();
         push_capped(&imp.values, primary, imp.capacity.get());
         push_capped(&imp.secondary, secondary, imp.capacity.get());
-        self.queue_draw();
+        imp.mark_push();
     }
 }
 

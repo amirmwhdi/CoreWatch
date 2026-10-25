@@ -36,6 +36,13 @@ pub enum Home {
 }
 
 impl Chip {
+    /// Whether temperature `index` is the one the chip's page already shows
+    /// on its own: `temp1` of a graphics card ("edge" on AMD) on the
+    /// Graphics page, and of a drive on its Disks entry.
+    pub fn shown_by_page(&self, index: u32) -> bool {
+        index == 1 && matches!(self.kind, ChipKind::Gpu | ChipKind::Storage)
+    }
+
     /// Where the sensor with `label` on this chip belongs. A motherboard
     /// sensor labeled for the processor (`CPU_FAN`, `CPUTIN`) goes with the
     /// processor.
@@ -63,6 +70,8 @@ pub struct Temperature {
     /// The driver's label (`"Tctl"`, `"Package id 0"`, `"Composite"`), or
     /// `None` when it gives none.
     pub label: Option<String>,
+    /// The `N` of the driver's `tempN_input`.
+    pub index: u32,
     pub celsius: f32,
     /// The temperature the chip calls critical, when it reports one.
     pub critical: Option<f32>,
@@ -118,6 +127,7 @@ impl SensorSample {
 #[derive(Debug, Clone)]
 struct Input {
     label: Option<String>,
+    index: u32,
     path: PathBuf,
     critical: Option<f32>,
 }
@@ -183,6 +193,7 @@ impl Collector for SensorCollector {
                         let celsius = read_milli(&t.path)?;
                         Some(Temperature {
                             label: t.label.clone(),
+                            index: t.index,
                             celsius,
                             critical: t.critical,
                         })
@@ -237,7 +248,12 @@ fn scan_chip(dir: &Path) -> Option<ChipPlan> {
     });
     for name in names {
         let base = name.trim_end_matches("_input");
+        let index = base
+            .trim_start_matches(|c: char| c.is_ascii_alphabetic())
+            .parse()
+            .unwrap_or(0);
         let input = Input {
+            index,
             label: read_trimmed(&dir.join(format!("{base}_label"))).filter(|l| !l.is_empty()),
             path: dir.join(&name),
             critical: read_milli(&dir.join(format!("{base}_crit")))
@@ -335,12 +351,18 @@ mod tests {
         assert_eq!(chip("nct6798").home(Some("CPU_FAN")), Home::Cpu);
         assert_eq!(chip("nct6798").home(Some("SYSTIN")), Home::Sensors);
         assert_eq!(chip("nct6798").home(None), Home::Sensors);
+        // The Graphics and Disks pages show temp1 themselves.
+        assert!(chip("amdgpu").shown_by_page(1));
+        assert!(!chip("amdgpu").shown_by_page(2));
+        assert!(chip("nvme").shown_by_page(1));
+        assert!(!chip("k10temp").shown_by_page(1));
     }
 
     #[test]
     fn cpu_temperature_prefers_the_package_sensor() {
         let t = |label: &str, celsius| Temperature {
             label: Some(label.into()),
+            index: 1,
             celsius,
             critical: None,
         };

@@ -2,6 +2,7 @@
 
 use super::DiskKind;
 use crate::SysRoot;
+use std::path::PathBuf;
 
 /// Software devices that stack on real disks or live in RAM. Counting them
 /// would show the same I/O twice. They also lack a `device` link, which is the
@@ -35,6 +36,23 @@ pub(crate) fn physical_size(root: &SysRoot, name: &str) -> Option<u64> {
 pub(crate) struct DeviceInfo {
     pub model: String,
     pub kind: DiskKind,
+    /// The drive's own temperature sensor (`temp1_input` of its hwmon chip:
+    /// "Composite" on NVMe, the drivetemp sensor on SATA).
+    pub temp_path: Option<PathBuf>,
+}
+
+/// The hwmon chip of a disk sits under its device, either directly
+/// (`device/hwmon3`) or in a `hwmon` folder (`device/hwmon/hwmon3`).
+fn temp_path(root: &SysRoot, name: &str) -> Option<PathBuf> {
+    let device = root.sys_path(&format!("block/{name}/device"));
+    [device.clone(), device.join("hwmon")]
+        .iter()
+        .filter_map(|dir| std::fs::read_dir(dir).ok())
+        .flatten()
+        .flatten()
+        .filter(|e| e.file_name().to_string_lossy().starts_with("hwmon"))
+        .map(|e| e.path().join("temp1_input"))
+        .find(|p| p.is_file())
 }
 
 pub(crate) fn read_info(root: &SysRoot, name: &str) -> DeviceInfo {
@@ -60,5 +78,9 @@ pub(crate) fn read_info(root: &SysRoot, name: &str) -> DeviceInfo {
         DiskKind::Ssd
     };
 
-    DeviceInfo { model, kind }
+    DeviceInfo {
+        model,
+        kind,
+        temp_path: temp_path(root, name),
+    }
 }

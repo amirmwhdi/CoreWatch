@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: corewatch\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-25 16:01+0000\n"
+"POT-Creation-Date: 2026-10-25 16:39+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -39,7 +39,7 @@ msgid "{value} °F"
 msgstr ""
 
 #: crates/app/src/modules/battery.rs:68 crates/app/src/modules/overview.rs:61
-#: crates/app/src/modules/sensors.rs:172
+#: crates/app/src/modules/sensors.rs:161
 msgid "Battery"
 msgstr ""
 
@@ -115,7 +115,7 @@ msgid "Unknown"
 msgstr ""
 
 #: crates/app/src/modules/cpu.rs:87 crates/app/src/modules/overview.rs:46
-#: crates/app/src/modules/sensors.rs:167
+#: crates/app/src/modules/sensors.rs:156
 msgid "Processor"
 msgstr ""
 
@@ -158,45 +158,51 @@ msgstr ""
 msgid "Disks"
 msgstr ""
 
-#: crates/app/src/modules/disk.rs:198
+#: crates/app/src/modules/disk.rs:200
 msgid "Activity of {model}"
 msgstr ""
 
-#: crates/app/src/modules/disk.rs:203
+#: crates/app/src/modules/disk.rs:205
 msgid "Read"
 msgstr ""
 
-#: crates/app/src/modules/disk.rs:203
+#: crates/app/src/modules/disk.rs:205
 msgid "Write"
 msgstr ""
 
+#: crates/app/src/modules/disk.rs:207
+#: crates/app/src/widgets/sensor_group.rs:108 data/ui/stable/gpu-page.blp:67
+#: data/ui/stable/preferences.blp:59
+msgid "Temperature"
+msgstr ""
+
 #. Translators: disk type, size and kernel name, e.g. "NVMe · 512 GiB · nvme0n1"
-#: crates/app/src/modules/disk.rs:245
+#: crates/app/src/modules/disk.rs:258
 msgid "{kind} · {size} · {name}"
 msgstr ""
 
-#: crates/app/src/modules/disk.rs:258
+#: crates/app/src/modules/disk.rs:271
 msgid "{speed} · {total} since boot"
 msgstr ""
 
-#: crates/app/src/modules/disk.rs:267
+#: crates/app/src/modules/disk.rs:280
 msgid "NVMe"
 msgstr ""
 
-#: crates/app/src/modules/disk.rs:268
+#: crates/app/src/modules/disk.rs:281
 msgid "SSD"
 msgstr ""
 
-#: crates/app/src/modules/disk.rs:269
+#: crates/app/src/modules/disk.rs:282
 msgid "Hard disk"
 msgstr ""
 
-#: crates/app/src/modules/disk.rs:270
+#: crates/app/src/modules/disk.rs:283
 msgid "Removable"
 msgstr ""
 
 #: crates/app/src/modules/gpu.rs:66 crates/app/src/modules/overview.rs:48
-#: crates/app/src/modules/sensors.rs:168
+#: crates/app/src/modules/sensors.rs:157
 msgid "Graphics"
 msgstr ""
 
@@ -451,30 +457,25 @@ msgstr ""
 msgid "Sensors"
 msgstr ""
 
-#: crates/app/src/modules/sensors.rs:169
+#: crates/app/src/modules/sensors.rs:158
 msgid "Drive"
 msgstr ""
 
-#: crates/app/src/modules/sensors.rs:170
+#: crates/app/src/modules/sensors.rs:159
 msgid "Motherboard"
 msgstr ""
 
-#: crates/app/src/modules/sensors.rs:171
+#: crates/app/src/modules/sensors.rs:160
 msgid "Wireless card"
 msgstr ""
 
-#: crates/app/src/preferences.rs:91
+#: crates/app/src/preferences.rs:89
 msgid "Last Opened Page"
 msgstr ""
 
 #. Translators: e.g. "k10temp · Critical at 95 °C"
 #: crates/app/src/widgets/sensor_group.rs:41
 msgid "{device} · {critical}"
-msgstr ""
-
-#: crates/app/src/widgets/sensor_group.rs:108 data/ui/stable/gpu-page.blp:67
-#: data/ui/stable/preferences.blp:71
-msgid "Temperature"
 msgstr ""
 
 #: crates/app/src/widgets/sensor_group.rs:111
@@ -848,63 +849,39 @@ msgstr ""
 msgid "2 seconds (Power Saver)"
 msgstr ""
 
-#: data/ui/stable/preferences.blp:55
-msgid "Graph History"
-msgstr ""
-
 #: data/ui/stable/preferences.blp:56
-msgid "How far back every graph reaches"
-msgstr ""
-
-#: data/ui/stable/preferences.blp:59
-msgid "1 minute"
-msgstr ""
-
-#: data/ui/stable/preferences.blp:60
-msgid "5 minutes"
-msgstr ""
-
-#: data/ui/stable/preferences.blp:61
-msgid "10 minutes"
-msgstr ""
-
-#: data/ui/stable/preferences.blp:68
 msgid "Units"
 msgstr ""
 
-#: data/ui/stable/preferences.blp:74
+#: data/ui/stable/preferences.blp:62
 msgid "Celsius (°C)"
 msgstr ""
 
-#: data/ui/stable/preferences.blp:75
+#: data/ui/stable/preferences.blp:63
 msgid "Fahrenheit (°F)"
 msgstr ""
 
-#: data/ui/stable/preferences.blp:81
+#: data/ui/stable/preferences.blp:69
 msgid "Sizes"
 msgstr ""
 
-#: data/ui/stable/preferences.blp:82
-msgid "Memory, disk and file sizes"
+#: data/ui/stable/preferences.blp:72
+msgid "Binary"
 msgstr ""
 
-#: data/ui/stable/preferences.blp:85
-msgid "Binary (1 KiB = 1024 bytes)"
+#: data/ui/stable/preferences.blp:73
+msgid "Decimal"
 msgstr ""
 
-#: data/ui/stable/preferences.blp:86
-msgid "Decimal (1 kB = 1000 bytes)"
-msgstr ""
-
-#: data/ui/stable/preferences.blp:92
+#: data/ui/stable/preferences.blp:79
 msgid "Network Speed"
 msgstr ""
 
-#: data/ui/stable/preferences.blp:95
+#: data/ui/stable/preferences.blp:82
 msgid "Bytes per second (MB/s)"
 msgstr ""
 
-#: data/ui/stable/preferences.blp:96
+#: data/ui/stable/preferences.blp:83
 msgid "Bits per second (Mb/s)"
 msgstr ""
 

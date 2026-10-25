@@ -79,7 +79,7 @@ pub fn present(app: &adw::Application) {
     let settings = crate::settings::AppSettings::load();
     settings.apply_theme();
     crate::i18n::set_units(settings.units);
-    crate::widgets::graph::set_history(settings.history.points(settings.speed));
+    crate::widgets::graph::set_history(settings.speed.history_points());
 
     if let Some(display) = gtk::gdk::Display::default() {
         let theme = gtk::IconTheme::for_display(&display);

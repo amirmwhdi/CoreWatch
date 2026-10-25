@@ -40,6 +40,9 @@ impl ThemeMode {
     }
 }
 
+/// How far back every graph reaches.
+pub const GRAPH_HISTORY: Duration = Duration::from_secs(60);
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum UpdateSpeed {
     HalfSecond = 0, // 500ms (0.5s)
@@ -69,53 +72,18 @@ impl UpdateSpeed {
         self.as_duration().as_millis() as u64
     }
 
+    /// Points a graph keeps: one minute of samples at this speed.
+    pub fn history_points(&self) -> usize {
+        let points = GRAPH_HISTORY.as_millis() / self.as_duration().as_millis().max(1);
+        usize::try_from(points).unwrap_or(usize::MAX).max(2)
+    }
+
     pub fn from_millis(ms: u64) -> Self {
         match ms {
             0..=750 => Self::HalfSecond,
             751..=1500 => Self::Normal,
             _ => Self::Slow,
         }
-    }
-}
-
-/// How far back every graph reaches.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum HistoryLength {
-    #[default]
-    OneMinute = 0,
-    FiveMinutes = 1,
-    TenMinutes = 2,
-}
-
-impl HistoryLength {
-    pub fn from_index(index: u32) -> Self {
-        match index {
-            1 => Self::FiveMinutes,
-            2 => Self::TenMinutes,
-            _ => Self::OneMinute,
-        }
-    }
-
-    pub fn as_duration(&self) -> Duration {
-        Duration::from_secs(match self {
-            Self::OneMinute => 60,
-            Self::FiveMinutes => 300,
-            Self::TenMinutes => 600,
-        })
-    }
-
-    pub fn from_secs(secs: u64) -> Self {
-        match secs {
-            0..=180 => Self::OneMinute,
-            181..=450 => Self::FiveMinutes,
-            _ => Self::TenMinutes,
-        }
-    }
-
-    /// Points a graph keeps at `speed`: the history divided by the interval.
-    pub fn points(&self, speed: UpdateSpeed) -> usize {
-        let points = self.as_duration().as_millis() / speed.as_duration().as_millis().max(1);
-        usize::try_from(points).unwrap_or(usize::MAX).max(2)
     }
 }
 
@@ -155,7 +123,6 @@ impl StartPage {
 pub struct AppSettings {
     pub theme: ThemeMode,
     pub speed: UpdateSpeed,
-    pub history: HistoryLength,
     pub units: Units,
     pub start_page: StartPage,
     /// The page open when Corewatch was last closed.
@@ -199,10 +166,6 @@ impl AppSettings {
                     .int64("General", "update_interval_ms")
                     .map(|ms| UpdateSpeed::from_millis(ms as u64))
                     .unwrap_or_default(),
-                history: key_file
-                    .int64("General", "history_secs")
-                    .map(|secs| HistoryLength::from_secs(secs as u64))
-                    .unwrap_or_default(),
                 units,
                 start_page: text("start_page")
                     .map(|s| StartPage::from_str(&s))
@@ -225,11 +188,6 @@ impl AppSettings {
             "General",
             "update_interval_ms",
             self.speed.as_millis() as i64,
-        );
-        key_file.set_int64(
-            "General",
-            "history_secs",
-            self.history.as_duration().as_secs() as i64,
         );
         let units = self.units;
         key_file.set_string(
@@ -277,13 +235,9 @@ mod tests {
 
     #[test]
     fn history_points_follow_the_interval() {
-        assert_eq!(HistoryLength::OneMinute.points(UpdateSpeed::Normal), 60);
-        assert_eq!(
-            HistoryLength::FiveMinutes.points(UpdateSpeed::HalfSecond),
-            600
-        );
-        assert_eq!(HistoryLength::TenMinutes.points(UpdateSpeed::Slow), 300);
-        assert_eq!(HistoryLength::from_secs(300), HistoryLength::FiveMinutes);
+        assert_eq!(UpdateSpeed::Normal.history_points(), 60);
+        assert_eq!(UpdateSpeed::HalfSecond.history_points(), 120);
+        assert_eq!(UpdateSpeed::Slow.history_points(), 30);
     }
 
     #[test]

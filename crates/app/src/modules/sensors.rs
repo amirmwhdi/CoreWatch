@@ -145,20 +145,9 @@ impl ResourcePage for SensorsPage {
         snapshot.sensors.is_some()
     }
 
-    /// The hottest of the sensors shown here; the others have their pages.
-    fn summary(&self, snapshot: &Snapshot) -> Option<String> {
-        let sensors = snapshot.sensors.as_ref()?;
-        sensors
-            .chips
-            .iter()
-            .flat_map(|c| {
-                c.temperatures
-                    .iter()
-                    .filter(|t| c.home(t.label.as_deref()) == Home::Sensors)
-            })
-            .map(|t| t.celsius)
-            .max_by(f32::total_cmp)
-            .map(i18n::celsius)
+    /// Nothing under the title: each page shows its own temperatures.
+    fn summary(&self, _snapshot: &Snapshot) -> Option<String> {
+        None
     }
 }
 

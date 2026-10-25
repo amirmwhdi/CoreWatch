@@ -176,6 +176,8 @@ struct DiskBlock {
     graph: Graph,
     read: adw::ActionRow,
     write: adw::ActionRow,
+    /// Hidden for drives without a sensor.
+    temp: adw::ActionRow,
 }
 
 impl DiskBlock {
@@ -202,8 +204,11 @@ impl DiskBlock {
         let row = |title: &str| adw::ActionRow::builder().title(title).subtitle("…").build();
         let (read, write) = (row(&gettext("Read")), row(&gettext("Write")));
         let rows = adw::PreferencesGroup::new();
+        let temp = row(&gettext("Temperature"));
+        temp.set_visible(false);
         rows.add(&read);
         rows.add(&write);
+        rows.add(&temp);
 
         let header = gtk::Box::new(gtk::Orientation::Vertical, 2);
         header.append(&title);
@@ -221,6 +226,7 @@ impl DiskBlock {
             graph,
             read,
             write,
+            temp,
         }
     }
 
@@ -235,6 +241,13 @@ impl DiskBlock {
             .set_subtitle(&transfer(device.read_bps, device.read_total));
         self.write
             .set_subtitle(&transfer(device.write_bps, device.written_total));
+        self.temp.set_visible(device.temp_c.is_some());
+        if let Some(temp) = device.temp_c {
+            let text = i18n::celsius(temp);
+            if self.temp.subtitle().as_deref() != Some(text.as_str()) {
+                self.temp.set_subtitle(&text);
+            }
+        }
     }
 }
 

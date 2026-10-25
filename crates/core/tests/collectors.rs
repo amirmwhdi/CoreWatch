@@ -212,7 +212,9 @@ mod disk {
         // Same counters as at start: idle, but known.
         assert_eq!(nvme.read_bps, Some(0));
         assert_eq!(nvme.busy, Some(0.0));
+        assert_eq!(nvme.temp_c, Some(41.85));
         assert_eq!(disk.disks[1].kind, DiskKind::Hdd);
+        assert_eq!(disk.disks[1].temp_c, Some(33.0));
         assert!(snap.cpu.is_none() && snap.memory.is_none());
     }
 

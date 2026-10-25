@@ -45,6 +45,8 @@ pub struct DiskDevice {
     /// Bytes read and written since boot.
     pub read_total: u64,
     pub written_total: u64,
+    /// The drive's temperature in °C, when it has a sensor.
+    pub temp_c: Option<f32>,
 }
 
 /// One mounted local filesystem.
@@ -154,6 +156,10 @@ impl DiskCollector {
                 busy: rates.map(|r| r.busy),
                 read_total: counters.sectors_read.saturating_mul(SECTOR_BYTES),
                 written_total: counters.sectors_written.saturating_mul(SECTOR_BYTES),
+                temp_c: info.temp_path.as_deref().and_then(|p| {
+                    let milli: i64 = std::fs::read_to_string(p).ok()?.trim().parse().ok()?;
+                    Some(milli as f32 / 1000.0)
+                }),
                 name: name.clone(),
             });
             seen.insert(name, counters);

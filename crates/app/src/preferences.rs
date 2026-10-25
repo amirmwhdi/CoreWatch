@@ -1,10 +1,10 @@
 //! Preferences dialog for Corewatch.
 //!
 //! Every row saves at once and takes effect on the next tick: units through
-//! `i18n::set_units`, the history through `widgets::graph::set_history`.
+//! `i18n::set_units`, the graph length through `widgets::graph::set_history`.
 
 use crate::i18n::{self, gettext, NetworkUnits, SizeUnits, TemperatureUnit};
-use crate::settings::{AppSettings, HistoryLength, StartPage, ThemeMode, UpdateSpeed};
+use crate::settings::{AppSettings, StartPage, ThemeMode, UpdateSpeed};
 use adw::prelude::*;
 use adw::subclass::prelude::*;
 use corewatch_core::SamplerHandle;
@@ -24,8 +24,6 @@ mod imp {
         pub start_row: TemplateChild<adw::ComboRow>,
         #[template_child]
         pub interval_row: TemplateChild<adw::ComboRow>,
-        #[template_child]
-        pub history_row: TemplateChild<adw::ComboRow>,
         #[template_child]
         pub temperature_row: TemplateChild<adw::ComboRow>,
         #[template_child]
@@ -116,17 +114,11 @@ impl PreferencesDialog {
         imp.interval_row.set_selected(settings.speed as u32);
         imp.interval_row.connect_selected_notify(move |row| {
             let settings = update(|s| s.speed = UpdateSpeed::from_index(row.selected()));
-            // Same history at a new interval: a different number of points.
-            crate::widgets::graph::set_history(settings.history.points(settings.speed));
+            // The same minute at a new interval: a different number of points.
+            crate::widgets::graph::set_history(settings.speed.history_points());
             if let Some(handle) = sampler_handle.borrow().as_ref() {
                 handle.set_interval(settings.speed.as_duration());
             }
-        });
-
-        imp.history_row.set_selected(settings.history as u32);
-        imp.history_row.connect_selected_notify(|row| {
-            let settings = update(|s| s.history = HistoryLength::from_index(row.selected()));
-            crate::widgets::graph::set_history(settings.history.points(settings.speed));
         });
 
         let units = settings.units;
