@@ -6,6 +6,10 @@
 //!    `OUT_DIR/corewatch.gresource`, which `main.rs` embeds with
 //!    `gio::resources_register_include!`.
 //!
+//! 3. The last commit (hash, subject, body) goes to `OUT_DIR/commit.txt` for
+//!    the "What's New" section of the About dialog: from `git` in a checkout,
+//!    otherwise from `data/commit.txt`, which `git archive` fills in.
+//!
 //! The binary therefore needs no data files at run time, and a plain
 //! `cargo build` produces a complete program.
 //!
@@ -38,6 +42,8 @@ fn main() {
     }
     compile_blueprints(&out.join("ui"), &stable, &blueprints);
 
+    write_commit(&manifest.join("../.."), &data, &out);
+
     glib_build_tools::compile_resources(
         &[out.as_path(), data.as_path()],
         data.join("resources.gresource.xml")
@@ -45,6 +51,43 @@ fn main() {
             .expect("data path is UTF-8"),
         "corewatch.gresource",
     );
+}
+
+/// Write `hash\nsubject\n\nbody` of the last commit, or an empty file when
+/// it is not known (a plain source copy without `.git`).
+fn write_commit(repo: &Path, data: &Path, out: &Path) {
+    // Rebuild after every commit; a missing path would rerun every build.
+    for file in [".git/HEAD", ".git/logs/HEAD"] {
+        let path = repo.join(file);
+        if path.exists() {
+            println!("cargo:rerun-if-changed={}", path.display());
+        }
+    }
+    println!(
+        "cargo:rerun-if-changed={}",
+        data.join("commit.txt").display()
+    );
+
+    // Only this repository's own .git: a source tarball unpacked inside some
+    // other checkout must not report that checkout's commit.
+    let from_git = repo.join(".git").exists().then(|| {
+        Command::new("git")
+            .arg("-C")
+            .arg(repo)
+            .args(["log", "-1", "--format=%H%n%s%n%n%b"])
+            .output()
+            .ok()
+            .filter(|o| o.status.success())
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+    });
+    let text = from_git
+        .flatten()
+        .or_else(|| std::fs::read_to_string(data.join("commit.txt")).ok())
+        // Not filled in: a copy that did not come from git archive.
+        .filter(|t| !t.starts_with("$Format"))
+        .unwrap_or_default();
+    std::fs::write(out.join("commit.txt"), text.trim_end())
+        .unwrap_or_else(|e| panic!("cannot write commit.txt: {e}"));
 }
 
 fn env(name: &str) -> String {

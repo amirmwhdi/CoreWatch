@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: corewatch\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-25 10:51+0000\n"
+"POT-Creation-Date: 2026-10-25 15:25+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -33,7 +33,7 @@ msgstr ""
 msgid "{value} °C"
 msgstr ""
 
-#: crates/app/src/modules/battery.rs:65 crates/app/src/modules/overview.rs:55
+#: crates/app/src/modules/battery.rs:65 crates/app/src/modules/overview.rs:62
 msgid "Battery"
 msgstr ""
 
@@ -108,7 +108,7 @@ msgstr ""
 msgid "Unknown"
 msgstr ""
 
-#: crates/app/src/modules/cpu.rs:85 crates/app/src/modules/overview.rs:44
+#: crates/app/src/modules/cpu.rs:85 crates/app/src/modules/overview.rs:47
 #: crates/app/src/modules/sensors.rs:178
 msgid "Processor"
 msgstr ""
@@ -148,7 +148,7 @@ msgstr ""
 msgid "{used} of {total} used · {type} · {device}"
 msgstr ""
 
-#: crates/app/src/modules/disk.rs:148 crates/app/src/modules/overview.rs:47
+#: crates/app/src/modules/disk.rs:148 crates/app/src/modules/overview.rs:50
 msgid "Disks"
 msgstr ""
 
@@ -189,7 +189,7 @@ msgstr ""
 msgid "Removable"
 msgstr ""
 
-#: crates/app/src/modules/gpu.rs:64 crates/app/src/modules/overview.rs:46
+#: crates/app/src/modules/gpu.rs:64 crates/app/src/modules/overview.rs:49
 #: crates/app/src/modules/sensors.rs:179
 msgid "Graphics"
 msgstr ""
@@ -203,12 +203,12 @@ msgid "{cur} MHz / {max} MHz"
 msgstr ""
 
 #: crates/app/src/modules/gpu.rs:108 crates/app/src/modules/gpu.rs:162
-#: crates/app/src/modules/overview.rs:112
+#: crates/app/src/modules/overview.rs:119
 msgid "{cur} MHz"
 msgstr ""
 
 #: crates/app/src/modules/gpu.rs:118 crates/app/src/modules/memory.rs:95
-#: crates/app/src/modules/overview.rs:99
+#: crates/app/src/modules/overview.rs:106
 msgid "{used} of {total}"
 msgstr ""
 
@@ -220,7 +220,7 @@ msgstr ""
 msgid "{t} °C"
 msgstr ""
 
-#: crates/app/src/modules/memory.rs:59 crates/app/src/modules/overview.rs:45
+#: crates/app/src/modules/memory.rs:59 crates/app/src/modules/overview.rs:48
 #: crates/app/src/modules/processes.rs:111
 msgid "Memory"
 msgstr ""
@@ -239,7 +239,7 @@ msgid "No swap configured"
 msgstr ""
 
 #: crates/app/src/modules/network.rs:98 crates/app/src/modules/network.rs:300
-#: crates/app/src/modules/overview.rs:51
+#: crates/app/src/modules/overview.rs:54
 msgid "Network"
 msgstr ""
 
@@ -314,39 +314,59 @@ msgstr ""
 msgid "VPN"
 msgstr ""
 
-#: crates/app/src/modules/overview.rs:54 crates/app/src/modules/sensors.rs:66
-#: data/ui/stable/gpu-page.blp:67
-msgid "Temperature"
+#: crates/app/src/modules/overview.rs:59
+msgid "System"
 msgstr ""
 
-#: crates/app/src/modules/overview.rs:67
+#: crates/app/src/modules/overview.rs:74
 msgid "Overview"
 msgstr ""
 
-#: crates/app/src/modules/overview.rs:128
+#: crates/app/src/modules/overview.rs:135
 msgid "Read {read} · Write {write}"
 msgstr ""
 
 #. Translators: download speed, e.g. "↓ 1.2 MiB/s"
-#: crates/app/src/modules/overview.rs:145
+#: crates/app/src/modules/overview.rs:152
 msgid "↓ {speed}"
 msgstr ""
 
 #. Translators: upload speed, e.g. "↑ 40 KiB/s"
-#: crates/app/src/modules/overview.rs:150
+#: crates/app/src/modules/overview.rs:157
 msgid "↑ {speed}"
 msgstr ""
 
-#: crates/app/src/modules/overview.rs:161
-msgid "Hottest sensor"
+#: crates/app/src/modules/overview.rs:171
+msgid "Load {load} · {n} process"
+msgid_plural "Load {load} · {n} processes"
+msgstr[0] ""
+msgstr[1] ""
+
+#: crates/app/src/modules/overview.rs:177
+msgid "Load {load}"
+msgstr ""
+
+#: crates/app/src/modules/overview.rs:211
+msgid "{days} day {hours} h"
+msgid_plural "{days} days {hours} h"
+msgstr[0] ""
+msgstr[1] ""
+
+#: crates/app/src/modules/overview.rs:220
+msgid "{hours} h {minutes} min"
+msgstr ""
+
+#. Translators: uptime, e.g. "12 min"
+#: crates/app/src/modules/overview.rs:225
+msgid "{minutes} min"
 msgstr ""
 
 #. Translators: a processor clock, e.g. "3.4 GHz"
-#: crates/app/src/modules/overview.rs:188
+#: crates/app/src/modules/overview.rs:233
 msgid "{value} GHz"
 msgstr ""
 
-#: crates/app/src/modules/overview.rs:246
+#: crates/app/src/modules/overview.rs:291
 msgid "Open {page}"
 msgstr ""
 
@@ -411,6 +431,10 @@ msgstr ""
 msgid "Could not end the process"
 msgstr ""
 
+#: crates/app/src/modules/sensors.rs:66 data/ui/stable/gpu-page.blp:67
+msgid "Temperature"
+msgstr ""
+
 #: crates/app/src/modules/sensors.rs:70
 msgid "Critical at {value}"
 msgstr ""
@@ -445,8 +469,17 @@ msgstr ""
 msgid "Wireless card"
 msgstr ""
 
-#: crates/app/src/window.rs:242
+#: crates/app/src/window.rs:243
 msgid "Unavailable"
+msgstr ""
+
+#. Translators: the git commit this build came from, e.g. "Commit a6f02ff"
+#: crates/app/src/window.rs:281
+msgid "Commit {hash}"
+msgstr ""
+
+#: crates/app/src/window.rs:288
+msgid "Latest Commit"
 msgstr ""
 
 #: data/io.github.amirmwhdi.Corewatch.desktop:2

@@ -1,0 +1,2 @@
+# git archive (release tarballs, GitHub downloads) fills in the commit.
+data/commit.txt export-subst

@@ -188,6 +188,7 @@ pub fn present(app: &adw::Application) {
                 .website("https://github.com/amirmwhdi/corewatch")
                 .issue_url("https://github.com/amirmwhdi/corewatch/issues")
                 .build();
+            add_whats_new(&about);
             about.present(Some(&window));
         }
     ));
@@ -259,4 +260,35 @@ pub fn present(app: &adw::Application) {
     });
 
     window.present();
+}
+
+/// "What's New": the subject, body and hash of the commit this build came
+/// from. Release notes accept only a little markup (`<p>`, `<code>`, …), so
+/// the commit text is escaped.
+fn add_whats_new(about: &adw::AboutDialog) {
+    let Some(commit) = config::commit() else {
+        return;
+    };
+    let short = &commit.hash[..commit.hash.len().min(7)];
+    let mut notes = format!("<p>{}</p>", glib::markup_escape_text(commit.subject));
+    for paragraph in &commit.paragraphs {
+        notes.push_str(&format!("<p>{}</p>", glib::markup_escape_text(paragraph)));
+    }
+    notes.push_str(&format!(
+        "<p>{}</p>",
+        crate::i18n::fmt(
+            // Translators: the git commit this build came from, e.g. "Commit a6f02ff"
+            &gettext("Commit {hash}"),
+            &[("hash", &format!("<code>{short}</code>"))],
+        )
+    ));
+    about.set_release_notes_version(config::VERSION);
+    about.set_release_notes(&notes);
+    about.add_link(
+        &gettext("Latest Commit"),
+        &format!(
+            "https://github.com/amirmwhdi/CoreWatch/commit/{}",
+            commit.hash
+        ),
+    );
 }
