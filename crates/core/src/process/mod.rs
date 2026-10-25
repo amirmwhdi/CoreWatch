@@ -70,6 +70,7 @@ pub struct ProcessCollector {
     last: ProcessSample,
     idle_countdown: u32,
     net: NetTracker,
+    my_uid: u32,
 }
 
 impl ProcessCollector {
@@ -95,6 +96,7 @@ impl ProcessCollector {
             last: ProcessSample::default(),
             idle_countdown: 0,
             net: NetTracker::default(),
+            my_uid: current_uid(),
         };
         collector.scan(root)?;
         Ok(collector)
@@ -107,18 +109,20 @@ impl ProcessCollector {
             self.net.pause();
             return None;
         }
-        if self.net.owners_countdown == 0 {
-            self.net.owners = self.reader.socket_owners(root);
-            self.net.owners_countdown = net::OWNERS_EVERY;
-        }
-        self.net.owners_countdown -= 1;
-        match net::tcp_sockets() {
-            Ok(sockets) => Some(self.net.rates(sockets)),
+        let sockets = match net::tcp_sockets() {
+            Ok(sockets) => sockets,
             Err(e) => {
                 tracing::debug!("socket counters: {e}");
-                None
+                return None;
             }
+        };
+        if self.net.owners_countdown == 0 && self.net.needs_owners(&sockets) {
+            let owners = self.reader.socket_owners(root);
+            self.net.set_owners(owners, &sockets);
+            self.net.owners_countdown = net::OWNERS_EVERY;
         }
+        self.net.owners_countdown = self.net.owners_countdown.saturating_sub(1);
+        Some(self.net.rates(sockets))
     }
 
     fn scan(&mut self, root: &SysRoot) -> Result<(), CollectError> {
@@ -172,7 +176,9 @@ impl ProcessCollector {
                     None => Arc::from("?"),
                 };
                 let (download, upload) = match &rates {
-                    Some(rates) if self.net.owners.readable.contains(&stat.pid) => {
+                    // Own processes (all of them for root) can be matched to
+                    // sockets; others show no speed rather than a wrong zero.
+                    Some(rates) if raw.uid == Some(self.my_uid) || self.my_uid == 0 => {
                         let (rx, tx) = rates.get(&stat.pid).copied().unwrap_or_default();
                         (Some(rx), Some(tx))
                     }

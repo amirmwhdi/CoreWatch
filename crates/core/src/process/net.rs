@@ -18,8 +18,9 @@ pub struct SocketBytes {
     pub received: u64,
 }
 
-/// Scans between two reads of every process's sockets. Sockets opened in
-/// between count from the next read on.
+/// At least this many scans between two reads of every process's sockets.
+/// The read happens only when a socket moves data and its owner is not
+/// known yet, so on a quiet machine it hardly ever runs.
 pub const OWNERS_EVERY: u32 = 3;
 
 const SOCK_DIAG_BY_FAMILY: u16 = 20;
@@ -186,18 +187,15 @@ impl Drop for NetlinkSocket {
     }
 }
 
-/// Which process owns which socket, and whose sockets could be read.
+/// Which process owns which socket.
 #[derive(Debug, Default)]
 pub struct Owners {
     /// Socket inode to pid.
     pub sockets: HashMap<u32, u32>,
-    /// Pids whose descriptors could be read: other users' processes show no
-    /// speed rather than a wrong zero.
-    pub readable: HashSet<u32>,
 }
 
 /// [`Owners`] from `ls -l /proc/[0-9]*/fd`, as filtered by the Flatpak host
-/// script: `D /proc/123/fd:` starts a readable process and `F 4567]` is one
+/// script: `D /proc/123/fd:` starts a process and `F 4567]` is one
 /// of its sockets.
 pub fn parse_fd_listing<'a>(lines: impl IntoIterator<Item = &'a str>) -> Owners {
     let mut owners = Owners::default();
@@ -208,7 +206,6 @@ pub fn parse_fd_listing<'a>(lines: impl IntoIterator<Item = &'a str>) -> Owners 
                 .strip_prefix("/proc/")
                 .and_then(|d| d.split('/').next())
                 .and_then(|p| p.parse().ok());
-            owners.readable.extend(pid);
         } else if let (Some(inode), Some(pid)) = (line.strip_prefix("F "), pid) {
             if let Ok(inode) = inode.trim_end_matches(']').parse() {
                 owners.sockets.entry(inode).or_insert(pid);
@@ -225,6 +222,9 @@ pub struct NetTracker {
     prev_time: Option<Instant>,
     pub owners: Owners,
     pub owners_countdown: u32,
+    /// Sockets no readable process owned at the last read (other users'
+    /// processes): their traffic does not ask for another read.
+    pub unowned: HashSet<u32>,
 }
 
 impl NetTracker {
@@ -233,6 +233,26 @@ impl NetTracker {
         self.prev.clear();
         self.prev_time = None;
         self.owners_countdown = 0;
+    }
+
+    /// Whether `now` holds a socket that moved data since the last call
+    /// and whose owner is not known yet.
+    pub fn needs_owners(&self, now: &HashMap<u32, SocketBytes>) -> bool {
+        now.iter().any(|(inode, bytes)| {
+            self.prev.get(inode).is_some_and(|before| before != bytes)
+                && !self.owners.sockets.contains_key(inode)
+                && !self.unowned.contains(inode)
+        })
+    }
+
+    /// Take a fresh read of the owners of `now`'s sockets.
+    pub fn set_owners(&mut self, owners: Owners, now: &HashMap<u32, SocketBytes>) {
+        self.unowned = now
+            .keys()
+            .filter(|inode| !owners.sockets.contains_key(inode))
+            .copied()
+            .collect();
+        self.owners = owners;
     }
 
     /// Bytes per second received and sent, by pid, since the last call.
@@ -319,7 +339,24 @@ mod tests {
         assert_eq!(owners.sockets[&100], 12);
         assert_eq!(owners.sockets[&101], 12);
         assert_eq!(owners.sockets[&200], 34);
-        assert!(owners.readable.contains(&34));
+    }
+
+    #[test]
+    fn owners_are_read_only_for_new_traffic() {
+        let bytes = |sent, received| SocketBytes { sent, received };
+        let mut tracker = NetTracker::default();
+        tracker.rates(HashMap::from([(7, bytes(0, 0)), (8, bytes(0, 0))]));
+        // Nothing moved: no read.
+        let quiet = HashMap::from([(7, bytes(0, 0)), (8, bytes(0, 0))]);
+        assert!(!tracker.needs_owners(&quiet));
+        // Socket 7 moved data and its owner is unknown: read.
+        let busy = HashMap::from([(7, bytes(10, 0)), (8, bytes(0, 5))]);
+        assert!(tracker.needs_owners(&busy));
+        // The read found 7's owner; 8 belongs to another user: no more reads.
+        let mut owners = Owners::default();
+        owners.sockets.insert(7, 1);
+        tracker.set_owners(owners, &busy);
+        assert!(!tracker.needs_owners(&busy));
     }
 
     #[test]

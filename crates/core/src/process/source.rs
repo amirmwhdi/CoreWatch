@@ -198,7 +198,6 @@ fn socket_owners_direct(root: &SysRoot) -> Owners {
         let Ok(fds) = std::fs::read_dir(entry.path().join("fd")) else {
             continue;
         };
-        owners.readable.insert(pid);
         for fd in fds.flatten() {
             let Ok(target) = std::fs::read_link(fd.path()) else {
                 continue;
