@@ -40,7 +40,7 @@ temperature and battery usage, and the running processes.
   mounted filesystem space
 - Battery: charge level graph, charging status, time remaining, health, power rate, and cycles
 - Follows the system light/dark style and accent color
-- Smooth, continuously scrolling graphs
+- Smooth, continuously scrolling graphs (can be turned off to save power)
 - Preferences: color scheme, update speed (0.5s, 1s, 2s), the page to open on (a chosen page or the last one
   open), temperature in °C or °F, sizes in binary (KiB, MiB) or decimal
   (kB, MB) units, and network speeds in bytes or bits per second

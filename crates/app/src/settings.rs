@@ -119,14 +119,30 @@ impl StartPage {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct AppSettings {
     pub theme: ThemeMode,
     pub speed: UpdateSpeed,
+    /// Graphs scroll continuously between samples; off, they move once per
+    /// sample and draw nothing in between, which saves power.
+    pub smooth_graphs: bool,
     pub units: Units,
     pub start_page: StartPage,
     /// The page open when Corewatch was last closed.
     pub last_page: String,
+}
+
+impl Default for AppSettings {
+    fn default() -> Self {
+        Self {
+            theme: ThemeMode::default(),
+            speed: UpdateSpeed::default(),
+            smooth_graphs: true,
+            units: Units::default(),
+            start_page: StartPage::default(),
+            last_page: String::new(),
+        }
+    }
 }
 
 impl AppSettings {
@@ -166,6 +182,7 @@ impl AppSettings {
                     .int64("General", "update_interval_ms")
                     .map(|ms| UpdateSpeed::from_millis(ms as u64))
                     .unwrap_or_default(),
+                smooth_graphs: key_file.boolean("General", "smooth_graphs").unwrap_or(true),
                 units,
                 start_page: text("start_page")
                     .map(|s| StartPage::from_str(&s))
@@ -189,6 +206,7 @@ impl AppSettings {
             "update_interval_ms",
             self.speed.as_millis() as i64,
         );
+        key_file.set_boolean("General", "smooth_graphs", self.smooth_graphs);
         let units = self.units;
         key_file.set_string(
             "General",

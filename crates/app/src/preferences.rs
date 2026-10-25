@@ -25,6 +25,8 @@ mod imp {
         #[template_child]
         pub interval_row: TemplateChild<adw::ComboRow>,
         #[template_child]
+        pub smooth_row: TemplateChild<adw::SwitchRow>,
+        #[template_child]
         pub temperature_row: TemplateChild<adw::ComboRow>,
         #[template_child]
         pub sizes_row: TemplateChild<adw::ComboRow>,
@@ -109,6 +111,12 @@ impl PreferencesDialog {
                     None => StartPage::Last,
                 }
             });
+        });
+
+        imp.smooth_row.set_active(settings.smooth_graphs);
+        imp.smooth_row.connect_active_notify(|row| {
+            let settings = update(|s| s.smooth_graphs = row.is_active());
+            crate::widgets::graph::set_smooth(settings.smooth_graphs);
         });
 
         imp.interval_row.set_selected(settings.speed as u32);

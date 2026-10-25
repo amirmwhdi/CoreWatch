@@ -50,6 +50,11 @@ template $CwPreferencesDialog: Adw.PreferencesDialog {
           ]
         };
       }
+
+      Adw.SwitchRow smooth_row {
+        title: _("Smooth Graphs");
+        subtitle: _("Scroll graphs continuously between updates. Turn off to save power.");
+      }
     }
 
     Adw.PreferencesGroup {

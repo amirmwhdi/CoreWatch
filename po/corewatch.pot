@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: corewatch\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-25 16:39+0000\n"
+"POT-Creation-Date: 2026-10-25 16:53+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -172,7 +172,7 @@ msgstr ""
 
 #: crates/app/src/modules/disk.rs:207
 #: crates/app/src/widgets/sensor_group.rs:108 data/ui/stable/gpu-page.blp:67
-#: data/ui/stable/preferences.blp:59
+#: data/ui/stable/preferences.blp:64
 msgid "Temperature"
 msgstr ""
 
@@ -469,7 +469,7 @@ msgstr ""
 msgid "Wireless card"
 msgstr ""
 
-#: crates/app/src/preferences.rs:89
+#: crates/app/src/preferences.rs:91
 msgid "Last Opened Page"
 msgstr ""
 
@@ -496,16 +496,16 @@ msgstr ""
 msgid "{value} RPM"
 msgstr ""
 
-#: crates/app/src/window.rs:264
+#: crates/app/src/window.rs:265
 msgid "Unavailable"
 msgstr ""
 
 #. Translators: the git commit this build came from, e.g. "Commit a6f02ff"
-#: crates/app/src/window.rs:309
+#: crates/app/src/window.rs:310
 msgid "Commit {hash}"
 msgstr ""
 
-#: crates/app/src/window.rs:316
+#: crates/app/src/window.rs:317
 msgid "Latest Commit"
 msgstr ""
 
@@ -647,32 +647,40 @@ msgid ""
 msgstr ""
 
 #: data/io.github.amirmwhdi.Corewatch.metainfo.xml:103
+msgid "Temperature of each drive on the Disks page"
+msgstr ""
+
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:104
+msgid "Smooth, continuously scrolling graphs"
+msgstr ""
+
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:105
 msgid ""
-"Preferences: start page or last page, graph history, temperature unit, "
-"binary or decimal sizes, and bits or bytes for network speeds"
-msgstr ""
-
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:110
-msgid "New Graphics, Disks and Battery pages"
-msgstr ""
-
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:111
-msgid "Preferences: color scheme and update speed"
+"Preferences: start page or last page, temperature unit, binary or decimal "
+"sizes, and bits or bytes for network speeds"
 msgstr ""
 
 #: data/io.github.amirmwhdi.Corewatch.metainfo.xml:112
-msgid "A banner tells you when a data source stops answering"
+msgid "New Graphics, Disks and Battery pages"
 msgstr ""
 
 #: data/io.github.amirmwhdi.Corewatch.metainfo.xml:113
+msgid "Preferences: color scheme and update speed"
+msgstr ""
+
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:114
+msgid "A banner tells you when a data source stops answering"
+msgstr ""
+
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:115
 msgid "Installable with Meson, and available as a Flatpak"
 msgstr ""
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:119
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:121
 msgid "Log file and clearer error reports."
 msgstr ""
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:124
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:126
 msgid "First preview: processor and memory."
 msgstr ""
 
@@ -849,39 +857,47 @@ msgstr ""
 msgid "2 seconds (Power Saver)"
 msgstr ""
 
+#: data/ui/stable/preferences.blp:55
+msgid "Smooth Graphs"
+msgstr ""
+
 #: data/ui/stable/preferences.blp:56
+msgid "Scroll graphs continuously between updates. Turn off to save power."
+msgstr ""
+
+#: data/ui/stable/preferences.blp:61
 msgid "Units"
 msgstr ""
 
-#: data/ui/stable/preferences.blp:62
+#: data/ui/stable/preferences.blp:67
 msgid "Celsius (°C)"
 msgstr ""
 
-#: data/ui/stable/preferences.blp:63
+#: data/ui/stable/preferences.blp:68
 msgid "Fahrenheit (°F)"
 msgstr ""
 
-#: data/ui/stable/preferences.blp:69
+#: data/ui/stable/preferences.blp:74
 msgid "Sizes"
 msgstr ""
 
-#: data/ui/stable/preferences.blp:72
+#: data/ui/stable/preferences.blp:77
 msgid "Binary"
 msgstr ""
 
-#: data/ui/stable/preferences.blp:73
+#: data/ui/stable/preferences.blp:78
 msgid "Decimal"
 msgstr ""
 
-#: data/ui/stable/preferences.blp:79
+#: data/ui/stable/preferences.blp:84
 msgid "Network Speed"
 msgstr ""
 
-#: data/ui/stable/preferences.blp:82
+#: data/ui/stable/preferences.blp:87
 msgid "Bytes per second (MB/s)"
 msgstr ""
 
-#: data/ui/stable/preferences.blp:83
+#: data/ui/stable/preferences.blp:88
 msgid "Bits per second (Mb/s)"
 msgstr ""
 

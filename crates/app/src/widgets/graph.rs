@@ -10,8 +10,9 @@
 //! The line scrolls smoothly, as in GNOME System Monitor: the newest value
 //! enters just past the right edge and slides into view over one update
 //! interval, and a self-scaling graph eases to its new top. While on screen
-//! the graph redraws only when the line has moved by half a pixel, so a slow
-//! scroll costs few frames, and a hidden graph costs nothing.
+//! the graph redraws only when the line has moved by a pixel, so a slow
+//! scroll costs few frames, and a hidden graph costs nothing. "Smooth Graphs"
+//! in Preferences turns this off ([`set_smooth`]).
 
 use adw::prelude::*;
 use gtk::subclass::prelude::*;
@@ -30,23 +31,46 @@ thread_local! {
     /// Points every graph keeps: the history length from Preferences divided
     /// by the update interval.
     static HISTORY: Cell<u32> = const { Cell::new(60) };
+    /// Whether graphs scroll between samples (Preferences, "Smooth Graphs").
+    static SMOOTH: Cell<bool> = const { Cell::new(true) };
     /// Every live graph, so a new history length reaches them all.
     static GRAPHS: RefCell<Vec<glib::WeakRef<Graph>>> = const { RefCell::new(Vec::new()) };
+}
+
+/// Turn the continuous scroll of every graph on or off. Off, a graph moves
+/// once per value and has no per-frame work at all.
+pub fn set_smooth(smooth: bool) {
+    if SMOOTH.with(|s| s.replace(smooth)) == smooth {
+        return;
+    }
+    for_each_graph(|graph| {
+        let imp = graph.imp();
+        if smooth && graph.is_mapped() {
+            imp.start_ticking();
+        } else {
+            imp.stop_ticking();
+        }
+        graph.queue_draw();
+    });
+}
+
+fn for_each_graph(f: impl Fn(&Graph)) {
+    GRAPHS.with(|graphs| {
+        graphs.borrow_mut().retain(|weak| match weak.upgrade() {
+            Some(graph) => {
+                f(&graph);
+                true
+            }
+            None => false,
+        });
+    });
 }
 
 /// Make every graph, existing and future, keep `points` values.
 pub fn set_history(points: usize) {
     let points = u32::try_from(points).unwrap_or(u32::MAX).max(2);
     HISTORY.with(|h| h.set(points));
-    GRAPHS.with(|graphs| {
-        graphs.borrow_mut().retain(|weak| match weak.upgrade() {
-            Some(graph) => {
-                graph.imp().set_capacity(points);
-                true
-            }
-            None => false,
-        });
-    });
+    for_each_graph(|graph| graph.imp().set_capacity(points));
 }
 
 mod imp {
@@ -101,7 +125,7 @@ mod imp {
         /// How far into the current interval we are, 0.0..=1.0: the share of
         /// one step the line has scrolled left since the last value.
         pub fn phase(&self) -> f32 {
-            if self.pushed_at.get() == 0 {
+            if self.pushed_at.get() == 0 || !SMOOTH.with(Cell::get) {
                 return 1.0;
             }
             let elapsed = glib::monotonic_time() - self.pushed_at.get();
@@ -126,6 +150,32 @@ mod imp {
         /// edge, so the line always reaches both sides while it scrolls.
         pub fn step(&self, width: f32) -> f32 {
             width / (self.capacity.get().max(3) - 2) as f32
+        }
+
+        /// Redraw on frames where the line has moved a pixel or the scale
+        /// is still easing.
+        pub fn start_ticking(&self) {
+            if self.tick.borrow().is_some() {
+                return;
+            }
+            let id = self.obj().add_tick_callback(|graph, _| {
+                let imp = graph.imp();
+                let shift = imp.phase() * imp.step(graph.width() as f32);
+                let top = imp.target_top();
+                let moved = (shift - imp.drawn_shift.get()).abs() >= 1.0;
+                let rescaling = (top - imp.drawn_top.get()).abs() > top * 0.002;
+                if moved || rescaling {
+                    graph.queue_draw();
+                }
+                glib::ControlFlow::Continue
+            });
+            self.tick.replace(Some(id));
+        }
+
+        pub fn stop_ticking(&self) {
+            if let Some(id) = self.tick.take() {
+                id.remove();
+            }
         }
 
         /// Record a new value's time and learn the interval from it.
@@ -191,24 +241,11 @@ mod imp {
 
             // Scroll only while on screen.
             graph.connect_map(|graph| {
-                let id = graph.add_tick_callback(|graph, _| {
-                    let imp = graph.imp();
-                    let shift = imp.phase() * imp.step(graph.width() as f32);
-                    let top = imp.target_top();
-                    let moved = (shift - imp.drawn_shift.get()).abs() >= 1.0;
-                    let rescaling = (top - imp.drawn_top.get()).abs() > top * 0.002;
-                    if moved || rescaling {
-                        graph.queue_draw();
-                    }
-                    glib::ControlFlow::Continue
-                });
-                graph.imp().tick.replace(Some(id));
-            });
-            graph.connect_unmap(|graph| {
-                if let Some(id) = graph.imp().tick.take() {
-                    id.remove();
+                if SMOOTH.with(Cell::get) {
+                    graph.imp().start_ticking();
                 }
             });
+            graph.connect_unmap(|graph| graph.imp().stop_ticking());
         }
 
         fn dispose(&self) {
@@ -244,7 +281,7 @@ mod imp {
             // Fixed graphs hold 0.0..=1.0; self-scaling ones divide by the
             // peak, easing toward a new peak instead of jumping to it.
             let target = self.target_top();
-            let top = if self.autoscale.get().is_some() {
+            let top = if self.autoscale.get().is_some() && SMOOTH.with(Cell::get) {
                 let shown = self.drawn_top.get();
                 if shown <= 0.0 || (target - shown).abs() <= target * 0.002 {
                     target

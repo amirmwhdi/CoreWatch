@@ -41,17 +41,39 @@ pub(crate) struct DeviceInfo {
     pub temp_path: Option<PathBuf>,
 }
 
-/// The hwmon chip of a disk sits under its device, either directly
-/// (`device/hwmon3`) or in a `hwmon` folder (`device/hwmon/hwmon3`).
+/// The temperature sensor of a disk: the hwmon chip whose `device` is the
+/// disk's device. For SATA (drivetemp) that is the disk's SCSI device. For
+/// NVMe it is the controller: with native multipath, which most
+/// distributions enable, `/sys/block/nvme0n1/device` is the NVMe subsystem,
+/// and the controllers (`nvme0`) are links inside it.
 fn temp_path(root: &SysRoot, name: &str) -> Option<PathBuf> {
     let device = root.sys_path(&format!("block/{name}/device"));
-    [device.clone(), device.join("hwmon")]
-        .iter()
-        .filter_map(|dir| std::fs::read_dir(dir).ok())
+    let mut candidates: Vec<PathBuf> = device.canonicalize().into_iter().collect();
+    if let Ok(entries) = std::fs::read_dir(&device) {
+        for entry in entries.flatten() {
+            let entry_name = entry.file_name();
+            let entry_name = entry_name.to_string_lossy();
+            let controller = entry_name
+                .strip_prefix("nvme")
+                .is_some_and(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()));
+            if controller {
+                candidates.extend(entry.path().canonicalize());
+            }
+        }
+    }
+    if candidates.is_empty() {
+        return None;
+    }
+    std::fs::read_dir(root.sys_path("class/hwmon"))
+        .ok()?
         .flatten()
-        .flatten()
-        .filter(|e| e.file_name().to_string_lossy().starts_with("hwmon"))
-        .map(|e| e.path().join("temp1_input"))
+        .map(|e| e.path())
+        .filter(|chip| {
+            chip.join("device")
+                .canonicalize()
+                .is_ok_and(|d| candidates.contains(&d))
+        })
+        .map(|chip| chip.join("temp1_input"))
         .find(|p| p.is_file())
 }
 
