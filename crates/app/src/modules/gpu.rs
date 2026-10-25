@@ -2,12 +2,12 @@
 
 use super::{Module, ResourcePage};
 use crate::i18n::{self, gettext};
-use crate::widgets::Graph;
+use crate::widgets::{Graph, SensorGroup};
 use adw::prelude::*;
 use adw::subclass::prelude::ObjectSubclassIsExt;
 use corewatch_core::gpu::GpuCollector;
+use corewatch_core::sensors::Home;
 use corewatch_core::{CollectError, Collector, Snapshot, SysRoot};
-use gtk::glib;
 use std::cell::Cell;
 
 fn collector(root: &SysRoot) -> Result<Box<dyn Collector>, CollectError> {
@@ -24,6 +24,7 @@ pub const MODULE: Module = Module {
 };
 
 struct GpuPage {
+    sensors: SensorGroup,
     root: gtk::Widget,
     graph: Graph,
     model: adw::ActionRow,
@@ -50,6 +51,7 @@ impl GpuPage {
             vram_bar: ui.vram_bar.get(),
             temp: ui.temp.get(),
             static_info_set: Cell::new(false),
+            sensors: SensorGroup::new(ui.sensors_group.get(), Home::Gpu),
             root: view.upcast(),
         }
     }
@@ -73,6 +75,7 @@ impl ResourcePage for GpuPage {
     }
 
     fn update(&self, snapshot: &Snapshot) {
+        self.sensors.update(snapshot.sensors.as_ref());
         let Some(gpu) = &snapshot.gpu else { return };
         let Some(first) = gpu.devices.first() else {
             return;
@@ -116,16 +119,7 @@ impl ResourcePage for GpuPage {
             (Some(used), Some(total)) => {
                 self.vram.set_subtitle(&i18n::fmt(
                     &gettext("{used} of {total}"),
-                    &[
-                        (
-                            "used",
-                            &glib::format_size_full(used, glib::FormatSizeFlags::IEC_UNITS),
-                        ),
-                        (
-                            "total",
-                            &glib::format_size_full(total, glib::FormatSizeFlags::IEC_UNITS),
-                        ),
-                    ],
+                    &[("used", &i18n::size(used)), ("total", &i18n::size(total))],
                 ));
                 self.vram_bar.set_visible(true);
                 self.vram_bar
@@ -139,8 +133,7 @@ impl ResourcePage for GpuPage {
 
         match first.temp_c {
             Some(temp) => {
-                self.temp
-                    .set_subtitle(&i18n::fmt(&gettext("{t} °C"), &[("t", &temp)]));
+                self.temp.set_subtitle(&i18n::celsius(temp as f32));
                 self.temp.set_visible(true);
             }
             None => {
@@ -176,6 +169,8 @@ mod view {
         #[derive(Default, CompositeTemplate)]
         #[template(resource = "/io/github/amirmwhdi/Corewatch/ui/gpu-page.ui")]
         pub struct GpuView {
+            #[template_child]
+            pub sensors_group: TemplateChild<adw::PreferencesGroup>,
             #[template_child]
             pub graph: TemplateChild<Graph>,
             #[template_child]

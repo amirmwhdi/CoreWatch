@@ -6,7 +6,6 @@
 //! what the other modules collected.
 
 use super::{battery, network, Module, ResourcePage};
-use crate::config::HISTORY_LEN;
 use crate::i18n::{self, gettext};
 use crate::widgets::Graph;
 use adw::prelude::*;
@@ -150,12 +149,12 @@ impl ResourcePage for OverviewPage {
                 &i18n::fmt(
                     // Translators: download speed, e.g. "↓ 1.2 MiB/s"
                     &gettext("↓ {speed}"),
-                    &[("speed", &i18n::speed(n.rx_bps()))],
+                    &[("speed", &i18n::net_speed(n.rx_bps()))],
                 ),
                 &i18n::fmt(
                     // Translators: upload speed, e.g. "↑ 40 KiB/s"
                     &gettext("↑ {speed}"),
-                    &[("speed", &i18n::speed(n.tx_bps()))],
+                    &[("speed", &i18n::net_speed(n.tx_bps()))],
                 ),
             );
         }
@@ -243,11 +242,11 @@ struct Card {
 
 impl Card {
     fn new(cards: &gtk::FlowBox, page: &str, title: &str, icon: &str) -> Self {
-        Self::with_graph(cards, page, title, icon, Graph::new(HISTORY_LEN, 56))
+        Self::with_graph(cards, page, title, icon, Graph::new(56))
     }
 
     fn new_autoscale(cards: &gtk::FlowBox, page: &str, title: &str, icon: &str) -> Self {
-        let graph = Graph::new_autoscale(HISTORY_LEN, 56, network::GRAPH_FLOOR);
+        let graph = Graph::new_autoscale(56, network::GRAPH_FLOOR);
         Self::with_graph(cards, page, title, icon, graph)
     }
 

@@ -5,6 +5,7 @@
 
 use crate::i18n::gettext;
 use crate::modules::{self, ResourcePage};
+use crate::settings::StartPage;
 use crate::widgets::PageFrame;
 use crate::{config, logging};
 use adw::prelude::*;
@@ -77,6 +78,8 @@ pub fn present(app: &adw::Application) {
     logging::log_startup_banner(&root);
     let settings = crate::settings::AppSettings::load();
     settings.apply_theme();
+    crate::i18n::set_units(settings.units);
+    crate::widgets::graph::set_history(settings.history.points(settings.speed));
 
     if let Some(display) = gtk::gdk::Display::default() {
         let theme = gtk::IconTheme::for_display(&display);
@@ -144,7 +147,23 @@ pub fn present(app: &adw::Application) {
             split.set_show_content(true);
         }
     ));
-    sidebar.select_row(sidebar.row_at_index(0).as_ref());
+    // Open on the chosen page, or where the user left off; the first page
+    // when that page is not available on this machine.
+    let start = match &settings.start_page {
+        StartPage::Last => settings.last_page.as_str(),
+        StartPage::Page(id) => id.as_str(),
+    };
+    let start_row = (0..)
+        .map_while(|i| sidebar.row_at_index(i))
+        .find(|row| row.widget_name() == start)
+        .or_else(|| sidebar.row_at_index(0));
+    sidebar.select_row(start_row.as_ref());
+    let page_list: Rc<Vec<(String, String)>> = Rc::new(
+        pages
+            .iter()
+            .map(|(page, _, _)| (page.id().to_owned(), page.title()))
+            .collect(),
+    );
 
     // Start sampling and feed every page from the channel.
     let (tx, rx) = async_channel::bounded::<Snapshot>(1);
@@ -165,8 +184,10 @@ pub fn present(app: &adw::Application) {
         window,
         #[strong]
         handle,
+        #[strong]
+        page_list,
         move |_, _| {
-            let dialog = crate::preferences::PreferencesDialog::new(handle.clone());
+            let dialog = crate::preferences::PreferencesDialog::new(handle.clone(), &page_list);
             dialog.present(Some(&window));
         }
     ));
@@ -254,8 +275,15 @@ pub fn present(app: &adw::Application) {
     // Closing the window drops the handle: the sampler stops, the channel
     // closes, and the update loop above ends.
     let handle_close = handle.clone();
+    let stack_close = stack.downgrade();
     window.connect_close_request(move |_| {
         handle_close.borrow_mut().take();
+        // Remember the open page for "Open On: Last Opened Page".
+        if let Some(id) = stack_close.upgrade().and_then(|s| s.visible_child_name()) {
+            let mut settings = crate::settings::AppSettings::load();
+            settings.last_page = id.into();
+            settings.save();
+        }
         glib::Propagation::Proceed
     });
 

@@ -37,6 +37,12 @@ template $CwDiskPage: Adw.Bin {
         Adw.PreferencesGroup fs_group {
           title: _("Filesystems");
         }
+
+        // Sensors that belong to this page; filled by widgets::SensorGroup.
+        Adw.PreferencesGroup sensors_group {
+          title: _("Sensors");
+          visible: false;
+        }
       };
     };
   };

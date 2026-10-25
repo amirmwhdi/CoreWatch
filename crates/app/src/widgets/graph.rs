@@ -13,18 +13,32 @@ use gtk::{gdk, glib, graphene, gsk};
 use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
 
-/// Graphs declared in Blueprint keep this many points unless they set
-/// `capacity`; it matches the history every page shows.
-const _: () = assert!(
-    crate::config::HISTORY_LEN == 60,
-    "update the `default = 60` of Graph's capacity property too"
-);
+thread_local! {
+    /// Points every graph keeps: the history length from Preferences divided
+    /// by the update interval.
+    static HISTORY: Cell<u32> = const { Cell::new(60) };
+    /// Every live graph, so a new history length reaches them all.
+    static GRAPHS: RefCell<Vec<glib::WeakRef<Graph>>> = const { RefCell::new(Vec::new()) };
+}
+
+/// Make every graph, existing and future, keep `points` values.
+pub fn set_history(points: usize) {
+    let points = u32::try_from(points).unwrap_or(u32::MAX).max(2);
+    HISTORY.with(|h| h.set(points));
+    GRAPHS.with(|graphs| {
+        graphs.borrow_mut().retain(|weak| match weak.upgrade() {
+            Some(graph) => {
+                graph.imp().set_capacity(points);
+                true
+            }
+            None => false,
+        });
+    });
+}
 
 mod imp {
     use super::*;
 
-    #[derive(glib::Properties)]
-    #[properties(wrapper_type = super::Graph)]
     pub struct Graph {
         pub values: RefCell<VecDeque<f32>>,
         /// Optional second series, drawn as a line without fill.
@@ -32,9 +46,8 @@ mod imp {
         /// `Some(floor)`: values are raw and the top of the graph is the
         /// largest value held, but never less than `floor`.
         pub autoscale: Cell<Option<f32>>,
-        /// Points kept; older ones scroll out on the left. Settable from
-        /// Blueprint as `capacity: 60;`.
-        #[property(get, set = Self::set_capacity, minimum = 2, default = 60)]
+        /// Points kept; older ones scroll out on the left. The same for
+        /// every graph (see [`super::set_history`]).
         pub capacity: Cell<u32>,
         /// Whole percent last written to the accessible description, so an
         /// unchanged value does not reach the accessibility bus every tick.
@@ -50,7 +63,7 @@ mod imp {
                 values: RefCell::default(),
                 secondary: RefCell::default(),
                 autoscale: Cell::new(None),
-                capacity: Cell::new(60),
+                capacity: Cell::new(HISTORY.with(Cell::get)),
                 announced: Cell::new(None),
                 style_handlers: RefCell::default(),
             }
@@ -58,7 +71,7 @@ mod imp {
     }
 
     impl Graph {
-        fn set_capacity(&self, capacity: u32) {
+        pub fn set_capacity(&self, capacity: u32) {
             self.capacity.set(capacity.max(2));
             for series in [&self.values, &self.secondary] {
                 let mut values = series.borrow_mut();
@@ -82,12 +95,12 @@ mod imp {
         }
     }
 
-    #[glib::derived_properties]
     impl ObjectImpl for Graph {
         /// Setup shared by `Graph::new` and graphs built from Blueprint.
         fn constructed(&self) {
             self.parent_constructed();
             let graph = self.obj();
+            GRAPHS.with(|graphs| graphs.borrow_mut().push(graph.downgrade()));
             graph.set_hexpand(true);
             graph.set_overflow(gtk::Overflow::Hidden);
             graph.add_css_class("card");
@@ -146,7 +159,15 @@ mod imp {
                     .fold(floor, f32::max),
                 None => 1.0,
             };
-            let step = w / (self.capacity.get().max(2) - 1) as f32;
+            // Long histories hold more points than the graph has pixels:
+            // draw the peak of every few points, one point per ~3 px.
+            let capacity = self.capacity.get().max(2) as usize;
+            let bucket = capacity.div_ceil(((w / 3.0) as usize).max(2));
+            let (values, secondary) = (downsample(&values, bucket), downsample(&secondary, bucket));
+            if values.len() < 2 {
+                return;
+            }
+            let step = w / (capacity.div_ceil(bucket).max(2) - 1) as f32;
             let y = |v: f32| h - (v / top).clamp(0.0, 1.0) * (h - 2.0) - 1.0;
 
             let accent = adw::StyleManager::default().accent_color_rgba();
@@ -168,6 +189,21 @@ mod imp {
             }
         }
     }
+}
+
+/// The peak of every `bucket` values, counted from the newest so the right
+/// edge stays steady while the graph scrolls. `bucket` 1 borrows as is.
+fn downsample(values: &VecDeque<f32>, bucket: usize) -> std::borrow::Cow<'_, VecDeque<f32>> {
+    if bucket <= 1 {
+        return std::borrow::Cow::Borrowed(values);
+    }
+    let mut reduced: VecDeque<f32> = VecDeque::with_capacity(values.len() / bucket + 1);
+    let mut iter = values.iter().rev().peekable();
+    while iter.peek().is_some() {
+        let peak = iter.by_ref().take(bucket).copied().fold(f32::MIN, f32::max);
+        reduced.push_front(peak);
+    }
+    std::borrow::Cow::Owned(reduced)
 }
 
 /// The line through `values` (newest at the right edge, older ones to the
@@ -211,18 +247,17 @@ glib::wrapper! {
 }
 
 impl Graph {
-    /// A graph that keeps `capacity` points and asks for `height` pixels.
-    pub fn new(capacity: usize, height: i32) -> Self {
+    /// A graph that asks for `height` pixels and keeps the current history.
+    pub fn new(height: i32) -> Self {
         glib::Object::builder()
-            .property("capacity", u32::try_from(capacity).unwrap_or(u32::MAX))
             .property("height-request", height)
             .build()
     }
 
     /// A graph for values without a fixed maximum (speeds): the top of the
     /// graph follows the largest value shown, but stays at least `floor`.
-    pub fn new_autoscale(capacity: usize, height: i32, floor: f32) -> Self {
-        let graph = Self::new(capacity, height);
+    pub fn new_autoscale(height: i32, floor: f32) -> Self {
+        let graph = Self::new(height);
         graph.imp().autoscale.set(Some(floor));
         graph
     }

@@ -24,7 +24,7 @@ the Filesystems group on the Disks page is not meaningful there yet. CPU,
 memory, disks, graphics, sensors and battery read global kernel files and
 work as on the host.
 
-Two permissions are there for single pages:
+These permissions are there for single pages:
 
 - `--share=network`: without it the sandbox has its own network namespace
   with only `lo`, and the Network page would show nothing. Corewatch itself
@@ -32,5 +32,13 @@ Two permissions are there for single pages:
 - `--talk-name=org.freedesktop.Flatpak`: the sandbox has its own process
   namespace, so the Processes page runs a small shell script on the host
   with `flatpak-spawn --host` (see `crates/core/src/process/source.rs`). The
-  script only reads `/proc` and `/etc/passwd`, using shell built-ins, and
-  "End Process" runs the host's `kill`.
+  script only reads `/proc` and `/etc/passwd`, using shell built-ins (plus
+  one `ls -l /proc/*/fd` to match network connections to processes), and
+  "End Process" runs the host's `kill`. The per-process download and upload
+  speeds come from the kernel's socket statistics (netlink), which the
+  shared network namespace already allows.
+- `--filesystem=host-os:ro`, the two Flatpak `exports/share` folders and
+  `xdg-data/applications` and `xdg-data/icons`, all read-only: the
+  Processes page shows each app's icon, so it reads the `.desktop` files
+  and icon folders of the apps installed on the host
+  (see `crates/app/src/app_icons.rs`).

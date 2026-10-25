@@ -2,10 +2,11 @@
 
 use super::{Module, ResourcePage};
 use crate::i18n::{self, gettext};
-use crate::widgets::Graph;
+use crate::widgets::{Graph, SensorGroup};
 use adw::prelude::*;
 use adw::subclass::prelude::ObjectSubclassIsExt;
 use corewatch_core::battery::{BatteryCollector, BatteryState};
+use corewatch_core::sensors::Home;
 use corewatch_core::{CollectError, Collector, Snapshot, SysRoot};
 use std::cell::Cell;
 
@@ -23,6 +24,7 @@ pub const MODULE: Module = Module {
 };
 
 struct BatteryPage {
+    sensors: SensorGroup,
     root: gtk::Widget,
     graph: Graph,
     status: adw::ActionRow,
@@ -51,6 +53,7 @@ impl BatteryPage {
             power_supply: ui.power_supply_row.get(),
             hardware: ui.hardware_row.get(),
             static_info_set: Cell::new(false),
+            sensors: SensorGroup::new(ui.sensors_group.get(), Home::Battery),
             root: view.upcast(),
         }
     }
@@ -74,6 +77,7 @@ impl ResourcePage for BatteryPage {
     }
 
     fn update(&self, snapshot: &Snapshot) {
+        self.sensors.update(snapshot.sensors.as_ref());
         let Some(battery_sample) = &snapshot.battery else {
             return;
         };
@@ -231,6 +235,8 @@ mod view {
         #[derive(Default, CompositeTemplate)]
         #[template(resource = "/io/github/amirmwhdi/Corewatch/ui/battery-page.ui")]
         pub struct BatteryView {
+            #[template_child]
+            pub sensors_group: TemplateChild<adw::PreferencesGroup>,
             #[template_child]
             pub graph: TemplateChild<Graph>,
             #[template_child]

@@ -61,6 +61,12 @@ template $CwCpuPage: Adw.Bin {
           row-spacing: 12;
           column-spacing: 12;
         }
+
+        // Sensors that belong to this page; filled by widgets::SensorGroup.
+        Adw.PreferencesGroup sensors_group {
+          title: _("Sensors");
+          visible: false;
+        }
       };
     };
   };

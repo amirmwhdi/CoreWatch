@@ -2,14 +2,13 @@
 //! speed), then the space used on each local filesystem.
 
 use super::{Module, ResourcePage};
-use crate::config::HISTORY_LEN;
 use crate::i18n::{self, gettext};
-use crate::widgets::Graph;
+use crate::widgets::{Graph, SensorGroup};
 use adw::prelude::*;
 use adw::subclass::prelude::ObjectSubclassIsExt;
 use corewatch_core::disk::{DiskCollector, DiskDevice, DiskKind, Filesystem};
+use corewatch_core::sensors::Home;
 use corewatch_core::{CollectError, Collector, Snapshot, SysRoot};
-use gtk::glib;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -31,6 +30,7 @@ pub const MODULE: Module = Module {
 const SPACE_WARNING: f64 = 0.9;
 
 struct DiskPage {
+    sensors: SensorGroup,
     root: gtk::Widget,
     disks_box: gtk::Box,
     no_disks: gtk::Label,
@@ -53,6 +53,7 @@ impl DiskPage {
             disks: RefCell::default(),
             fs_group: ui.fs_group.get(),
             fs_rows: RefCell::default(),
+            sensors: SensorGroup::new(ui.sensors_group.get(), Home::Disk),
             root: view.upcast(),
         }
     }
@@ -122,14 +123,8 @@ impl DiskPage {
                 // Translators: e.g. "120 GiB of 500 GiB used · ext4 · /dev/nvme0n1p2"
                 &gettext("{used} of {total} used · {type} · {device}"),
                 &[
-                    (
-                        "used",
-                        &glib::format_size_full(fs.space.used, glib::FormatSizeFlags::IEC_UNITS),
-                    ),
-                    (
-                        "total",
-                        &glib::format_size_full(fs.space.total, glib::FormatSizeFlags::IEC_UNITS),
-                    ),
+                    ("used", &i18n::size(fs.space.used)),
+                    ("total", &i18n::size(fs.space.total)),
                     ("type", &fs.fs_type),
                     ("device", &fs.source),
                 ],
@@ -157,6 +152,7 @@ impl ResourcePage for DiskPage {
     }
 
     fn update(&self, snapshot: &Snapshot) {
+        self.sensors.update(snapshot.sensors.as_ref());
         let Some(disk) = &snapshot.disk else { return };
         self.sync_disks(&disk.disks);
         self.sync_filesystems(&disk.filesystems);
@@ -174,6 +170,9 @@ impl ResourcePage for DiskPage {
 /// Heading, activity graph and the read and write rows of one disk.
 struct DiskBlock {
     container: gtk::Box,
+    description: gtk::Label,
+    /// Units the description was written in; see `i18n::units_generation`.
+    units: std::cell::Cell<u32>,
     graph: Graph,
     read: adw::ActionRow,
     write: adw::ActionRow,
@@ -189,23 +188,12 @@ impl DiskBlock {
             .css_classes(["heading"])
             .build();
         let description = gtk::Label::builder()
-            .label(i18n::fmt(
-                // Translators: disk type, size and kernel name, e.g. "NVMe · 512 GiB · nvme0n1"
-                &gettext("{kind} · {size} · {name}"),
-                &[
-                    ("kind", &kind_label(device.kind)),
-                    (
-                        "size",
-                        &glib::format_size_full(device.size, glib::FormatSizeFlags::IEC_UNITS),
-                    ),
-                    ("name", &device.name),
-                ],
-            ))
+            .label(block_description(device))
             .xalign(0.0)
             .css_classes(["dim-label", "caption"])
             .build();
 
-        let graph = Graph::new(HISTORY_LEN, 100);
+        let graph = Graph::new(100);
         graph.update_property(&[gtk::accessible::Property::Label(&i18n::fmt(
             &gettext("Activity of {model}"),
             &[("model", &device.model)],
@@ -228,6 +216,8 @@ impl DiskBlock {
 
         Self {
             container,
+            description,
+            units: std::cell::Cell::new(i18n::units_generation()),
             graph,
             read,
             write,
@@ -235,6 +225,9 @@ impl DiskBlock {
     }
 
     fn update(&self, device: &DiskDevice) {
+        if self.units.replace(i18n::units_generation()) != i18n::units_generation() {
+            self.description.set_label(&block_description(device));
+        }
         if let Some(busy) = device.busy {
             self.graph.push(busy);
         }
@@ -245,18 +238,25 @@ impl DiskBlock {
     }
 }
 
+/// "NVMe · 512 GiB · nvme0n1"
+fn block_description(device: &DiskDevice) -> String {
+    i18n::fmt(
+        // Translators: disk type, size and kernel name, e.g. "NVMe · 512 GiB · nvme0n1"
+        &gettext("{kind} · {size} · {name}"),
+        &[
+            ("kind", &kind_label(device.kind)),
+            ("size", &i18n::size(device.size)),
+            ("name", &device.name),
+        ],
+    )
+}
+
 /// "12.3 MiB/s · 4.1 GiB since boot"; "…" while the speed is not known yet.
 fn transfer(bps: Option<u64>, total: u64) -> String {
     match bps {
         Some(bps) => i18n::fmt(
             &gettext("{speed} · {total} since boot"),
-            &[
-                ("speed", &i18n::speed(bps)),
-                (
-                    "total",
-                    &glib::format_size_full(total, glib::FormatSizeFlags::IEC_UNITS),
-                ),
-            ],
+            &[("speed", &i18n::speed(bps)), ("total", &i18n::size(total))],
         ),
         None => "…".to_owned(),
     }
@@ -305,6 +305,8 @@ mod view {
         #[derive(Default, CompositeTemplate)]
         #[template(resource = "/io/github/amirmwhdi/Corewatch/ui/disk-page.ui")]
         pub struct DiskView {
+            #[template_child]
+            pub sensors_group: TemplateChild<adw::PreferencesGroup>,
             #[template_child]
             pub disks_box: TemplateChild<gtk::Box>,
             #[template_child]

@@ -24,18 +24,25 @@ temperature and battery usage, and the running processes.
 ## Features in 0.3
 
 - Overview: every resource on one page, each card opens its page
-- Processes: sortable table with CPU, memory, user and ID, search, "only my
-  processes", and End Process / Force Stop
+- Processes: sortable table with each app's icon, CPU, memory, download and
+  upload speed, user and ID, search, "only my processes", and End Process /
+  Force Stop. Network speeds count TCP traffic (not UDP or QUIC), and only
+  for your own processes unless Corewatch runs as root
 - Network: download and upload graph per interface, addresses, link speed,
   Wi-Fi signal
-- Sensors: temperatures of processor, drives and motherboard, and fan speeds
+- Sensors: temperatures and fan speeds, each on the page it belongs to (CPU
+  sensors and the CPU fan on the Processor page, drive temperatures on
+  Disks, and so on); the rest (motherboard, case fans) on the Sensors page
 - CPU: model, cores and threads, total usage graph, one graph per logical core, current frequency
 - GPU: model, driver, core usage graph, clock speed, VRAM, and temperature
-- Memory: used, available, cache and buffers, swap, usage graph (binary IEC units)
-- Disks: activity graph, read/write speeds, and mounted filesystem space (binary IEC units)
+- Memory: used, available, cache and buffers, swap, usage graph
+- Disks: activity graph, read/write speeds, and mounted filesystem space
 - Battery: charge level graph, charging status, time remaining, health, power rate, and cycles
 - Follows the system light/dark style and accent color
-- Configurable update speeds (0.5s, 1s, 2s) and preferences dialog
+- Preferences: color scheme, update speed (0.5s, 1s, 2s), graph history (1,
+  5 or 10 minutes), the page to open on (a chosen page or the last one
+  open), temperature in °C or °F, sizes in binary (KiB, MiB) or decimal
+  (kB, MB) units, and network speeds in bytes or bits per second
 - Adaptive layout down to 360 px wide
 - A banner tells you when a data source stops answering
 

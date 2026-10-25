@@ -1,10 +1,13 @@
-//! Sensors page: one group per chip with its temperatures and fan speeds.
+//! Sensors page: the sensors that belong to no other page (motherboard,
+//! case fans, ACPI zones), one group per chip. The others are on their
+//! pages through `widgets::SensorGroup`.
 
 use super::{Module, ResourcePage};
 use crate::i18n::{self, gettext};
+use crate::widgets::sensor_group::{readings, value_label, Reading};
 use adw::prelude::*;
 use adw::subclass::prelude::ObjectSubclassIsExt;
-use corewatch_core::sensors::{Chip, ChipKind, SensorCollector};
+use corewatch_core::sensors::{Chip, ChipKind, Home, SensorCollector};
 use corewatch_core::{CollectError, Collector, Snapshot, SysRoot};
 use std::cell::RefCell;
 
@@ -21,17 +24,17 @@ pub const MODULE: Module = Module {
     page,
 };
 
-/// What makes two samples need the same widgets: chips, and how many
-/// sensors each has.
-type Shape = Vec<(String, usize, usize)>;
+/// What makes two samples need the same widgets: each chip with the titles
+/// and subtitles of its rows, and the units.
+type Shape = (Vec<(String, Vec<(String, String)>)>, u32);
 
 struct SensorsPage {
     root: gtk::Widget,
     chips_box: gtk::Box,
     shape: RefCell<Shape>,
-    groups: RefCell<Vec<adw::PreferencesGroup>>,
-    /// One value label per sensor, in sample order: temperatures, then fans.
-    values: RefCell<Vec<Vec<gtk::Label>>>,
+    widgets: RefCell<Vec<gtk::Widget>>,
+    /// One value label per sensor, in reading order.
+    values: RefCell<Vec<gtk::Label>>,
 }
 
 impl SensorsPage {
@@ -41,53 +44,54 @@ impl SensorsPage {
         Self {
             chips_box: ui.chips_box.get(),
             shape: RefCell::default(),
-            groups: RefCell::default(),
+            widgets: RefCell::default(),
             values: RefCell::default(),
             root: view.upcast(),
         }
     }
 
-    fn rebuild(&self, chips: &[Chip]) {
-        for group in self.groups.take() {
-            self.chips_box.remove(&group);
+    fn rebuild(&self, readings: &[Reading]) {
+        for widget in self.widgets.take() {
+            self.chips_box.remove(&widget);
         }
         let mut values = Vec::new();
-        let mut groups = Vec::new();
-        for chip in chips {
-            let group = adw::PreferencesGroup::builder()
-                .title(chip_title(chip))
-                .description(chip.model.as_deref().unwrap_or(&chip.driver))
+        let mut widgets: Vec<gtk::Widget> = Vec::new();
+        if readings.is_empty() {
+            let status = adw::StatusPage::builder()
+                .icon_name("cw-temperature-symbolic")
+                .title(gettext("No Other Sensors"))
+                .description(gettext(
+                    "The sensors of the processor, graphics card, drives, network and battery are shown on their own pages.",
+                ))
+                .vexpand(true)
                 .build();
-            let mut labels = Vec::new();
-            for (i, t) in chip.temperatures.iter().enumerate() {
-                let title = t
-                    .label
-                    .clone()
-                    .unwrap_or_else(|| numbered(&gettext("Temperature"), i));
-                let row = adw::ActionRow::builder().title(title).build();
-                if let Some(critical) = t.critical {
-                    row.set_subtitle(&i18n::fmt(
-                        &gettext("Critical at {value}"),
-                        &[("value", &i18n::celsius(critical))],
-                    ));
-                }
-                labels.push(value_label(&row));
-                group.add(&row);
-            }
-            for (i, f) in chip.fans.iter().enumerate() {
-                let title = f
-                    .label
-                    .clone()
-                    .unwrap_or_else(|| numbered(&gettext("Fan"), i));
-                let row = adw::ActionRow::builder().title(title).build();
-                labels.push(value_label(&row));
-                group.add(&row);
-            }
-            self.chips_box.append(&group);
-            groups.push(group);
-            values.push(labels);
+            self.chips_box.append(&status);
+            widgets.push(status.upcast());
         }
-        *self.groups.borrow_mut() = groups;
+        let mut group: Option<(&Chip, adw::PreferencesGroup)> = None;
+        for r in readings {
+            if !group
+                .as_ref()
+                .is_some_and(|(chip, _)| std::ptr::eq(*chip, r.chip))
+            {
+                let g = adw::PreferencesGroup::builder()
+                    .title(chip_title(r.chip))
+                    .description(r.chip.model.as_deref().unwrap_or(&r.chip.driver))
+                    .build();
+                self.chips_box.append(&g);
+                widgets.push(g.clone().upcast());
+                group = Some((r.chip, g));
+            }
+            let Some((_, g)) = &group else { continue };
+            let row = adw::ActionRow::builder().title(&r.title).build();
+            // The group already names the chip.
+            if let Some(critical) = &r.critical {
+                row.set_subtitle(critical);
+            }
+            values.push(value_label(&row));
+            g.add(&row);
+        }
+        *self.widgets.borrow_mut() = widgets;
         *self.values.borrow_mut() = values;
     }
 }
@@ -113,25 +117,26 @@ impl ResourcePage for SensorsPage {
         let Some(sensors) = &snapshot.sensors else {
             return;
         };
-        let shape: Shape = sensors
-            .chips
-            .iter()
-            .map(|c| (c.driver.clone(), c.temperatures.len(), c.fans.len()))
-            .collect();
+        let readings = readings(sensors, Home::Sensors);
+        let mut chips: Vec<(String, Vec<(String, String)>)> = Vec::new();
+        let mut last: Option<&Chip> = None;
+        for r in &readings {
+            if !last.is_some_and(|c| std::ptr::eq(c, r.chip)) {
+                chips.push((r.chip.driver.clone(), Vec::new()));
+                last = Some(r.chip);
+            }
+            if let Some((_, rows)) = chips.last_mut() {
+                rows.push((r.title.clone(), r.critical.clone().unwrap_or_default()));
+            }
+        }
+        let shape: Shape = (chips, i18n::units_generation());
         if *self.shape.borrow() != shape {
-            self.rebuild(&sensors.chips);
+            self.rebuild(&readings);
             *self.shape.borrow_mut() = shape;
         }
-        for (chip, labels) in sensors.chips.iter().zip(self.values.borrow().iter()) {
-            let texts = chip
-                .temperatures
-                .iter()
-                .map(|t| i18n::celsius(t.celsius))
-                .chain(chip.fans.iter().map(|f| rpm(f.rpm)));
-            for (label, text) in labels.iter().zip(texts) {
-                if label.label() != text {
-                    label.set_label(&text);
-                }
+        for (label, r) in self.values.borrow().iter().zip(&readings) {
+            if label.label() != r.value {
+                label.set_label(&r.value);
             }
         }
     }
@@ -140,37 +145,21 @@ impl ResourcePage for SensorsPage {
         snapshot.sensors.is_some()
     }
 
+    /// The hottest of the sensors shown here; the others have their pages.
     fn summary(&self, snapshot: &Snapshot) -> Option<String> {
         let sensors = snapshot.sensors.as_ref()?;
         sensors
-            .cpu_celsius()
-            .or_else(|| sensors.hottest_celsius())
+            .chips
+            .iter()
+            .flat_map(|c| {
+                c.temperatures
+                    .iter()
+                    .filter(|t| c.home(t.label.as_deref()) == Home::Sensors)
+            })
+            .map(|t| t.celsius)
+            .max_by(f32::total_cmp)
             .map(i18n::celsius)
     }
-}
-
-fn value_label(row: &adw::ActionRow) -> gtk::Label {
-    let label = gtk::Label::builder()
-        .label("…")
-        .valign(gtk::Align::Center)
-        .css_classes(["numeric"])
-        .build();
-    row.add_suffix(&label);
-    label
-}
-
-/// "Fan 2" for the second unlabeled fan.
-fn numbered(what: &str, index: usize) -> String {
-    i18n::fmt(
-        // Translators: an unnamed sensor and its number, e.g. "Fan 2"
-        &gettext("{what} {number}"),
-        &[("what", &what), ("number", &(index + 1))],
-    )
-}
-
-fn rpm(value: u32) -> String {
-    // Translators: fan speed in revolutions per minute, e.g. "1200 RPM"
-    i18n::fmt(&gettext("{value} RPM"), &[("value", &value)])
 }
 
 fn chip_title(chip: &Chip) -> String {
@@ -180,6 +169,7 @@ fn chip_title(chip: &Chip) -> String {
         ChipKind::Storage => gettext("Drive"),
         ChipKind::Board => gettext("Motherboard"),
         ChipKind::Network => gettext("Wireless card"),
+        ChipKind::Battery => gettext("Battery"),
         ChipKind::Other => chip.driver.clone(),
     }
 }

@@ -8,6 +8,8 @@ crates/app/src/modules/network.rs
 crates/app/src/modules/overview.rs
 crates/app/src/modules/processes.rs
 crates/app/src/modules/sensors.rs
+crates/app/src/preferences.rs
+crates/app/src/widgets/sensor_group.rs
 crates/app/src/window.rs
 data/io.github.amirmwhdi.Corewatch.desktop
 data/io.github.amirmwhdi.Corewatch.metainfo.xml

@@ -2,12 +2,12 @@
 //! speeds, addresses and link details.
 
 use super::{Module, ResourcePage};
-use crate::config::HISTORY_LEN;
 use crate::i18n::{self, gettext};
-use crate::widgets::Graph;
+use crate::widgets::{Graph, SensorGroup};
 use adw::prelude::*;
 use adw::subclass::prelude::ObjectSubclassIsExt;
 use corewatch_core::network::{InterfaceKind, NetInterface, NetworkCollector};
+use corewatch_core::sensors::Home;
 use corewatch_core::{CollectError, Collector, Snapshot, SysRoot};
 use std::cell::RefCell;
 use std::collections::BTreeMap;
@@ -30,6 +30,7 @@ pub const MODULE: Module = Module {
 pub const GRAPH_FLOOR: f32 = 16.0 * 1024.0;
 
 struct NetworkPage {
+    sensors: SensorGroup,
     root: gtk::Widget,
     interfaces_box: gtk::Box,
     no_interfaces: adw::StatusPage,
@@ -51,6 +52,7 @@ impl NetworkPage {
             no_interfaces: ui.no_interfaces.get(),
             blocks: RefCell::default(),
             order: RefCell::default(),
+            sensors: SensorGroup::new(ui.sensors_group.get(), Home::Network),
             root: view.upcast(),
         }
     }
@@ -107,6 +109,7 @@ impl ResourcePage for NetworkPage {
     }
 
     fn update(&self, snapshot: &Snapshot) {
+        self.sensors.update(snapshot.sensors.as_ref());
         if let Some(network) = &snapshot.network {
             self.sync(&network.interfaces);
         }
@@ -122,7 +125,7 @@ impl ResourcePage for NetworkPage {
         snapshot
             .network
             .as_ref()
-            .map(|n| i18n::speed(n.rx_bps().saturating_add(n.tx_bps())))
+            .map(|n| i18n::net_speed(n.rx_bps().saturating_add(n.tx_bps())))
     }
 }
 
@@ -150,7 +153,7 @@ impl InterfaceBlock {
             .css_classes(["dim-label", "caption"])
             .build();
 
-        let graph = Graph::new_autoscale(HISTORY_LEN, 100, GRAPH_FLOOR);
+        let graph = Graph::new_autoscale(100, GRAPH_FLOOR);
         graph.update_property(&[gtk::accessible::Property::Label(&i18n::fmt(
             &gettext("Traffic of {name}"),
             &[("name", &interface.name)],
@@ -286,7 +289,7 @@ fn transfer(bps: Option<u64>, total: &str) -> String {
     match bps {
         Some(bps) => i18n::fmt(
             &gettext("{speed} · {total}"),
-            &[("speed", &i18n::speed(bps)), ("total", &total)],
+            &[("speed", &i18n::net_speed(bps)), ("total", &total)],
         ),
         None => "…".to_owned(),
     }
@@ -322,6 +325,8 @@ mod view {
         #[derive(Default, CompositeTemplate)]
         #[template(resource = "/io/github/amirmwhdi/Corewatch/ui/network-page.ui")]
         pub struct NetworkView {
+            #[template_child]
+            pub sensors_group: TemplateChild<adw::PreferencesGroup>,
             #[template_child]
             pub interfaces_box: TemplateChild<gtk::Box>,
             #[template_child]

@@ -13,7 +13,12 @@
     "--socket=wayland",
     "--device=dri",
     "--share=network",
-    "--talk-name=org.freedesktop.Flatpak"
+    "--talk-name=org.freedesktop.Flatpak",
+    "--filesystem=host-os:ro",
+    "--filesystem=/var/lib/flatpak/exports/share:ro",
+    "--filesystem=xdg-data/flatpak/exports/share:ro",
+    "--filesystem=xdg-data/applications:ro",
+    "--filesystem=xdg-data/icons:ro"
   ],
   "build-options": {
     "append-path": "/usr/lib/sdk/rust-stable/bin",

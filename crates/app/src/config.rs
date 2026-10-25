@@ -6,9 +6,6 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// Default time between two samples.
 pub const DEFAULT_SAMPLE_INTERVAL: Duration = Duration::from_millis(1000);
 
-/// Points kept per graph: 60 samples = 60 seconds at the default interval.
-pub const HISTORY_LEN: usize = 60;
-
 /// The last commit this build came from: hash, subject, blank line, body.
 /// Empty when the source had no git history (see `build.rs`).
 const COMMIT: &str = include_str!(concat!(env!("OUT_DIR"), "/commit.txt"));

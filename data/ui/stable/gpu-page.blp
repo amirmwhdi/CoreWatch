@@ -69,6 +69,12 @@ template $CwGpuPage: Adw.Bin {
             subtitle-selectable: true;
           }
         }
+
+        // Sensors that belong to this page; filled by widgets::SensorGroup.
+        Adw.PreferencesGroup sensors_group {
+          title: _("Sensors");
+          visible: false;
+        }
       };
     };
   };

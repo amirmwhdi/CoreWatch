@@ -19,7 +19,43 @@ pub enum ChipKind {
     Storage,
     Board,
     Network,
+    Battery,
     Other,
+}
+
+/// The page a sensor belongs on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Home {
+    Cpu,
+    Gpu,
+    Disk,
+    Network,
+    Battery,
+    /// Everything else: motherboard, case fans, ACPI zones.
+    Sensors,
+}
+
+impl Chip {
+    /// Where the sensor with `label` on this chip belongs. A motherboard
+    /// sensor labeled for the processor (`CPU_FAN`, `CPUTIN`) goes with the
+    /// processor.
+    pub fn home(&self, label: Option<&str>) -> Home {
+        match self.kind {
+            ChipKind::Cpu => Home::Cpu,
+            ChipKind::Gpu => Home::Gpu,
+            ChipKind::Storage => Home::Disk,
+            ChipKind::Network => Home::Network,
+            ChipKind::Battery => Home::Battery,
+            ChipKind::Board | ChipKind::Other => {
+                let cpu = label.is_some_and(|l| l.to_ascii_lowercase().starts_with("cpu"));
+                if cpu {
+                    Home::Cpu
+                } else {
+                    Home::Sensors
+                }
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -252,6 +288,7 @@ pub fn chip_kind(driver: &str) -> ChipKind {
         {
             ChipKind::Board
         }
+        d if d.starts_with("BAT") || d == "battery" => ChipKind::Battery,
         _ => ChipKind::Other,
     }
 }
@@ -280,7 +317,24 @@ mod tests {
         assert_eq!(chip_kind("nvme"), ChipKind::Storage);
         assert_eq!(chip_kind("nct6798"), ChipKind::Board);
         assert_eq!(chip_kind("iwlwifi_1"), ChipKind::Network);
-        assert_eq!(chip_kind("BAT0"), ChipKind::Other);
+        assert_eq!(chip_kind("BAT0"), ChipKind::Battery);
+        assert_eq!(chip_kind("acpi_fan"), ChipKind::Other);
+    }
+
+    #[test]
+    fn sensors_go_to_their_pages() {
+        let chip = |driver: &str| Chip {
+            driver: driver.into(),
+            kind: chip_kind(driver),
+            model: None,
+            temperatures: vec![],
+            fans: vec![],
+        };
+        assert_eq!(chip("k10temp").home(Some("Tctl")), Home::Cpu);
+        assert_eq!(chip("nvme").home(Some("Composite")), Home::Disk);
+        assert_eq!(chip("nct6798").home(Some("CPU_FAN")), Home::Cpu);
+        assert_eq!(chip("nct6798").home(Some("SYSTIN")), Home::Sensors);
+        assert_eq!(chip("nct6798").home(None), Home::Sensors);
     }
 
     #[test]

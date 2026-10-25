@@ -27,6 +27,16 @@ template $CwPreferencesDialog: Adw.PreferencesDialog {
     }
 
     Adw.PreferencesGroup {
+      title: _("Startup");
+
+      // Filled in preferences.rs: "Last Opened Page", then every page.
+      Adw.ComboRow start_row {
+        title: _("Open On");
+        subtitle: _("The page shown when Corewatch starts");
+      }
+    }
+
+    Adw.PreferencesGroup {
       title: _("Monitoring");
 
       Adw.ComboRow interval_row {
@@ -37,6 +47,53 @@ template $CwPreferencesDialog: Adw.PreferencesDialog {
             _("0.5 seconds"),
             _("1 second (Default)"),
             _("2 seconds (Power Saver)"),
+          ]
+        };
+      }
+
+      Adw.ComboRow history_row {
+        title: _("Graph History");
+        subtitle: _("How far back every graph reaches");
+        model: Gtk.StringList {
+          strings [
+            _("1 minute"),
+            _("5 minutes"),
+            _("10 minutes"),
+          ]
+        };
+      }
+    }
+
+    Adw.PreferencesGroup {
+      title: _("Units");
+
+      Adw.ComboRow temperature_row {
+        title: _("Temperature");
+        model: Gtk.StringList {
+          strings [
+            _("Celsius (°C)"),
+            _("Fahrenheit (°F)"),
+          ]
+        };
+      }
+
+      Adw.ComboRow sizes_row {
+        title: _("Sizes");
+        subtitle: _("Memory, disk and file sizes");
+        model: Gtk.StringList {
+          strings [
+            _("Binary (1 KiB = 1024 bytes)"),
+            _("Decimal (1 kB = 1000 bytes)"),
+          ]
+        };
+      }
+
+      Adw.ComboRow network_row {
+        title: _("Network Speed");
+        model: Gtk.StringList {
+          strings [
+            _("Bytes per second (MB/s)"),
+            _("Bits per second (Mb/s)"),
           ]
         };
       }

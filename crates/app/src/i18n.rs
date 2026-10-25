@@ -5,6 +5,8 @@
 //! calls return the English text unchanged. Log messages and `--help` stay in
 //! English on purpose, so bug reports are readable by everyone.
 
+use gtk::glib;
+use std::cell::Cell;
 use std::fmt::Display;
 
 pub use gettextrs::{gettext, ngettext};
@@ -79,22 +81,114 @@ pub fn percent(fraction: f32) -> String {
     fmt(&gettext("{value}%"), &[("value", &value)])
 }
 
-/// A size in binary units, e.g. "4.1 GiB".
-pub fn size(bytes: u64) -> String {
-    gtk::glib::format_size_full(bytes, gtk::glib::FormatSizeFlags::IEC_UNITS).into()
+/// How numbers with units are shown; chosen in Preferences.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Units {
+    pub temperature: TemperatureUnit,
+    pub sizes: SizeUnits,
+    pub network: NetworkUnits,
 }
 
-/// A transfer speed in binary units, e.g. "12.3 MiB/s".
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum TemperatureUnit {
+    #[default]
+    Celsius,
+    Fahrenheit,
+}
+
+/// Binary: 1 KiB = 1024 bytes. Decimal: 1 kB = 1000 bytes.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum SizeUnits {
+    #[default]
+    Binary,
+    Decimal,
+}
+
+/// Network speeds in bytes (MB/s, like files) or bits (Mb/s, like
+/// internet plans).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum NetworkUnits {
+    #[default]
+    Bytes,
+    Bits,
+}
+
+thread_local! {
+    /// The UI thread's current units; every formatter below reads them, so a
+    /// change shows on the next tick without rebuilding any page.
+    static UNITS: Cell<(Units, u32)> = const { Cell::new((
+        Units {
+            temperature: TemperatureUnit::Celsius,
+            sizes: SizeUnits::Binary,
+            network: NetworkUnits::Bytes,
+        },
+        0,
+    )) };
+}
+
+pub fn units() -> Units {
+    UNITS.with(|u| u.get().0)
+}
+
+pub fn set_units(units: Units) {
+    UNITS.with(|u| {
+        let (old, generation) = u.get();
+        if old != units {
+            u.set((units, generation.wrapping_add(1)));
+        }
+    });
+}
+
+/// Changes every time the units change. Pages that format a label only once
+/// (a disk's capacity) compare it to know when to format again.
+pub fn units_generation() -> u32 {
+    UNITS.with(|u| u.get().1)
+}
+
+/// A size, e.g. "4.1 GiB" or "4.4 GB".
+pub fn size(bytes: u64) -> String {
+    let flags = match units().sizes {
+        SizeUnits::Binary => glib::FormatSizeFlags::IEC_UNITS,
+        SizeUnits::Decimal => glib::FormatSizeFlags::DEFAULT,
+    };
+    glib::format_size_full(bytes, flags).into()
+}
+
+/// A transfer speed of a disk or file, e.g. "12.3 MiB/s".
 pub fn speed(bytes_per_sec: u64) -> String {
     // Translators: a transfer speed, e.g. "12.3 MiB/s"
     fmt(&gettext("{size}/s"), &[("size", &size(bytes_per_sec))])
 }
 
-/// A temperature in whole degrees Celsius, e.g. "54 °C".
+/// A network speed: like [`speed`], or in bits, e.g. "98.4 Mb/s".
+pub fn net_speed(bytes_per_sec: u64) -> String {
+    match units().network {
+        NetworkUnits::Bytes => speed(bytes_per_sec),
+        NetworkUnits::Bits => {
+            let bits = glib::format_size_full(
+                bytes_per_sec.saturating_mul(8),
+                glib::FormatSizeFlags::BITS,
+            );
+            fmt(&gettext("{size}/s"), &[("size", &bits)])
+        }
+    }
+}
+
+/// A temperature given in degrees Celsius, in the chosen unit, e.g. "54 °C"
+/// or "129 °F".
 pub fn celsius(value: f32) -> String {
-    let value = format!("{value:.0}");
-    // Translators: a temperature, e.g. "54 °C"
-    fmt(&gettext("{value} °C"), &[("value", &value)])
+    match units().temperature {
+        TemperatureUnit::Celsius => {
+            let value = format!("{value:.0}");
+            // Translators: a temperature, e.g. "54 °C"
+            fmt(&gettext("{value} °C"), &[("value", &value)])
+        }
+        TemperatureUnit::Fahrenheit => {
+            let value = format!("{:.0}", value * 9.0 / 5.0 + 32.0);
+            // Translators: a temperature, e.g. "129 °F"
+            fmt(&gettext("{value} °F"), &[("value", &value)])
+        }
+    }
 }
 
 /// `ngettext` needs a `u32`; counts above that are not a real concern here.

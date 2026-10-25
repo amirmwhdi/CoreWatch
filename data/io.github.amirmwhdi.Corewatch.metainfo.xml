@@ -97,9 +97,10 @@
       <description>
         <ul>
           <li>New Overview page with every resource at a glance</li>
-          <li>New Processes page: sort, search, and end or force-stop a process</li>
+          <li>New Processes page with app icons and per-process download and upload speeds: sort, search, and end or force-stop a process</li>
           <li>New Network page: speeds, addresses, link speed and Wi-Fi signal</li>
-          <li>New Sensors page: temperatures and fan speeds</li>
+          <li>Temperatures and fan speeds on the page they belong to, and a Sensors page for the rest</li>
+          <li>Preferences: start page or last page, graph history, temperature unit, binary or decimal sizes, and bits or bytes for network speeds</li>
         </ul>
       </description>
     </release>

@@ -7,7 +7,6 @@ use adw::prelude::*;
 use adw::subclass::prelude::ObjectSubclassIsExt;
 use corewatch_core::memory::MemoryCollector;
 use corewatch_core::{CollectError, Collector, Snapshot, SysRoot};
-use gtk::glib;
 
 fn collector(_root: &SysRoot) -> Result<Box<dyn Collector>, CollectError> {
     Ok(Box::new(MemoryCollector))
@@ -69,7 +68,7 @@ impl ResourcePage for MemoryPage {
 
     fn update(&self, snapshot: &Snapshot) {
         let Some(m) = &snapshot.memory else { return };
-        let size = |bytes: u64| glib::format_size_full(bytes, glib::FormatSizeFlags::IEC_UNITS);
+        let size = i18n::size;
 
         self.graph.push(m.used_fraction());
         self.used.set_subtitle(&i18n::fmt(

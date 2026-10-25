@@ -6,13 +6,16 @@
 //! the same files. The script uses shell builtins only: one scan of 500
 //! processes starts no new program, and it stays alive between scans.
 
+use super::net::{parse_fd_listing, Owners};
 use super::parse::{self, parse_proc_stat, parse_statm, parse_status_uid, RawProcess};
 use crate::{CollectError, SysRoot};
 use std::io::{self, BufRead, BufReader, Write};
 use std::os::unix::fs::MetadataExt;
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 
-/// Commands on stdin: `u` prints `/etc/passwd`, `s` scans; both end with `E`.
+/// Commands on stdin: `u` prints `/etc/passwd`, `s` scans, `f` lists the
+/// sockets of every readable process (see `net::parse_fd_listing`); each ends
+/// with `E`. `ls` is the one program it starts, once per `f`.
 const HOST_SCRIPT: &str = r#"
 while read -r cmd; do
   case $cmd in
@@ -27,6 +30,13 @@ while read -r cmd; do
         if [ "$k" = Uid: ]; then u=$v; break; fi
       done < "$d/status" 2>/dev/null
       printf 'P %s\n%s\n%s\n' "$u" "$st" "$sm"
+    done ;;
+  f)
+    ls -l /proc/[0-9]*/fd 2>/dev/null | while IFS= read -r l; do
+      case $l in
+      /proc/*:) printf 'D %s\n' "$l" ;;
+      *socket:\[*) printf 'F %s\n' "${l##*socket:\[}" ;;
+      esac
     done ;;
   esac
   echo E
@@ -91,6 +101,16 @@ impl Reader {
                 })
             })
             .unwrap_or_default(),
+        }
+    }
+
+    /// Which process owns which socket. Empty when it cannot be read.
+    pub fn socket_owners(&mut self, root: &SysRoot) -> Owners {
+        match self {
+            Self::Direct { .. } => socket_owners_direct(root),
+            Self::Host(shell) => with_shell(shell, |s| s.request("f"))
+                .map(|lines| parse_fd_listing(lines.iter().map(String::as_str)))
+                .unwrap_or_default(),
         }
     }
 
@@ -163,6 +183,37 @@ fn scan_direct(root: &SysRoot, buf: &mut String) -> Result<Scan, CollectError> {
         cpu_line,
         processes,
     })
+}
+
+fn socket_owners_direct(root: &SysRoot) -> Owners {
+    let mut owners = Owners::default();
+    let Ok(entries) = std::fs::read_dir(root.proc_path("")) else {
+        return owners;
+    };
+    for entry in entries.flatten() {
+        let Some(pid) = entry.file_name().to_str().and_then(|n| n.parse().ok()) else {
+            continue;
+        };
+        // Other users' descriptors cannot be read without root.
+        let Ok(fds) = std::fs::read_dir(entry.path().join("fd")) else {
+            continue;
+        };
+        owners.readable.insert(pid);
+        for fd in fds.flatten() {
+            let Ok(target) = std::fs::read_link(fd.path()) else {
+                continue;
+            };
+            let inode = target
+                .to_str()
+                .and_then(|t| t.strip_prefix("socket:["))
+                .and_then(|t| t.strip_suffix(']'))
+                .and_then(|t| t.parse().ok());
+            if let Some(inode) = inode {
+                owners.sockets.entry(inode).or_insert(pid);
+            }
+        }
+    }
+    owners
 }
 
 /// Run `f` on the host shell, starting it if needed. A failed request drops

@@ -6,6 +6,7 @@
 //! screen redraw.
 
 use super::{Module, ResourcePage};
+use crate::app_icons::AppIcons;
 use crate::i18n::{self, gettext, ngettext};
 use adw::prelude::*;
 use adw::subclass::prelude::ObjectSubclassIsExt;
@@ -14,7 +15,7 @@ use corewatch_core::process::{
 };
 use corewatch_core::{CollectError, Collector, Snapshot, SysRoot};
 use gtk::{gio, glib};
-use std::cell::{Cell, RefCell};
+use std::cell::{Cell, OnceCell, RefCell};
 use std::collections::{HashMap, HashSet};
 use std::io;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -43,8 +44,12 @@ struct ProcessesPage {
     root: gtk::Widget,
     store: gio::ListStore,
     rows: RefCell<HashMap<u32, row::ProcessRow>>,
+    /// Read the first time the list is shown.
+    icons: OnceCell<AppIcons>,
     columns: gtk::ColumnView,
     generation: Cell<u64>,
+    /// The units the row texts were made with.
+    units: Cell<u32>,
     count: Cell<usize>,
 }
 
@@ -113,6 +118,20 @@ impl ProcessesPage {
             Some("memory"),
             false,
         );
+        add_column(
+            &columns,
+            &gettext("Download"),
+            "download-text",
+            Some("download"),
+            false,
+        );
+        add_column(
+            &columns,
+            &gettext("Upload"),
+            "upload-text",
+            Some("upload"),
+            false,
+        );
         add_column(&columns, &gettext("ID"), "pid-text", Some("pid"), false);
         columns.sort_by_column(Some(&cpu), gtk::SortType::Descending);
 
@@ -142,23 +161,28 @@ impl ProcessesPage {
         Self {
             store,
             rows: RefCell::default(),
+            icons: OnceCell::new(),
             columns,
             generation: Cell::new(0),
+            units: Cell::new(i18n::units_generation()),
             count: Cell::new(0),
             root: view.upcast(),
         }
     }
 
     fn sync(&self, processes: &[ProcessInfo]) {
+        let icons = self.icons.get_or_init(AppIcons::load);
+        let units = i18n::units_generation();
+        let relabel = self.units.replace(units) != units;
         let mut rows = self.rows.borrow_mut();
         let mut added = Vec::new();
         let mut alive = HashSet::with_capacity(processes.len());
         for info in processes {
             alive.insert(info.pid);
             match rows.get(&info.pid) {
-                Some(row) => row.update(info),
+                Some(row) => row.update(info, icons, relabel),
                 None => {
-                    let row = row::ProcessRow::new(info);
+                    let row = row::ProcessRow::new(info, icons);
                     added.push(row.clone());
                     rows.insert(info.pid, row);
                 }
@@ -250,7 +274,19 @@ fn add_column(
         item.property_expression("item")
             .chain_property::<row::ProcessRow>(property)
             .bind(&label, "label", gtk::Widget::NONE);
-        item.set_child(Some(&label));
+        if property != "name" {
+            item.set_child(Some(&label));
+            return;
+        }
+        // The name column also shows the app's icon.
+        let icon = gtk::Image::builder().pixel_size(24).build();
+        item.property_expression("item")
+            .chain_property::<row::ProcessRow>("icon")
+            .bind(&icon, "gicon", gtk::Widget::NONE);
+        let cell = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+        cell.append(&icon);
+        cell.append(&label);
+        item.set_child(Some(&cell));
     });
     let column = gtk::ColumnViewColumn::builder()
         .title(title)
@@ -348,6 +384,8 @@ mod row {
             #[property(get)]
             pub name: RefCell<String>,
             #[property(get)]
+            pub icon: RefCell<Option<gio::Icon>>,
+            #[property(get)]
             pub user: RefCell<String>,
             #[property(get)]
             pub cpu: Cell<f32>,
@@ -357,6 +395,15 @@ mod row {
             pub memory: Cell<u64>,
             #[property(get)]
             pub memory_text: RefCell<String>,
+            /// Bytes per second; 0 when unknown, so unknown sorts with idle.
+            #[property(get)]
+            pub download: Cell<u64>,
+            #[property(get)]
+            pub download_text: RefCell<String>,
+            #[property(get)]
+            pub upload: Cell<u64>,
+            #[property(get)]
+            pub upload_text: RefCell<String>,
         }
 
         #[glib::object_subclass]
@@ -374,7 +421,7 @@ mod row {
     }
 
     impl ProcessRow {
-        pub fn new(info: &ProcessInfo) -> Self {
+        pub fn new(info: &ProcessInfo, icons: &AppIcons) -> Self {
             let row: Self = glib::Object::new();
             let imp = row.imp();
             imp.pid.set(info.pid);
@@ -382,29 +429,51 @@ mod row {
             imp.uid.set(info.uid.unwrap_or(u32::MAX));
             *imp.user.borrow_mut() = info.user.to_string();
             *imp.name.borrow_mut() = info.name.to_string();
+            *imp.icon.borrow_mut() = Some(icons.lookup(&info.name));
             imp.cpu.set(info.cpu);
             *imp.cpu_text.borrow_mut() = cpu_text(info.cpu);
             imp.memory.set(info.memory);
             *imp.memory_text.borrow_mut() = i18n::size(info.memory);
+            imp.download.set(info.download.unwrap_or(0));
+            *imp.download_text.borrow_mut() = speed_text(info.download);
+            imp.upload.set(info.upload.unwrap_or(0));
+            *imp.upload_text.borrow_mut() = speed_text(info.upload);
             row
         }
 
-        pub fn update(&self, info: &ProcessInfo) {
+        /// `relabel` remakes every text, after the units changed.
+        pub fn update(&self, info: &ProcessInfo, icons: &AppIcons, relabel: bool) {
             let imp = self.imp();
             if *imp.name.borrow() != *info.name {
                 *imp.name.borrow_mut() = info.name.to_string();
                 self.notify_name();
+                *imp.icon.borrow_mut() = Some(icons.lookup(&info.name));
+                self.notify_icon();
             }
             if imp.cpu.replace(info.cpu) != info.cpu {
                 self.notify_cpu();
                 set_text(&imp.cpu_text, cpu_text(info.cpu), || self.notify_cpu_text());
             }
-            if imp.memory.replace(info.memory) != info.memory {
+            if imp.memory.replace(info.memory) != info.memory || relabel {
                 self.notify_memory();
                 set_text(&imp.memory_text, i18n::size(info.memory), || {
                     self.notify_memory_text()
                 });
             }
+            let download = info.download.unwrap_or(0);
+            if imp.download.replace(download) != download {
+                self.notify_download();
+            }
+            set_text(&imp.download_text, speed_text(info.download), || {
+                self.notify_download_text()
+            });
+            let upload = info.upload.unwrap_or(0);
+            if imp.upload.replace(upload) != upload {
+                self.notify_upload();
+            }
+            set_text(&imp.upload_text, speed_text(info.upload), || {
+                self.notify_upload_text()
+            });
         }
     }
 
@@ -412,6 +481,16 @@ mod row {
         if *cell.borrow() != text {
             *cell.borrow_mut() = text;
             notify();
+        }
+    }
+
+    /// Empty for an idle process, a dash when the speed is unknown (another
+    /// user's process).
+    fn speed_text(rate: Option<u64>) -> String {
+        match rate {
+            Some(0) => String::new(),
+            Some(rate) => i18n::net_speed(rate),
+            None => "—".to_owned(),
         }
     }
 

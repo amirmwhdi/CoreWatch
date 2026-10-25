@@ -1,6 +1,7 @@
 //! Persistent user settings stored in ~/.config/corewatch/settings.ini.
 
 use crate::config::DEFAULT_SAMPLE_INTERVAL;
+use crate::i18n::{NetworkUnits, SizeUnits, TemperatureUnit, Units};
 use gtk::glib;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -77,10 +78,88 @@ impl UpdateSpeed {
     }
 }
 
+/// How far back every graph reaches.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum HistoryLength {
+    #[default]
+    OneMinute = 0,
+    FiveMinutes = 1,
+    TenMinutes = 2,
+}
+
+impl HistoryLength {
+    pub fn from_index(index: u32) -> Self {
+        match index {
+            1 => Self::FiveMinutes,
+            2 => Self::TenMinutes,
+            _ => Self::OneMinute,
+        }
+    }
+
+    pub fn as_duration(&self) -> Duration {
+        Duration::from_secs(match self {
+            Self::OneMinute => 60,
+            Self::FiveMinutes => 300,
+            Self::TenMinutes => 600,
+        })
+    }
+
+    pub fn from_secs(secs: u64) -> Self {
+        match secs {
+            0..=180 => Self::OneMinute,
+            181..=450 => Self::FiveMinutes,
+            _ => Self::TenMinutes,
+        }
+    }
+
+    /// Points a graph keeps at `speed`: the history divided by the interval.
+    pub fn points(&self, speed: UpdateSpeed) -> usize {
+        let points = self.as_duration().as_millis() / speed.as_duration().as_millis().max(1);
+        usize::try_from(points).unwrap_or(usize::MAX).max(2)
+    }
+}
+
+/// The page shown when Corewatch starts.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum StartPage {
+    /// The page that was open when Corewatch was closed.
+    Last,
+    /// Always this page, by id (`"overview"`, `"cpu"`, …).
+    Page(String),
+}
+
+impl Default for StartPage {
+    fn default() -> Self {
+        Self::Page("overview".into())
+    }
+}
+
+impl StartPage {
+    fn as_str(&self) -> &str {
+        match self {
+            Self::Last => "last",
+            Self::Page(id) => id,
+        }
+    }
+
+    fn from_str(s: &str) -> Self {
+        match s {
+            "last" => Self::Last,
+            "" => Self::default(),
+            id => Self::Page(id.to_owned()),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct AppSettings {
     pub theme: ThemeMode,
     pub speed: UpdateSpeed,
+    pub history: HistoryLength,
+    pub units: Units,
+    pub start_page: StartPage,
+    /// The page open when Corewatch was last closed.
+    pub last_page: String,
 }
 
 impl AppSettings {
@@ -97,15 +176,39 @@ impl AppSettings {
             .load_from_file(&path, glib::KeyFileFlags::NONE)
             .is_ok()
         {
-            let theme = key_file
-                .string("General", "theme")
-                .map(|s| ThemeMode::from_str(s.as_str()))
-                .unwrap_or_default();
-            let speed = key_file
-                .int64("General", "update_interval_ms")
-                .map(|ms| UpdateSpeed::from_millis(ms as u64))
-                .unwrap_or_default();
-            Self { theme, speed }
+            let text = |key: &str| key_file.string("General", key).ok().map(String::from);
+            let units = Units {
+                temperature: match text("temperature").as_deref() {
+                    Some("fahrenheit") => TemperatureUnit::Fahrenheit,
+                    _ => TemperatureUnit::Celsius,
+                },
+                sizes: match text("sizes").as_deref() {
+                    Some("decimal") => SizeUnits::Decimal,
+                    _ => SizeUnits::Binary,
+                },
+                network: match text("network_speed").as_deref() {
+                    Some("bits") => NetworkUnits::Bits,
+                    _ => NetworkUnits::Bytes,
+                },
+            };
+            Self {
+                theme: text("theme")
+                    .map(|s| ThemeMode::from_str(&s))
+                    .unwrap_or_default(),
+                speed: key_file
+                    .int64("General", "update_interval_ms")
+                    .map(|ms| UpdateSpeed::from_millis(ms as u64))
+                    .unwrap_or_default(),
+                history: key_file
+                    .int64("General", "history_secs")
+                    .map(|secs| HistoryLength::from_secs(secs as u64))
+                    .unwrap_or_default(),
+                units,
+                start_page: text("start_page")
+                    .map(|s| StartPage::from_str(&s))
+                    .unwrap_or_default(),
+                last_page: text("last_page").unwrap_or_default(),
+            }
         } else {
             Self::default()
         }
@@ -123,6 +226,38 @@ impl AppSettings {
             "update_interval_ms",
             self.speed.as_millis() as i64,
         );
+        key_file.set_int64(
+            "General",
+            "history_secs",
+            self.history.as_duration().as_secs() as i64,
+        );
+        let units = self.units;
+        key_file.set_string(
+            "General",
+            "temperature",
+            match units.temperature {
+                TemperatureUnit::Celsius => "celsius",
+                TemperatureUnit::Fahrenheit => "fahrenheit",
+            },
+        );
+        key_file.set_string(
+            "General",
+            "sizes",
+            match units.sizes {
+                SizeUnits::Binary => "binary",
+                SizeUnits::Decimal => "decimal",
+            },
+        );
+        key_file.set_string(
+            "General",
+            "network_speed",
+            match units.network {
+                NetworkUnits::Bytes => "bytes",
+                NetworkUnits::Bits => "bits",
+            },
+        );
+        key_file.set_string("General", "start_page", self.start_page.as_str());
+        key_file.set_string("General", "last_page", &self.last_page);
         let _ = key_file.save_to_file(&path);
     }
 
@@ -139,6 +274,25 @@ impl AppSettings {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn history_points_follow_the_interval() {
+        assert_eq!(HistoryLength::OneMinute.points(UpdateSpeed::Normal), 60);
+        assert_eq!(
+            HistoryLength::FiveMinutes.points(UpdateSpeed::HalfSecond),
+            600
+        );
+        assert_eq!(HistoryLength::TenMinutes.points(UpdateSpeed::Slow), 300);
+        assert_eq!(HistoryLength::from_secs(300), HistoryLength::FiveMinutes);
+    }
+
+    #[test]
+    fn start_page_roundtrip() {
+        assert_eq!(StartPage::from_str("last"), StartPage::Last);
+        assert_eq!(StartPage::from_str("cpu"), StartPage::Page("cpu".into()));
+        assert_eq!(StartPage::from_str(""), StartPage::default());
+        assert_eq!(StartPage::Last.as_str(), "last");
+    }
 
     #[test]
     fn theme_mode_roundtrip() {

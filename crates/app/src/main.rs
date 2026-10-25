@@ -1,5 +1,6 @@
 //! Corewatch: a modern system monitor for Linux.
 
+mod app_icons;
 mod compat;
 mod config;
 mod i18n;
@@ -92,9 +93,11 @@ mod tests {
             .application_id("io.github.amirmwhdi.Corewatch.Test")
             .build();
         let _window = super::window::Window::new(&app);
-        let _pref = super::preferences::PreferencesDialog::new(std::rc::Rc::new(
-            std::cell::RefCell::new(None),
-        ));
+        let pages = [("cpu".to_owned(), "Processor".to_owned())];
+        let _pref = super::preferences::PreferencesDialog::new(
+            std::rc::Rc::new(std::cell::RefCell::new(None)),
+            &pages,
+        );
         for module in super::modules::all() {
             let page = (module.page)();
             let frame = super::widgets::PageFrame::new(&page.widget());

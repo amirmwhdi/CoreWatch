@@ -1,12 +1,12 @@
 //! CPU page: total usage graph, model, frequency, one small graph per core.
 
 use super::{Module, ResourcePage};
-use crate::config::HISTORY_LEN;
 use crate::i18n::{self, gettext, ngettext};
-use crate::widgets::Graph;
+use crate::widgets::{Graph, SensorGroup};
 use adw::prelude::*;
 use adw::subclass::prelude::ObjectSubclassIsExt;
 use corewatch_core::cpu::CpuCollector;
+use corewatch_core::sensors::Home;
 use corewatch_core::{CollectError, Collector, Snapshot, SysRoot};
 use std::cell::{Cell, RefCell};
 
@@ -24,6 +24,7 @@ pub const MODULE: Module = Module {
 };
 
 struct CpuPage {
+    sensors: SensorGroup,
     root: gtk::Widget,
     total: Graph,
     model: adw::ActionRow,
@@ -50,6 +51,7 @@ impl CpuPage {
             threads_desc: RefCell::default(),
             core_grid: ui.core_grid.get(),
             cores: RefCell::default(),
+            sensors: SensorGroup::new(ui.sensors_group.get(), Home::Cpu),
             root: view.upcast(),
         }
     }
@@ -59,7 +61,7 @@ impl CpuPage {
     fn ensure_cores(&self, n: usize) {
         let mut cores = self.cores.borrow_mut();
         while cores.len() < n {
-            let graph = Graph::new(HISTORY_LEN, 48);
+            let graph = Graph::new(48);
             graph.set_width_request(96);
             let label = gtk::Label::builder()
                 .xalign(0.0)
@@ -94,6 +96,7 @@ impl ResourcePage for CpuPage {
     }
 
     fn update(&self, snapshot: &Snapshot) {
+        self.sensors.update(snapshot.sensors.as_ref());
         let Some(cpu) = &snapshot.cpu else { return };
 
         self.total.push(cpu.usage);
@@ -169,6 +172,8 @@ mod view {
         #[derive(Default, CompositeTemplate)]
         #[template(resource = "/io/github/amirmwhdi/Corewatch/ui/cpu-page.ui")]
         pub struct CpuView {
+            #[template_child]
+            pub sensors_group: TemplateChild<adw::PreferencesGroup>,
             #[template_child]
             pub total: TemplateChild<Graph>,
             #[template_child]

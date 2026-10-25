@@ -5,6 +5,7 @@
 //! page sets), and every [`IDLE_EVERY`] ticks otherwise, which keeps the
 //! process count in the sidebar current.
 
+pub mod net;
 mod parse;
 mod source;
 
@@ -13,6 +14,7 @@ pub use source::{current_uid, send_signal, ProcessSource};
 
 use crate::cpu::{parse_stat, CpuTimes};
 use crate::{CollectError, Collector, Snapshot, SysRoot};
+use net::NetTracker;
 use source::Reader;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -37,6 +39,10 @@ pub struct ProcessInfo {
     pub memory: u64,
     pub threads: u32,
     pub state: char,
+    /// Bytes per second received and sent over TCP while the list is shown;
+    /// `None` when unknown (another user's process, or the list hidden).
+    pub download: Option<u64>,
+    pub upload: Option<u64>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -63,6 +69,7 @@ pub struct ProcessCollector {
     page_bytes: u64,
     last: ProcessSample,
     idle_countdown: u32,
+    net: NetTracker,
 }
 
 impl ProcessCollector {
@@ -87,13 +94,36 @@ impl ProcessCollector {
             page_bytes: u64::try_from(rustix::param::page_size()).unwrap_or(4096),
             last: ProcessSample::default(),
             idle_countdown: 0,
+            net: NetTracker::default(),
         };
         collector.scan(root)?;
         Ok(collector)
     }
 
+    /// Speeds by pid while the list is shown; `None` otherwise or when the
+    /// kernel gives no socket counters.
+    fn net_rates(&mut self, root: &SysRoot) -> Option<HashMap<u32, (u64, u64)>> {
+        if !self.active.load(Ordering::Relaxed) {
+            self.net.pause();
+            return None;
+        }
+        if self.net.owners_countdown == 0 {
+            self.net.owners = self.reader.socket_owners(root);
+            self.net.owners_countdown = net::OWNERS_EVERY;
+        }
+        self.net.owners_countdown -= 1;
+        match net::tcp_sockets() {
+            Ok(sockets) => Some(self.net.rates(sockets)),
+            Err(e) => {
+                tracing::debug!("socket counters: {e}");
+                None
+            }
+        }
+    }
+
     fn scan(&mut self, root: &SysRoot) -> Result<(), CollectError> {
         let scan = self.reader.scan(root)?;
+        let rates = self.net_rates(root);
         let cpu_now = scan
             .cpu_line
             .as_deref()
@@ -141,6 +171,13 @@ impl ProcessCollector {
                         .unwrap_or_else(|| Arc::from(uid.to_string())),
                     None => Arc::from("?"),
                 };
+                let (download, upload) = match &rates {
+                    Some(rates) if self.net.owners.readable.contains(&stat.pid) => {
+                        let (rx, tx) = rates.get(&stat.pid).copied().unwrap_or_default();
+                        (Some(rx), Some(tx))
+                    }
+                    _ => (None, None),
+                };
                 ProcessInfo {
                     pid: stat.pid,
                     name,
@@ -150,6 +187,8 @@ impl ProcessCollector {
                     memory: raw.private_pages.saturating_mul(self.page_bytes),
                     threads: stat.threads,
                     state: stat.state,
+                    download,
+                    upload,
                 }
             })
             .collect();

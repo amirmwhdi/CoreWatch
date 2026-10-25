@@ -19,9 +19,9 @@ built from a release tag on GitHub instead of the local folder.
    `packaging/flatpak/cargo-sources.json` into the root of that branch.
 4. Open a pull request against the `new-pr` branch of `flathub/flathub`,
    titled `Add io.github.amirmwhdi.Corewatch`.
-5. Answer the reviewers. Two permissions usually get a question; the
-   reasons are in `packaging/flatpak/README.md` (Network page and
-   Processes page).
+5. Answer the reviewers. The permissions usually get a question; the
+   reasons are in `packaging/flatpak/README.md` (Network page, Processes
+   page and its app icons).
 
 The app id `io.github.amirmwhdi.*` is verified through the GitHub account
 `amirmwhdi`: Flathub checks that the account owns the repository.

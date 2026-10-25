@@ -3,6 +3,8 @@
 
 pub mod graph;
 pub mod page_frame;
+pub mod sensor_group;
 
 pub use graph::Graph;
 pub use page_frame::PageFrame;
+pub use sensor_group::SensorGroup;
