@@ -11,4 +11,5 @@ repository.workspace = true
 async-channel.workspace = true
 thiserror.workspace = true
 rustix.workspace = true
+libc.workspace = true
 tracing.workspace = true

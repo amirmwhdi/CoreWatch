@@ -1,13 +1,15 @@
-//! Print CPU, memory and disks once per second, without any GUI.
+//! Print every resource once per second, without any GUI.
 //!
 //!     cargo run -p corewatch-core --example print
 //!     COREWATCH_SYSROOT=crates/core/tests/fixtures/basic cargo run -p corewatch-core --example print
 
 use corewatch_core::{
     battery::BatteryCollector, cpu::CpuCollector, disk::DiskCollector, gpu::GpuCollector,
-    memory::MemoryCollector,
+    memory::MemoryCollector, network::NetworkCollector, process::ProcessCollector,
+    process::ProcessSource, sensors::SensorCollector,
 };
 use corewatch_core::{Sampler, SysRoot};
+use std::sync::atomic::AtomicBool;
 use std::time::Duration;
 
 fn main() {
@@ -29,6 +31,20 @@ fn main() {
     match BatteryCollector::new(&root) {
         Ok(bat) => sampler.add(Box::new(bat)),
         Err(e) => eprintln!("battery disabled: {e}"),
+    }
+
+    match NetworkCollector::new(&root) {
+        Ok(net) => sampler.add(Box::new(net)),
+        Err(e) => eprintln!("network disabled: {e}"),
+    }
+    match SensorCollector::new(&root) {
+        Ok(sensors) => sampler.add(Box::new(sensors)),
+        Err(e) => eprintln!("sensors disabled: {e}"),
+    }
+    static ACTIVE: AtomicBool = AtomicBool::new(true);
+    match ProcessCollector::new(&root, ProcessSource::detect(&root), &ACTIVE) {
+        Ok(processes) => sampler.add(Box::new(processes)),
+        Err(e) => eprintln!("processes disabled: {e}"),
     }
 
     let (tx, rx) = async_channel::bounded(1);
@@ -110,6 +126,53 @@ fn main() {
                     f.space.total / (1024 * 1024 * 1024),
                 );
             }
+        }
+        if let Some(net) = &snap.network {
+            for i in &net.interfaces {
+                let rate = |v: Option<u64>| v.map_or("-".into(), |b| format!("{} KiB/s", b / 1024));
+                println!(
+                    "NET {} ({:?}, {})  down {}  up {}  {:?} {:?}",
+                    i.name,
+                    i.kind,
+                    if i.connected { "connected" } else { "off" },
+                    rate(i.rx_bps),
+                    rate(i.tx_bps),
+                    i.addresses.ipv4,
+                    i.link_mbps,
+                );
+            }
+        }
+        if let Some(sensors) = &snap.sensors {
+            for c in &sensors.chips {
+                let temps: Vec<String> = c
+                    .temperatures
+                    .iter()
+                    .map(|t| format!("{}={:.0}°C", t.label.as_deref().unwrap_or("?"), t.celsius))
+                    .collect();
+                let fans: Vec<String> = c.fans.iter().map(|f| format!("{} RPM", f.rpm)).collect();
+                println!(
+                    "SEN {} ({:?})  {}  {}",
+                    c.driver,
+                    c.kind,
+                    temps.join(" "),
+                    fans.join(" ")
+                );
+            }
+        }
+        if let Some(p) = &snap.processes {
+            let mut top: Vec<_> = p.processes.iter().collect();
+            top.sort_by(|a, b| b.cpu.total_cmp(&a.cpu));
+            for t in top.iter().take(3) {
+                println!(
+                    "PRC {:>3.0}%  {} ({}, {})  {} MiB",
+                    t.cpu * 100.0,
+                    t.name,
+                    t.pid,
+                    t.user,
+                    t.memory / 1024 / 1024
+                );
+            }
+            println!("PRC {} processes", p.processes.len());
         }
     }
 }

@@ -51,6 +51,13 @@ impl SysRoot {
             .unwrap_or_else(Self::host)
     }
 
+    /// Whether this is the real `/proc` and `/sys`, not a test tree. Data that
+    /// does not come from a file (IP addresses, processes on the Flatpak
+    /// host) is read only for the real machine.
+    pub fn is_host(&self) -> bool {
+        self.proc == Path::new("/proc") && self.sys == Path::new("/sys")
+    }
+
     /// Read a file relative to the proc root, e.g. `"stat"`.
     pub fn read_proc(&self, rel: &str) -> Result<String, CollectError> {
         read(self.proc.join(rel))
@@ -59,6 +66,23 @@ impl SysRoot {
     /// Read a file relative to the sys root, e.g. `"devices/system/cpu/online"`.
     pub fn read_sys(&self, rel: &str) -> Result<String, CollectError> {
         read(self.sys.join(rel))
+    }
+
+    /// Read a file relative to the proc root into `buf`, replacing its
+    /// contents. Lets a collector that reads hundreds of small files per tick
+    /// (one per process) reuse one buffer.
+    pub fn read_proc_into(&self, rel: &str, buf: &mut String) -> Result<(), CollectError> {
+        buf.clear();
+        let path = self.proc.join(rel);
+        File::open(&path)
+            .and_then(|mut file| file.read_to_string(buf))
+            .map(drop)
+            .map_err(|source| CollectError::Io { path, source })
+    }
+
+    /// Full path of an entry under the proc root, for listing directories.
+    pub fn proc_path(&self, rel: &str) -> PathBuf {
+        self.proc.join(rel)
     }
 
     /// Full path of an entry under the sys root, for existence checks.

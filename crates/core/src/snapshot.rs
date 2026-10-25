@@ -1,5 +1,6 @@
 use crate::{
     battery::BatterySample, cpu::CpuSample, disk::DiskSample, gpu::GpuSample, memory::MemorySample,
+    network::NetworkSample, process::ProcessSample, sensors::SensorSample,
 };
 use std::time::Instant;
 
@@ -17,6 +18,9 @@ pub struct Snapshot {
     pub gpu: Option<GpuSample>,
     pub disk: Option<DiskSample>,
     pub battery: Option<BatterySample>,
+    pub network: Option<NetworkSample>,
+    pub processes: Option<ProcessSample>,
+    pub sensors: Option<SensorSample>,
     // A new module adds one field here and one line in `new`.
 }
 
@@ -29,6 +33,9 @@ impl Snapshot {
             disk: None,
             gpu: None,
             battery: None,
+            network: None,
+            processes: None,
+            sensors: None,
         }
     }
 }

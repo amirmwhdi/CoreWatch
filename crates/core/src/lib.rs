@@ -19,8 +19,11 @@ pub mod disk;
 pub mod error;
 pub mod gpu;
 pub mod memory;
+pub mod network;
+pub mod process;
 pub mod root;
 pub mod sampler;
+pub mod sensors;
 pub mod snapshot;
 pub mod throttle;
 

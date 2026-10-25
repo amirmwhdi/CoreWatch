@@ -357,3 +357,94 @@ fn intel_gpu_reports_clock_but_no_made_up_usage() {
     assert_eq!(dev.freq_fraction(), Some(0.5));
     assert_eq!(dev.temp_c, Some(45));
 }
+
+#[test]
+fn network_collector_lists_physical_interfaces_and_tunnels() {
+    use corewatch_core::network::{InterfaceKind, NetworkCollector};
+    use std::time::Instant;
+
+    let root = fixture("desktop");
+    let t0 = Instant::now();
+    let mut collector = NetworkCollector::starting_at(&root, t0).unwrap();
+    let mut snap = Snapshot::new();
+    collector
+        .collect_at(&root, &mut snap, t0 + Duration::from_secs(1))
+        .unwrap();
+    let net = snap.network.unwrap();
+    let names: Vec<&str> = net.interfaces.iter().map(|i| i.name.as_str()).collect();
+    // lo and docker0 are hidden; the tunnel comes last.
+    assert_eq!(names, ["enp3s0", "wlp2s0", "wg0"]);
+
+    let eth = &net.interfaces[0];
+    assert_eq!(eth.kind, InterfaceKind::Ethernet);
+    assert!(eth.connected);
+    assert_eq!(eth.link_mbps, Some(1000));
+    assert_eq!(eth.mac.as_deref(), Some("a4:5e:60:00:00:01"));
+    // Same file twice: no traffic in between.
+    assert_eq!(eth.rx_bps, Some(0));
+    assert_eq!(eth.rx_total, 1_000_000);
+
+    let wifi = &net.interfaces[1];
+    assert_eq!(wifi.kind, InterfaceKind::WiFi);
+    assert!((wifi.signal.unwrap() - 0.5).abs() < 1e-6);
+    assert_eq!(wifi.link_mbps, None);
+
+    let vpn = &net.interfaces[2];
+    assert_eq!(vpn.kind, InterfaceKind::Vpn);
+    assert!(vpn.connected);
+    assert_eq!(vpn.mac, None);
+}
+
+#[test]
+fn sensor_collector_reads_temperatures_and_fans() {
+    use corewatch_core::sensors::{ChipKind, SensorCollector};
+
+    let root = fixture("desktop");
+    let mut collector = SensorCollector::new(&root).unwrap();
+    let mut snap = Snapshot::new();
+    collector.collect(&root, &mut snap).unwrap();
+    let sensors = snap.sensors.unwrap();
+
+    let kinds: Vec<ChipKind> = sensors.chips.iter().map(|c| c.kind).collect();
+    // acpi_fan has no inputs and is left out.
+    assert_eq!(kinds, [ChipKind::Cpu, ChipKind::Storage, ChipKind::Board]);
+    assert_eq!(sensors.cpu_celsius(), Some(61.25));
+    assert_eq!(sensors.hottest_celsius(), Some(61.25));
+
+    let nvme = &sensors.chips[1];
+    assert_eq!(nvme.model.as_deref(), Some("Samsung SSD 980 PRO 1TB"));
+    assert_eq!(nvme.temperatures[0].critical, Some(84.85));
+
+    let board = &sensors.chips[2];
+    assert_eq!(board.fans.len(), 2);
+    assert_eq!(board.fans[0].label.as_deref(), Some("CPU_FAN"));
+    assert_eq!(board.fans[0].rpm, 1180);
+}
+
+#[test]
+fn process_collector_lists_processes_with_full_names() {
+    use corewatch_core::process::{ProcessCollector, ProcessSource};
+    use std::sync::atomic::AtomicBool;
+
+    static ACTIVE: AtomicBool = AtomicBool::new(true);
+    let root = fixture("desktop");
+    let mut collector = ProcessCollector::new(&root, ProcessSource::Direct, &ACTIVE).unwrap();
+    let mut snap = Snapshot::new();
+    collector.collect(&root, &mut snap).unwrap();
+    let sample = snap.processes.unwrap();
+
+    let mut list = sample.processes.to_vec();
+    list.sort_by_key(|p| p.pid);
+    assert_eq!(list.len(), 2);
+    assert_eq!(&*list[0].name, "systemd");
+    // The kernel's name is cut at 15 bytes; the command line completes it.
+    assert_eq!(&*list[1].name, "gnome-shell-calendar-server");
+    assert_eq!(list[1].threads, 4);
+    assert_eq!(list[1].state, 'R');
+    let page = u64::try_from(rustix::param::page_size()).unwrap();
+    assert_eq!(list[1].memory, 2000 * page);
+    assert!(!list[1].user.is_empty());
+    // Nothing ran between the two scans of the same files.
+    assert_eq!(list[1].cpu, 0.0);
+    assert_eq!(sample.generation, 2);
+}
