@@ -3,7 +3,8 @@ using Adw 1;
 
 translation-domain "corewatch";
 
-// GPU page. Displays aggregate and per-GPU usage graph, clock speed, VRAM, and temperature.
+// GPU page. One block per graphics card is added to gpus_box at run time:
+// heading, load graph and the values its driver reports.
 template $CwGpuPage: Adw.Bin {
   child: ScrolledWindow {
     hscrollbar-policy: never;
@@ -19,55 +20,9 @@ template $CwGpuPage: Adw.Bin {
           "cw-page",
         ]
 
-        $CwGraph graph {
-          height-request: 160;
-        }
-
-        Adw.PreferencesGroup info_group {
-          title: _("Graphics Card");
-
-          Adw.ActionRow model {
-            title: _("Model");
-            subtitle: "…";
-            subtitle-selectable: true;
-          }
-
-          Adw.ActionRow driver {
-            title: _("Driver");
-            subtitle: "…";
-            subtitle-selectable: true;
-          }
-
-          Adw.ActionRow usage_row {
-            title: _("Core Usage");
-            subtitle: "…";
-            subtitle-selectable: true;
-          }
-
-          Adw.ActionRow freq {
-            title: _("Clock Speed");
-            subtitle: "…";
-            subtitle-selectable: true;
-          }
-
-          Adw.ActionRow vram {
-            title: _("Memory (VRAM)");
-            subtitle: "…";
-            subtitle-selectable: true;
-
-            [suffix]
-            LevelBar vram_bar {
-              width-request: 120;
-              valign: center;
-              visible: false;
-            }
-          }
-
-          Adw.ActionRow temp {
-            title: _("Temperature");
-            subtitle: "…";
-            subtitle-selectable: true;
-          }
+        Box gpus_box {
+          orientation: vertical;
+          spacing: 24;
         }
 
         // Sensors that belong to this page; filled by widgets::SensorGroup.

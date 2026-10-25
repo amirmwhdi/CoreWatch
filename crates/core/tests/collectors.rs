@@ -361,6 +361,52 @@ fn intel_gpu_reports_clock_but_no_made_up_usage() {
 }
 
 #[test]
+fn gpus_of_every_vendor_report_what_their_driver_has() {
+    use corewatch_core::gpu::{GpuCollector, GpuVendor};
+
+    let root = fixture("gpus");
+    let mut collector = GpuCollector::new(&root).unwrap();
+    let mut snap = Snapshot::new();
+    collector.collect(&root, &mut snap).unwrap();
+    let gpus = snap.gpu.unwrap().devices;
+
+    // The network card is not a GPU; Intel's integrated one comes last.
+    let ids: Vec<_> = gpus.iter().map(|g| g.id.as_str()).collect();
+    assert_eq!(ids, ["0000:01:00.0", "0000:02:00.0", "0000:00:02.0"]);
+
+    let amd = &gpus[0];
+    assert_eq!(amd.name, "AMD Radeon RX 580 Armor 4G OC");
+    assert_eq!(amd.vendor, GpuVendor::Amd);
+    assert_eq!(amd.driver.as_deref(), Some("amdgpu"));
+    assert_eq!(amd.usage, Some(0.37));
+    assert_eq!(amd.vram_total, Some(8 << 30));
+    // The measured clock, and the top level as the maximum.
+    assert_eq!(amd.freq_mhz, Some(1150));
+    assert_eq!(amd.max_freq_mhz, Some(1366));
+    assert_eq!(amd.mem_freq_mhz, Some(2000));
+    assert_eq!(amd.mem_max_freq_mhz, Some(2000));
+    assert_eq!(amd.temp_c, Some(61));
+    assert_eq!(amd.power_w, Some(98.0));
+    assert_eq!(amd.power_cap_w, Some(145.0));
+    assert_eq!(amd.fan_rpm, Some(1210));
+
+    // Asleep: named, but nothing read (reading would wake it).
+    let nvidia = &gpus[1];
+    assert_eq!(nvidia.name, "NVIDIA GeForce RTX 3060 Lite Hash Rate");
+    assert!(nvidia.asleep);
+    assert_eq!(nvidia.temp_c, None);
+
+    let intel = &gpus[2];
+    assert_eq!(intel.name, "Intel Iris Xe Graphics");
+    assert_eq!(intel.driver.as_deref(), Some("xe"));
+    assert_eq!(intel.usage, None);
+    assert_eq!(
+        (intel.freq_mhz, intel.max_freq_mhz),
+        (Some(800), Some(1300))
+    );
+}
+
+#[test]
 fn network_collector_lists_physical_interfaces_and_tunnels() {
     use corewatch_core::network::{InterfaceKind, NetworkCollector};
     use std::time::Instant;

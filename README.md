@@ -34,7 +34,13 @@ temperature and battery usage, and the running processes.
   sensors and the CPU fan on the Processor page, drive temperatures on
   Disks, and so on); the rest (motherboard, case fans) on the Sensors page
 - CPU: model, cores and threads, total usage graph, one graph per logical core, current frequency
-- GPU: model, driver, core usage graph, clock speed, VRAM, and temperature
+- Graphics: one section per card with its model name (from `pci.ids`),
+  driver, load graph, core and memory clock, VRAM, temperature, power and
+  fan. AMD cards report everything; NVIDIA cards with the proprietary
+  driver are read through NVML (`libnvidia-ml.so.1`, which comes with the
+  driver), with nouveau only temperature and fan; Intel reports clock
+  speed but not load. A sleeping laptop GPU is shown as asleep and is
+  not woken up
 - Memory: used, available, cache and buffers, swap, usage graph
 - Disks: activity graph, read/write speeds, temperature of each drive (from
   the kernel's sensor, or for SATA drives from UDisks' SMART data when the

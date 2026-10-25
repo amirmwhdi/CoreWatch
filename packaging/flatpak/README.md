@@ -46,4 +46,10 @@ These permissions are there for single pages:
   `xdg-data/applications` and `xdg-data/icons`, all read-only: the
   Processes page shows each app's icon, so it reads the `.desktop` files
   and icon folders of the apps installed on the host
-  (see `crates/app/src/app_icons.rs`).
+  (see `crates/app/src/app_icons.rs`). The Graphics page also reads the
+  host's `pci.ids` from there for card names.
+- `--device=dri`: besides the GPU for drawing, this gives access to the
+  NVIDIA device nodes, so with the proprietary driver the Graphics page
+  reads load, clocks and power through NVML. `libnvidia-ml.so.1` comes from
+  the `org.freedesktop.Platform.GL.nvidia-*` extension that Flatpak installs
+  to match the host driver.

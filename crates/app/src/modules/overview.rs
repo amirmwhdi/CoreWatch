@@ -114,12 +114,17 @@ impl ResourcePage for OverviewPage {
         if let Some(g) = s.gpu.as_ref().and_then(|g| g.devices.first()) {
             // Like the GPU page: usage when the driver reports it, else the clock.
             let value = match (g.usage, g.freq_mhz) {
+                _ if g.asleep => gettext("Asleep"),
                 (Some(usage), _) => i18n::percent(usage),
                 (None, Some(mhz)) => i18n::fmt(&gettext("{cur} MHz"), &[("cur", &mhz)]),
                 (None, None) => "—".to_owned(),
             };
-            self.gpu
-                .set(g.usage.or_else(|| g.freq_fraction()), &value, &g.name);
+            let share = if g.asleep {
+                Some(0.0)
+            } else {
+                g.usage.or_else(|| g.freq_fraction())
+            };
+            self.gpu.set(share, &value, &g.name);
         }
 
         if let Some(d) = &s.disk {

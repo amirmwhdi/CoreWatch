@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: corewatch\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-25 16:53+0000\n"
+"POT-Creation-Date: 2026-10-25 18:21+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -110,7 +110,7 @@ msgid "Fully charged"
 msgstr ""
 
 #: crates/app/src/modules/battery.rs:221 crates/app/src/modules/cpu.rs:139
-#: crates/app/src/modules/gpu.rs:93 crates/app/src/modules/gpu.rs:114
+#: crates/app/src/modules/gpu.rs:133
 msgid "Unknown"
 msgstr ""
 
@@ -170,62 +170,107 @@ msgstr ""
 msgid "Write"
 msgstr ""
 
-#: crates/app/src/modules/disk.rs:207
-#: crates/app/src/widgets/sensor_group.rs:108 data/ui/stable/gpu-page.blp:67
-#: data/ui/stable/preferences.blp:64
+#: crates/app/src/modules/disk.rs:207 crates/app/src/modules/gpu.rs:176
+#: crates/app/src/widgets/sensor_group.rs:108 data/ui/stable/preferences.blp:64
 msgid "Temperature"
 msgstr ""
 
 #. Translators: disk type, size and kernel name, e.g. "NVMe · 512 GiB · nvme0n1"
-#: crates/app/src/modules/disk.rs:258
+#: crates/app/src/modules/disk.rs:262
 msgid "{kind} · {size} · {name}"
 msgstr ""
 
-#: crates/app/src/modules/disk.rs:271
+#: crates/app/src/modules/disk.rs:275
 msgid "{speed} · {total} since boot"
 msgstr ""
 
-#: crates/app/src/modules/disk.rs:280
+#: crates/app/src/modules/disk.rs:284
 msgid "NVMe"
 msgstr ""
 
-#: crates/app/src/modules/disk.rs:281
+#: crates/app/src/modules/disk.rs:285
 msgid "SSD"
 msgstr ""
 
-#: crates/app/src/modules/disk.rs:282
+#: crates/app/src/modules/disk.rs:286
 msgid "Hard disk"
 msgstr ""
 
-#: crates/app/src/modules/disk.rs:283
+#: crates/app/src/modules/disk.rs:287
 msgid "Removable"
 msgstr ""
 
-#: crates/app/src/modules/gpu.rs:66 crates/app/src/modules/overview.rs:48
+#: crates/app/src/modules/gpu.rs:56 crates/app/src/modules/overview.rs:48
 #: crates/app/src/modules/sensors.rs:157
 msgid "Graphics"
 msgstr ""
 
-#: crates/app/src/modules/gpu.rs:99
+#: crates/app/src/modules/gpu.rs:102 crates/app/src/modules/overview.rs:117
+msgid "Asleep"
+msgstr ""
+
+#. Translators: e.g. "Driver amdgpu · 0000:01:00.0"
+#: crates/app/src/modules/gpu.rs:137
+msgid "Driver {driver} · {id}"
+msgstr ""
+
+#: crates/app/src/modules/gpu.rs:150
+msgid "Load of {model}"
+msgstr ""
+
+#: crates/app/src/modules/gpu.rs:165 data/ui/stable/battery-page.blp:30
+msgid "Status"
+msgstr ""
+
+#: crates/app/src/modules/gpu.rs:166
+msgid "Asleep to save power; values show when it wakes"
+msgstr ""
+
+#: crates/app/src/modules/gpu.rs:167
+msgid "Load"
+msgstr ""
+
+#: crates/app/src/modules/gpu.rs:168
+msgid "Clock Speed"
+msgstr ""
+
+#: crates/app/src/modules/gpu.rs:169
+msgid "Memory Clock"
+msgstr ""
+
+#: crates/app/src/modules/gpu.rs:170
+msgid "Memory (VRAM)"
+msgstr ""
+
+#: crates/app/src/modules/gpu.rs:177
+msgid "Power"
+msgstr ""
+
+#: crates/app/src/modules/gpu.rs:178 crates/app/src/widgets/sensor_group.rs:129
+msgid "Fan"
+msgstr ""
+
+#: crates/app/src/modules/gpu.rs:216
 msgid "Not reported by the driver"
 msgstr ""
 
-#: crates/app/src/modules/gpu.rs:105
-msgid "{cur} MHz / {max} MHz"
-msgstr ""
-
-#: crates/app/src/modules/gpu.rs:111 crates/app/src/modules/gpu.rs:155
-#: crates/app/src/modules/overview.rs:118
-msgid "{cur} MHz"
-msgstr ""
-
-#: crates/app/src/modules/gpu.rs:121 crates/app/src/modules/memory.rs:94
+#: crates/app/src/modules/gpu.rs:226 crates/app/src/modules/memory.rs:94
 #: crates/app/src/modules/overview.rs:105
 msgid "{used} of {total}"
 msgstr ""
 
-#: crates/app/src/modules/gpu.rs:129
-msgid "Shared / System RAM"
+#. Translators: a current value and its maximum, e.g. "1150 MHz / 1366 MHz"
+#: crates/app/src/modules/gpu.rs:260
+msgid "{now} / {max}"
+msgstr ""
+
+#: crates/app/src/modules/gpu.rs:268 crates/app/src/modules/overview.rs:119
+msgid "{cur} MHz"
+msgstr ""
+
+#. Translators: power in watts, e.g. "98 W"
+#: crates/app/src/modules/gpu.rs:273
+msgid "{value} W"
 msgstr ""
 
 #: crates/app/src/modules/memory.rs:58 crates/app/src/modules/overview.rs:47
@@ -332,51 +377,51 @@ msgstr ""
 msgid "Overview"
 msgstr ""
 
-#: crates/app/src/modules/overview.rs:134
+#: crates/app/src/modules/overview.rs:139
 msgid "Read {read} · Write {write}"
 msgstr ""
 
 #. Translators: download speed, e.g. "↓ 1.2 MiB/s"
-#: crates/app/src/modules/overview.rs:151
+#: crates/app/src/modules/overview.rs:156
 msgid "↓ {speed}"
 msgstr ""
 
 #. Translators: upload speed, e.g. "↑ 40 KiB/s"
-#: crates/app/src/modules/overview.rs:156
+#: crates/app/src/modules/overview.rs:161
 msgid "↑ {speed}"
 msgstr ""
 
-#: crates/app/src/modules/overview.rs:170
+#: crates/app/src/modules/overview.rs:175
 msgid "Load {load} · {n} process"
 msgid_plural "Load {load} · {n} processes"
 msgstr[0] ""
 msgstr[1] ""
 
-#: crates/app/src/modules/overview.rs:176
+#: crates/app/src/modules/overview.rs:181
 msgid "Load {load}"
 msgstr ""
 
-#: crates/app/src/modules/overview.rs:210
+#: crates/app/src/modules/overview.rs:215
 msgid "{days} day {hours} h"
 msgid_plural "{days} days {hours} h"
 msgstr[0] ""
 msgstr[1] ""
 
-#: crates/app/src/modules/overview.rs:219
+#: crates/app/src/modules/overview.rs:224
 msgid "{hours} h {minutes} min"
 msgstr ""
 
 #. Translators: uptime, e.g. "12 min"
-#: crates/app/src/modules/overview.rs:224
+#: crates/app/src/modules/overview.rs:229
 msgid "{minutes} min"
 msgstr ""
 
 #. Translators: a processor clock, e.g. "3.4 GHz"
-#: crates/app/src/modules/overview.rs:232
+#: crates/app/src/modules/overview.rs:237
 msgid "{value} GHz"
 msgstr ""
 
-#: crates/app/src/modules/overview.rs:290
+#: crates/app/src/modules/overview.rs:295
 msgid "Open {page}"
 msgstr ""
 
@@ -453,7 +498,7 @@ msgstr ""
 
 #: crates/app/src/modules/sensors.rs:105 data/ui/stable/battery-page.blp:80
 #: data/ui/stable/cpu-page.blp:67 data/ui/stable/disk-page.blp:43
-#: data/ui/stable/gpu-page.blp:75 data/ui/stable/network-page.blp:40
+#: data/ui/stable/gpu-page.blp:30 data/ui/stable/network-page.blp:40
 msgid "Sensors"
 msgstr ""
 
@@ -482,10 +527,6 @@ msgstr ""
 msgid "Critical at {value}"
 msgstr ""
 
-#: crates/app/src/widgets/sensor_group.rs:129
-msgid "Fan"
-msgstr ""
-
 #. Translators: an unnamed sensor and its number, e.g. "Fan 2"
 #: crates/app/src/widgets/sensor_group.rs:155
 msgid "{what} {number}"
@@ -496,16 +537,16 @@ msgstr ""
 msgid "{value} RPM"
 msgstr ""
 
-#: crates/app/src/window.rs:265
+#: crates/app/src/window.rs:266
 msgid "Unavailable"
 msgstr ""
 
 #. Translators: the git commit this build came from, e.g. "Commit a6f02ff"
-#: crates/app/src/window.rs:310
+#: crates/app/src/window.rs:311
 msgid "Commit {hash}"
 msgstr ""
 
-#: crates/app/src/window.rs:317
+#: crates/app/src/window.rs:318
 msgid "Latest Commit"
 msgstr ""
 
@@ -688,10 +729,6 @@ msgstr ""
 msgid "Battery Details"
 msgstr ""
 
-#: data/ui/stable/battery-page.blp:30
-msgid "Status"
-msgstr ""
-
 #: data/ui/stable/battery-page.blp:36
 msgid "Charge Level"
 msgstr ""
@@ -716,7 +753,7 @@ msgstr ""
 msgid "Hardware"
 msgstr ""
 
-#: data/ui/stable/cpu-page.blp:29 data/ui/stable/gpu-page.blp:30
+#: data/ui/stable/cpu-page.blp:29
 msgid "Model"
 msgstr ""
 
@@ -738,26 +775,6 @@ msgstr ""
 
 #: data/ui/stable/disk-page.blp:38
 msgid "Filesystems"
-msgstr ""
-
-#: data/ui/stable/gpu-page.blp:27
-msgid "Graphics Card"
-msgstr ""
-
-#: data/ui/stable/gpu-page.blp:36
-msgid "Driver"
-msgstr ""
-
-#: data/ui/stable/gpu-page.blp:42
-msgid "Core Usage"
-msgstr ""
-
-#: data/ui/stable/gpu-page.blp:48
-msgid "Clock Speed"
-msgstr ""
-
-#: data/ui/stable/gpu-page.blp:54
-msgid "Memory (VRAM)"
 msgstr ""
 
 #: data/ui/stable/memory-page.blp:28

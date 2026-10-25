@@ -101,6 +101,7 @@
           <li>New Network page: speeds, addresses, link speed and Wi-Fi signal</li>
           <li>Temperatures and fan speeds on the page they belong to, and a Sensors page for the rest</li>
           <li>Temperature of each drive on the Disks page</li>
+          <li>Rewritten Graphics page: every card with its model name, clock speeds, power and fan, NVIDIA cards with the proprietary driver, and sleeping laptop GPUs left asleep</li>
           <li>Smooth, continuously scrolling graphs</li>
           <li>Preferences: start page or last page, temperature unit, binary or decimal sizes, and bits or bytes for network speeds</li>
         </ul>
