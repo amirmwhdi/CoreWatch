@@ -8,7 +8,10 @@
 //! - amdgpu: `gpu_busy_percent`, `mem_info_vram_*`, the clock levels in
 //!   `pp_dpm_sclk` / `pp_dpm_mclk` (the current one is marked `*`), and the
 //!   hwmon chip for the measured clock, temperature, power and fan.
-//! - i915 and xe (Intel): the GT frequency; Intel reports no load in sysfs.
+//! - i915 and xe (Intel): the GT frequency, and the load from the time the
+//!   GT spent idle (RC6 residency, `rc6_residency_ms` on i915,
+//!   `gtidle/idle_residency_ms` on xe): Intel has no busy counter in sysfs,
+//!   and the engine counters (perf) need root.
 //! - nouveau: the hwmon chip only (temperature, fan, power).
 //! - nvidia (proprietary): nothing in sysfs; NVML ([`nvml`]) has it all.
 //!
@@ -24,6 +27,7 @@ use nvml::{Nvml, NvmlDevice, NvmlReading};
 use pci::PciIds;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GpuVendor {
@@ -67,6 +71,9 @@ pub struct GpuDevice {
     pub asleep: bool,
     /// Share of time the GPU was busy, 0.0..=1.0.
     pub usage: Option<f32>,
+    /// The load comes from a counter and is `None` until its second
+    /// reading (Intel), rather than not being reported at all.
+    pub usage_pending: bool,
     /// Dedicated video memory in bytes.
     pub vram_used: Option<u64>,
     pub vram_total: Option<u64>,
@@ -136,6 +143,8 @@ struct Files {
     /// Intel GT clock in MHz, now and at most.
     act_mhz: Option<PathBuf>,
     max_mhz: Option<PathBuf>,
+    /// Intel: milliseconds the GT has spent idle (in RC6) since boot.
+    idle_ms: Option<PathBuf>,
     temp: Option<PathBuf>,
     /// Microwatts.
     power: Option<PathBuf>,
@@ -151,6 +160,8 @@ struct Card {
     runtime_status: PathBuf,
     files: Files,
     nvml: Option<NvmlDevice>,
+    /// The idle counter and when it was read, for the next tick's load.
+    last_idle: Option<(u64, Instant)>,
 }
 
 pub struct GpuCollector {
@@ -208,6 +219,7 @@ impl GpuCollector {
                     vendor,
                     driver,
                     nvml: nvml_device,
+                    last_idle: None,
                 }
             })
             .collect();
@@ -297,9 +309,10 @@ fn find_files(dir: &Path, vendor: GpuVendor, driver: Option<&str>) -> Files {
             files.mclk_levels = f("pp_dpm_mclk");
         }
         (GpuVendor::Intel, Some("xe")) => {
-            let freq = dir.join("tile0/gt0/freq0");
-            files.act_mhz = existing(freq.join("act_freq"));
-            files.max_mhz = existing(freq.join("max_freq"));
+            let gt = dir.join("tile0/gt0");
+            files.act_mhz = existing(gt.join("freq0/act_freq"));
+            files.max_mhz = existing(gt.join("freq0/max_freq"));
+            files.idle_ms = existing(gt.join("gtidle/idle_residency_ms"));
         }
         (GpuVendor::Intel, _) => {
             if let Some(card) = first_child(&dir.join("drm"), "card") {
@@ -313,6 +326,14 @@ fn find_files(dir: &Path, vendor: GpuVendor, driver: Option<&str>) -> Files {
                         break;
                     }
                 }
+                // RC6 counts idle time only while it is enabled.
+                files.idle_ms = [card.join("gt/gt0"), card.join("power")]
+                    .into_iter()
+                    .find(|dir| dir.join("rc6_residency_ms").is_file())
+                    .filter(|dir| {
+                        fs::read_to_string(dir.join("rc6_enable")).map_or(true, |s| s.trim() != "0")
+                    })
+                    .map(|dir| dir.join("rc6_residency_ms"));
             }
         }
         _ => {}
@@ -366,11 +387,11 @@ impl Collector for GpuCollector {
     fn collect(&mut self, _root: &SysRoot, out: &mut Snapshot) -> Result<(), CollectError> {
         let devices = self
             .cards
-            .iter()
+            .iter_mut()
             .map(|card| {
                 let asleep =
                     fs::read_to_string(&card.runtime_status).is_ok_and(|s| s.trim() == "suspended");
-                let reading = if asleep {
+                let mut reading = if asleep {
                     NvmlReading::default()
                 } else {
                     match (&self.nvml, &card.nvml) {
@@ -378,12 +399,16 @@ impl Collector for GpuCollector {
                         _ => read_files(&card.files),
                     }
                 };
+                if reading.usage.is_none() && !asleep {
+                    reading.usage = card.idle_load();
+                }
                 GpuDevice {
                     id: card.id.clone(),
                     name: card.name.clone(),
                     vendor: card.vendor,
                     driver: card.driver.clone(),
                     asleep,
+                    usage_pending: reading.usage.is_none() && card.files.idle_ms.is_some(),
                     usage: reading.usage,
                     vram_used: reading.vram_used,
                     vram_total: reading.vram_total,
@@ -404,6 +429,23 @@ impl Collector for GpuCollector {
         out.gpu = Some(GpuSample { devices });
         Ok(())
     }
+}
+
+impl Card {
+    /// The share of the time since the last tick the GT was not idle.
+    fn idle_load(&mut self) -> Option<f32> {
+        let idle: u64 = read_num(&self.files.idle_ms)?;
+        let now = Instant::now();
+        let last = self.last_idle.replace((idle, now))?;
+        load_from_idle(idle.checked_sub(last.0)?, now - last.1)
+    }
+}
+
+/// Load from the idle time that passed during `wall` time. The counters are
+/// read at slightly different moments, so the result is clamped.
+pub fn load_from_idle(idle_ms: u64, wall: Duration) -> Option<f32> {
+    let wall_ms = wall.as_secs_f64() * 1000.0;
+    (wall_ms >= 1.0).then(|| (1.0 - idle_ms as f64 / wall_ms).clamp(0.0, 1.0) as f32)
 }
 
 /// One tick of a card read from sysfs.
@@ -450,6 +492,16 @@ mod tests {
         assert_eq!(parse_dpm_levels(text), (Some(1366), Some(1411)));
         assert_eq!(parse_dpm_levels("0: 300MHz *\n"), (Some(300), Some(300)));
         assert_eq!(parse_dpm_levels(""), (None, None));
+    }
+
+    #[test]
+    fn load_is_the_time_not_spent_idle() {
+        let second = Duration::from_secs(1);
+        assert_eq!(load_from_idle(750, second), Some(0.25));
+        assert_eq!(load_from_idle(0, second), Some(1.0));
+        // The idle counter ran a little ahead of the clock.
+        assert_eq!(load_from_idle(1010, second), Some(0.0));
+        assert_eq!(load_from_idle(0, Duration::ZERO), None);
     }
 
     #[test]

@@ -340,7 +340,7 @@ fn missing_power_supply_disables_battery() {
 }
 
 #[test]
-fn intel_gpu_reports_clock_but_no_made_up_usage() {
+fn intel_gpu_load_comes_from_its_idle_time() {
     use corewatch_core::gpu::{GpuCollector, GpuVendor};
 
     let root = fixture("laptop");
@@ -348,16 +348,22 @@ fn intel_gpu_reports_clock_but_no_made_up_usage() {
     let mut snap = Snapshot::new();
     collector.collect(&root, &mut snap).unwrap();
 
-    let gpu = snap.gpu.unwrap();
+    let gpu = snap.gpu.take().unwrap();
     // card0-eDP-1 is a connector, not a second card.
     assert_eq!(gpu.devices.len(), 1);
     let dev = &gpu.devices[0];
     assert_eq!(dev.vendor, GpuVendor::Intel);
     assert_eq!(dev.driver.as_deref(), Some("i915"));
+    // The load needs two readings of the RC6 counter.
     assert_eq!(dev.usage, None);
     assert_eq!(dev.freq_mhz, Some(700));
     assert_eq!(dev.freq_fraction(), Some(0.5));
     assert_eq!(dev.temp_c, Some(45));
+
+    // The fixture's counter does not move: the GT was never idle.
+    std::thread::sleep(std::time::Duration::from_millis(20));
+    collector.collect(&root, &mut snap).unwrap();
+    assert_eq!(snap.gpu.unwrap().devices[0].usage, Some(1.0));
 }
 
 #[test]
@@ -399,7 +405,7 @@ fn gpus_of_every_vendor_report_what_their_driver_has() {
     let intel = &gpus[2];
     assert_eq!(intel.name, "Intel Iris Xe Graphics");
     assert_eq!(intel.driver.as_deref(), Some("xe"));
-    assert_eq!(intel.usage, None);
+    assert_eq!(intel.usage, None); // until the second reading
     assert_eq!(
         (intel.freq_mhz, intel.max_freq_mhz),
         (Some(800), Some(1300))

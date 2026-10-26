@@ -197,10 +197,13 @@ impl GpuBlock {
     }
 
     fn update(&self, d: &GpuDevice) {
-        // Load when the driver reports it; Intel and nouveau report only the
-        // clock, so the graph shows the clock's share of its maximum there.
+        // Load when the driver reports it; nouveau and older Intel chips
+        // without RC6 report only the clock, so the graph shows the clock's
+        // share of its maximum there.
         let graph_value = if d.asleep {
             Some(0.0)
+        } else if d.usage_pending {
+            None
         } else {
             d.usage.or_else(|| d.freq_fraction())
         };
@@ -213,6 +216,7 @@ impl GpuBlock {
             &self.usage,
             (!d.asleep).then(|| match d.usage {
                 Some(usage) => i18n::percent(usage),
+                None if d.usage_pending => "…".to_owned(),
                 None => gettext("Not reported by the driver"),
             }),
         );

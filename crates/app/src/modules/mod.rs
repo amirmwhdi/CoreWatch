@@ -69,7 +69,7 @@ pub fn all() -> Vec<Module> {
         gpu::MODULE,
         disk::MODULE,
         network::MODULE,
-        sensors::MODULE,
         battery::MODULE,
+        sensors::MODULE,
     ]
 }

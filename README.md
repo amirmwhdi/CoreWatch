@@ -121,7 +121,8 @@ and Wi-Fi signal strength.
 - **Network:** download and upload graph per interface, addresses, link
   speed, Wi-Fi signal.
 - **Sensors:** temperatures and fan speeds appear on the page they belong to
-  (CPU sensors and the CPU fan on the Processor page, drive temperatures on
+  (the CPU temperature, on Intel the average of its cores, and the CPU fan on
+  the Processor page, drive temperatures on
   Disks, and so on); everything else, like motherboard sensors and case
   fans, is on the Sensors page.
 - **Battery:** charge level graph, charging status, time remaining, health,
@@ -151,7 +152,7 @@ and Wi-Fi signal strength.
 | AMD (amdgpu) | Load, core and memory clock, video memory, temperature, power, fan |
 | NVIDIA, proprietary driver | Load, core and memory clock, video memory, temperature, power, fan, read through NVML (`libnvidia-ml.so.1`, which comes with the driver) |
 | NVIDIA, nouveau | Temperature and fan |
-| Intel (i915, xe) | Clock speed (the driver does not report load) |
+| Intel (i915, xe) | Load (from the time the GPU spends idle) and clock speed |
 
 A laptop's graphics card that is asleep to save power is shown as asleep and
 is not woken up just to be measured.

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: corewatch\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-25 18:21+0000\n"
+"POT-Creation-Date: 2026-10-26 16:30+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -171,7 +171,7 @@ msgid "Write"
 msgstr ""
 
 #: crates/app/src/modules/disk.rs:207 crates/app/src/modules/gpu.rs:176
-#: crates/app/src/widgets/sensor_group.rs:108 data/ui/stable/preferences.blp:64
+#: crates/app/src/widgets/sensor_group.rs:115 data/ui/stable/preferences.blp:64
 msgid "Temperature"
 msgstr ""
 
@@ -246,30 +246,30 @@ msgstr ""
 msgid "Power"
 msgstr ""
 
-#: crates/app/src/modules/gpu.rs:178 crates/app/src/widgets/sensor_group.rs:129
+#: crates/app/src/modules/gpu.rs:178 crates/app/src/widgets/sensor_group.rs:140
 msgid "Fan"
 msgstr ""
 
-#: crates/app/src/modules/gpu.rs:216
+#: crates/app/src/modules/gpu.rs:220
 msgid "Not reported by the driver"
 msgstr ""
 
-#: crates/app/src/modules/gpu.rs:226 crates/app/src/modules/memory.rs:94
+#: crates/app/src/modules/gpu.rs:230 crates/app/src/modules/memory.rs:94
 #: crates/app/src/modules/overview.rs:105
 msgid "{used} of {total}"
 msgstr ""
 
 #. Translators: a current value and its maximum, e.g. "1150 MHz / 1366 MHz"
-#: crates/app/src/modules/gpu.rs:260
+#: crates/app/src/modules/gpu.rs:264
 msgid "{now} / {max}"
 msgstr ""
 
-#: crates/app/src/modules/gpu.rs:268 crates/app/src/modules/overview.rs:119
+#: crates/app/src/modules/gpu.rs:272 crates/app/src/modules/overview.rs:119
 msgid "{cur} MHz"
 msgstr ""
 
 #. Translators: power in watts, e.g. "98 W"
-#: crates/app/src/modules/gpu.rs:273
+#: crates/app/src/modules/gpu.rs:277
 msgid "{value} W"
 msgstr ""
 
@@ -523,17 +523,21 @@ msgstr ""
 msgid "{device} · {critical}"
 msgstr ""
 
-#: crates/app/src/widgets/sensor_group.rs:111
+#: crates/app/src/widgets/sensor_group.rs:128
+msgid "Core Average"
+msgstr ""
+
+#: crates/app/src/widgets/sensor_group.rs:154
 msgid "Critical at {value}"
 msgstr ""
 
 #. Translators: an unnamed sensor and its number, e.g. "Fan 2"
-#: crates/app/src/widgets/sensor_group.rs:155
+#: crates/app/src/widgets/sensor_group.rs:180
 msgid "{what} {number}"
 msgstr ""
 
 #. Translators: fan speed in revolutions per minute, e.g. "1200 RPM"
-#: crates/app/src/widgets/sensor_group.rs:162
+#: crates/app/src/widgets/sensor_group.rs:187
 msgid "{value} RPM"
 msgstr ""
 
@@ -624,104 +628,120 @@ msgid "Every resource at a glance"
 msgstr ""
 
 #: data/io.github.amirmwhdi.Corewatch.metainfo.xml:48
-msgid "Sort, search and end processes"
+msgid ""
+"Sort, search and end processes, with each app's download and upload speed"
 msgstr ""
 
 #: data/io.github.amirmwhdi.Corewatch.metainfo.xml:52
-msgid "Download and upload speed per interface"
+msgid "Total and per-core usage, frequency and CPU sensors"
 msgstr ""
 
 #: data/io.github.amirmwhdi.Corewatch.metainfo.xml:56
-msgid "Temperatures and fan speeds"
+msgid "Load, clocks, memory, temperature, power and fan of every graphics card"
 msgstr ""
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:80
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:60
+msgid "Activity, speeds and temperature of each drive"
+msgstr ""
+
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:64
+msgid "Download and upload speed per interface"
+msgstr ""
+
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:88
 msgid "system"
 msgstr ""
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:81
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:89
 msgid "monitor"
 msgstr ""
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:82
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:90
 msgid "cpu"
 msgstr ""
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:83
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:91
 msgid "memory"
 msgstr ""
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:84
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:92
 msgid "disk"
 msgstr ""
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:85
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:93
 msgid "process"
 msgstr ""
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:86
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:94
 msgid "network"
 msgstr ""
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:87
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:95
 msgid "temperature"
 msgstr ""
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:99
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:107
 msgid "New Overview page with every resource at a glance"
 msgstr ""
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:100
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:108
 msgid ""
 "New Processes page with app icons and per-process download and upload "
 "speeds: sort, search, and end or force-stop a process"
 msgstr ""
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:101
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:109
 msgid "New Network page: speeds, addresses, link speed and Wi-Fi signal"
 msgstr ""
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:102
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:110
 msgid ""
 "Temperatures and fan speeds on the page they belong to, and a Sensors page "
 "for the rest"
 msgstr ""
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:103
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:111
 msgid "Temperature of each drive on the Disks page"
 msgstr ""
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:104
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:112
+msgid ""
+"Rewritten Graphics page: every card with its model name, clock speeds, power "
+"and fan, NVIDIA cards with the proprietary driver, and sleeping laptop GPUs "
+"left asleep"
+msgstr ""
+
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:113
 msgid "Smooth, continuously scrolling graphs"
 msgstr ""
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:105
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:114
 msgid ""
 "Preferences: start page or last page, temperature unit, binary or decimal "
 "sizes, and bits or bytes for network speeds"
 msgstr ""
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:112
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:121
 msgid "New Graphics, Disks and Battery pages"
 msgstr ""
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:113
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:122
 msgid "Preferences: color scheme and update speed"
 msgstr ""
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:114
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:123
 msgid "A banner tells you when a data source stops answering"
 msgstr ""
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:115
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:124
 msgid "Installable with Meson, and available as a Flatpak"
 msgstr ""
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:121
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:130
 msgid "Log file and clearer error reports."
 msgstr ""
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:126
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:135
 msgid "First preview: processor and memory."
 msgstr ""
 

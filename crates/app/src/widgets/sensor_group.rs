@@ -1,13 +1,13 @@
 //! `SensorGroup`: the "Sensors" group at the end of a resource page.
 //!
 //! Each page shows the hwmon sensors that belong to it ([`Home`]): the CPU
-//! page its package and core temperatures and the CPU fan, the Disks page the
+//! page its package temperature, the average of its cores and the CPU fan, the Disks page the
 //! drive temperatures. What is left stays on the Sensors page. The group is
 //! hidden while the page has no sensor.
 
 use crate::i18n::{self, gettext};
 use adw::prelude::*;
-use corewatch_core::sensors::{Chip, Home, SensorSample};
+use corewatch_core::sensors::{Chip, Home, SensorSample, Temperature};
 use std::cell::RefCell;
 
 /// One row: its title and subtitle. The rows are rebuilt only when these or
@@ -98,25 +98,36 @@ impl SensorGroup {
 pub fn readings(sensors: &SensorSample, home: Home) -> Vec<Reading<'_>> {
     let mut out = Vec::new();
     for chip in &sensors.chips {
+        // Intel's coretemp has one sensor per core; they are shown as one
+        // average, after the package temperature.
+        let mut cores: Vec<&Temperature> = Vec::new();
         for (i, t) in chip.temperatures.iter().enumerate() {
             if chip.home(t.label.as_deref()) != home || chip.shown_by_page(t.index) {
+                continue;
+            }
+            if chip.driver == "coretemp" && t.label.as_deref().is_some_and(is_core_label) {
+                cores.push(t);
                 continue;
             }
             let title = t
                 .label
                 .clone()
                 .unwrap_or_else(|| numbered(&gettext("Temperature"), i));
-            let critical = t.critical.map(|c| {
-                i18n::fmt(
-                    &gettext("Critical at {value}"),
-                    &[("value", &i18n::celsius(c))],
-                )
-            });
+            let critical = t.critical.map(critical_at);
             out.push(Reading {
                 chip,
                 title,
                 critical,
                 value: i18n::celsius(t.celsius),
+            });
+        }
+        if !cores.is_empty() {
+            let average = cores.iter().map(|t| t.celsius).sum::<f32>() / cores.len() as f32;
+            out.push(Reading {
+                chip,
+                title: gettext("Core Average"),
+                critical: cores.iter().find_map(|t| t.critical).map(critical_at),
+                value: i18n::celsius(average),
             });
         }
         for (i, f) in chip.fans.iter().enumerate() {
@@ -136,6 +147,20 @@ pub fn readings(sensors: &SensorSample, home: Home) -> Vec<Reading<'_>> {
         }
     }
     out
+}
+
+fn critical_at(celsius: f32) -> String {
+    i18n::fmt(
+        &gettext("Critical at {value}"),
+        &[("value", &i18n::celsius(celsius))],
+    )
+}
+
+/// "Core 3", one core's sensor on coretemp.
+fn is_core_label(label: &str) -> bool {
+    label
+        .strip_prefix("Core ")
+        .is_some_and(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()))
 }
 
 pub fn value_label(row: &adw::ActionRow) -> gtk::Label {
@@ -160,4 +185,40 @@ pub fn numbered(what: &str, index: usize) -> String {
 pub fn rpm(value: u32) -> String {
     // Translators: fan speed in revolutions per minute, e.g. "1200 RPM"
     i18n::fmt(&gettext("{value} RPM"), &[("value", &value)])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use corewatch_core::sensors::ChipKind;
+
+    #[test]
+    fn intel_cores_are_shown_as_one_average() {
+        let t = |label: &str, index, celsius| Temperature {
+            label: Some(label.into()),
+            index,
+            celsius,
+            critical: Some(100.0),
+        };
+        let sample = SensorSample {
+            chips: vec![Chip {
+                driver: "coretemp".into(),
+                kind: ChipKind::Cpu,
+                model: None,
+                temperatures: vec![
+                    t("Package id 0", 1, 62.0),
+                    t("Core 0", 2, 50.0),
+                    t("Core 4", 6, 60.0),
+                ],
+                fans: vec![],
+            }],
+        };
+        let readings = readings(&sample, Home::Cpu);
+        let titles: Vec<&str> = readings.iter().map(|r| r.title.as_str()).collect();
+        assert_eq!(titles, ["Package id 0", "Core Average"]);
+        assert!(readings[1].value.starts_with("55"), "{}", readings[1].value);
+        assert!(is_core_label("Core 12"));
+        assert!(!is_core_label("Core"));
+        assert!(!is_core_label("Package id 0"));
+    }
 }
