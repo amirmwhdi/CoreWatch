@@ -20,13 +20,32 @@ pub struct AppIcons {
     fallback: gio::Icon,
 }
 
+/// An app's icon as its `.desktop` file names it: a theme icon name, or a
+/// file path when it starts with `/`.
+type IconSpec = String;
+
+/// What [`AppIcons::read`] finds: process name (lowercase) to icon. Plain
+/// strings, so it can be built on another thread; `gio::Icon` cannot.
+pub struct IconTable {
+    icons: HashMap<String, IconSpec>,
+    flatpak: bool,
+    dirs: Vec<PathBuf>,
+}
+
 impl AppIcons {
-    pub fn load() -> Self {
+    /// Only the fallback icon, until [`AppIcons::from_table`] has the apps.
+    pub fn empty() -> Self {
+        Self {
+            icons: HashMap::new(),
+            fallback: gio::ThemedIcon::new(FALLBACK).upcast(),
+        }
+    }
+
+    /// Read every installed app's `.desktop` file. Hundreds of small files:
+    /// call it off the main thread.
+    pub fn read() -> IconTable {
         let flatpak = Path::new("/.flatpak-info").exists();
         let dirs = data_dirs(flatpak);
-        if flatpak {
-            add_icon_paths(&dirs);
-        }
         let mut icons = HashMap::new();
         for dir in &dirs {
             let Ok(entries) = std::fs::read_dir(dir.join("applications")) else {
@@ -39,9 +58,34 @@ impl AppIcons {
                 }
             }
         }
+        IconTable {
+            icons,
+            flatpak,
+            dirs,
+        }
+    }
+
+    /// The icons of a table from [`AppIcons::read`]; on the main thread.
+    pub fn from_table(table: IconTable) -> Self {
+        if table.flatpak {
+            add_icon_paths(&table.dirs);
+        }
+        // One icon object per distinct icon, shared by all its names.
+        let mut made: HashMap<IconSpec, gio::Icon> = HashMap::new();
+        let icons = table
+            .icons
+            .into_iter()
+            .map(|(name, spec)| {
+                let icon = made
+                    .entry(spec)
+                    .or_insert_with_key(|spec| make_icon(spec))
+                    .clone();
+                (name, icon)
+            })
+            .collect();
         Self {
             icons,
-            fallback: gio::ThemedIcon::new(FALLBACK).upcast(),
+            ..Self::empty()
         }
     }
 
@@ -91,7 +135,15 @@ fn add_icon_paths(dirs: &[PathBuf]) {
     }
 }
 
-fn read_desktop(path: &Path, flatpak: bool, icons: &mut HashMap<String, gio::Icon>) {
+fn make_icon(spec: &str) -> gio::Icon {
+    if spec.starts_with('/') {
+        gio::FileIcon::new(&gio::File::for_path(spec)).upcast()
+    } else {
+        gio::ThemedIcon::new(spec).upcast()
+    }
+}
+
+fn read_desktop(path: &Path, flatpak: bool, icons: &mut HashMap<String, IconSpec>) {
     let file = glib::KeyFile::new();
     if file.load_from_file(path, glib::KeyFileFlags::NONE).is_err() {
         return;
@@ -104,15 +156,10 @@ fn read_desktop(path: &Path, flatpak: bool, icons: &mut HashMap<String, gio::Ico
     let Some(icon) = get("Icon").filter(|i| !i.is_empty()) else {
         return;
     };
-    let icon: gio::Icon = if icon.starts_with('/') {
-        // A host path; inside Flatpak the host's /usr is under /run/host.
-        let path = match icon.strip_prefix("/usr/") {
-            Some(rest) if flatpak => format!("/run/host/usr/{rest}"),
-            _ => icon,
-        };
-        gio::FileIcon::new(&gio::File::for_path(path)).upcast()
-    } else {
-        gio::ThemedIcon::new(&icon).upcast()
+    // A host path; inside Flatpak the host's /usr is under /run/host.
+    let icon = match icon.strip_prefix("/usr/") {
+        Some(rest) if flatpak => format!("/run/host/usr/{rest}"),
+        _ => icon,
     };
 
     let id = path

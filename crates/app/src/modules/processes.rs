@@ -15,9 +15,10 @@ use corewatch_core::process::{
 };
 use corewatch_core::{CollectError, Collector, Snapshot, SysRoot};
 use gtk::{gio, glib};
-use std::cell::{Cell, OnceCell, RefCell};
+use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, HashSet};
 use std::io;
+use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 /// Set while the page is on screen; the collector scans every tick only then.
@@ -46,9 +47,10 @@ struct ProcessesPage {
     store: gio::ListStore,
     /// By pid and start time: a pid reused by a new process gets a new row,
     /// not the old process's user and icon.
-    rows: RefCell<HashMap<(u32, u64), row::ProcessRow>>,
-    /// Read the first time the list is shown.
-    icons: OnceCell<AppIcons>,
+    rows: Rc<RefCell<HashMap<(u32, u64), row::ProcessRow>>>,
+    /// App icons, read on a worker thread the first time the list is shown;
+    /// the fallback icon until then.
+    icons: Rc<RefCell<AppIcons>>,
     columns: gtk::ColumnView,
     generation: Cell<u64>,
     /// The units the row texts were made with.
@@ -153,6 +155,31 @@ impl ProcessesPage {
 
         // The table only needs fresh data while it is on screen.
         view.connect_map(|_| ACTIVE.store(true, Ordering::Relaxed));
+        let rows: Rc<RefCell<HashMap<(u32, u64), row::ProcessRow>>> = Rc::default();
+        let icons = Rc::new(RefCell::new(AppIcons::empty()));
+        let icons_requested = Cell::new(false);
+        view.connect_map(glib::clone!(
+            #[strong]
+            rows,
+            #[strong]
+            icons,
+            move |_| {
+                if icons_requested.replace(true) {
+                    return;
+                }
+                let (rows, icons) = (rows.clone(), icons.clone());
+                glib::spawn_future_local(async move {
+                    let Ok(table) = gio::spawn_blocking(AppIcons::read).await else {
+                        return;
+                    };
+                    *icons.borrow_mut() = AppIcons::from_table(table);
+                    let icons = icons.borrow();
+                    for row in rows.borrow().values() {
+                        row.set_icon(icons.lookup(&row.name()));
+                    }
+                });
+            }
+        ));
         view.connect_unmap(|_| ACTIVE.store(false, Ordering::Relaxed));
 
         let end_button = ui.end_button.get();
@@ -197,8 +224,8 @@ impl ProcessesPage {
         Self {
             search: search_entry,
             store,
-            rows: RefCell::default(),
-            icons: OnceCell::new(),
+            rows,
+            icons,
             columns,
             generation: Cell::new(0),
             units: Cell::new(i18n::units_generation()),
@@ -208,7 +235,7 @@ impl ProcessesPage {
     }
 
     fn sync(&self, processes: &[ProcessInfo]) {
-        let icons = self.icons.get_or_init(AppIcons::load);
+        let icons = self.icons.borrow();
         let units = i18n::units_generation();
         let relabel = self.units.replace(units) != units;
         let mut rows = self.rows.borrow_mut();
@@ -218,9 +245,9 @@ impl ProcessesPage {
             let key = (info.pid, info.start_ticks);
             alive.insert(key);
             match rows.get(&key) {
-                Some(row) => row.update(info, icons, relabel),
+                Some(row) => row.update(info, &icons, relabel),
                 None => {
-                    let row = row::ProcessRow::new(info, icons);
+                    let row = row::ProcessRow::new(info, &icons);
                     added.push(row.clone());
                     rows.insert(key, row);
                 }
@@ -498,6 +525,11 @@ mod row {
             imp.upload.set(info.upload.unwrap_or(0));
             *imp.upload_text.borrow_mut() = speed_text(info.upload);
             row
+        }
+
+        pub fn set_icon(&self, icon: gio::Icon) {
+            *self.imp().icon.borrow_mut() = Some(icon);
+            self.notify_icon();
         }
 
         /// Pid and start time: which process this row is.

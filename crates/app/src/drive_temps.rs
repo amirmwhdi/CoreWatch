@@ -24,23 +24,46 @@ pub fn celsius(name: &str) -> Option<f32> {
     TEMPS.with(|t| t.borrow().get(name).copied())
 }
 
-/// Ask UDisks now and then every [`REFRESH`]. Without UDisks (or without
-/// the permission in Flatpak) this logs once and stops.
+/// After a failed call, wait this long and double it, up to [`REFRESH`]
+/// times ten: UDisks may start after Corewatch (early in a session), or be
+/// restarted.
+const RETRY_FIRST: Duration = Duration::from_secs(10);
+
+/// Ask UDisks now and then every [`REFRESH`]. When it does not answer
+/// (not running yet, not installed, or no permission in Flatpak), ask again
+/// later, less and less often; a missing UDisks costs one D-Bus call every
+/// ten minutes.
 pub fn start() {
     glib::spawn_future_local(async {
         let bus = match gio::bus_get_future(gio::BusType::System).await {
             Ok(bus) => bus,
             Err(e) => return tracing::debug!("no system bus for drive temperatures: {e}"),
         };
+        let mut retry = RETRY_FIRST;
+        let mut failing = false;
         loop {
-            match managed_objects(&bus).await {
+            let wait = match managed_objects(&bus).await {
                 Ok(objects) => {
+                    if std::mem::take(&mut failing) {
+                        tracing::info!("UDisks answers again");
+                    }
                     let temps = parse_objects(&objects);
                     TEMPS.with(|t| *t.borrow_mut() = temps);
+                    retry = RETRY_FIRST;
+                    REFRESH
                 }
-                Err(e) => return tracing::debug!("UDisks unavailable: {e}"),
-            }
-            glib::timeout_future(REFRESH).await;
+                Err(e) => {
+                    // No answer: show no temperature rather than an old one.
+                    TEMPS.with(|t| t.borrow_mut().clear());
+                    if !std::mem::replace(&mut failing, true) {
+                        tracing::debug!("UDisks unavailable, will ask again: {e}");
+                    }
+                    let wait = retry;
+                    retry = (retry * 2).min(REFRESH * 10);
+                    wait
+                }
+            };
+            glib::timeout_future(wait).await;
         }
     });
 }
