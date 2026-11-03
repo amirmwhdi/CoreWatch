@@ -44,7 +44,9 @@ struct ProcessesPage {
     root: gtk::Widget,
     search: gtk::SearchEntry,
     store: gio::ListStore,
-    rows: RefCell<HashMap<u32, row::ProcessRow>>,
+    /// By pid and start time: a pid reused by a new process gets a new row,
+    /// not the old process's user and icon.
+    rows: RefCell<HashMap<(u32, u64), row::ProcessRow>>,
     /// Read the first time the list is shown.
     icons: OnceCell<AppIcons>,
     columns: gtk::ColumnView,
@@ -213,21 +215,22 @@ impl ProcessesPage {
         let mut added = Vec::new();
         let mut alive = HashSet::with_capacity(processes.len());
         for info in processes {
-            alive.insert(info.pid);
-            match rows.get(&info.pid) {
+            let key = (info.pid, info.start_ticks);
+            alive.insert(key);
+            match rows.get(&key) {
                 Some(row) => row.update(info, icons, relabel),
                 None => {
                     let row = row::ProcessRow::new(info, icons);
                     added.push(row.clone());
-                    rows.insert(info.pid, row);
+                    rows.insert(key, row);
                 }
             }
         }
         if rows.len() > alive.len() {
-            rows.retain(|pid, _| alive.contains(pid));
+            rows.retain(|key, _| alive.contains(key));
             self.store.retain(|item| {
                 item.downcast_ref::<row::ProcessRow>()
-                    .is_some_and(|r| alive.contains(&r.pid()))
+                    .is_some_and(|r| alive.contains(&r.key()))
             });
         }
         if !added.is_empty() {
@@ -385,7 +388,7 @@ fn confirm_end(parent: &gtk::Widget, toasts: &adw::ToastOverlay, process: &row::
     dialog.set_default_response(Some("end"));
     dialog.set_close_response("cancel");
 
-    let pid = process.pid();
+    let (pid, start_ticks) = process.key();
     let toasts = toasts.clone();
     let source = ProcessSource::detect(&SysRoot::from_env());
     dialog.choose(Some(parent), gio::Cancellable::NONE, move |response| {
@@ -395,7 +398,8 @@ fn confirm_end(parent: &gtk::Widget, toasts: &adw::ToastOverlay, process: &row::
             _ => return,
         };
         glib::spawn_future_local(async move {
-            let result = gio::spawn_blocking(move || send_signal(source, pid, force)).await;
+            let result =
+                gio::spawn_blocking(move || send_signal(source, pid, start_ticks, force)).await;
             let message = match result {
                 Ok(Ok(())) => return,
                 Ok(Err(e)) if e.kind() == io::ErrorKind::PermissionDenied => {
@@ -429,6 +433,7 @@ mod row {
         pub struct ProcessRow {
             #[property(get)]
             pub pid: Cell<u32>,
+            pub start_ticks: Cell<u64>,
             #[property(get)]
             pub pid_text: RefCell<String>,
             /// `u32::MAX` when unknown.
@@ -478,6 +483,7 @@ mod row {
             let row: Self = glib::Object::new();
             let imp = row.imp();
             imp.pid.set(info.pid);
+            imp.start_ticks.set(info.start_ticks);
             *imp.pid_text.borrow_mut() = i18n::digits(&info.pid.to_string());
             imp.uid.set(info.uid.unwrap_or(u32::MAX));
             *imp.user.borrow_mut() = info.user.to_string();
@@ -492,6 +498,11 @@ mod row {
             imp.upload.set(info.upload.unwrap_or(0));
             *imp.upload_text.borrow_mut() = speed_text(info.upload);
             row
+        }
+
+        /// Pid and start time: which process this row is.
+        pub fn key(&self) -> (u32, u64) {
+            (self.imp().pid.get(), self.imp().start_ticks.get())
         }
 
         /// `relabel` remakes every text, after the units changed.

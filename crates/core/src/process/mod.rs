@@ -39,6 +39,9 @@ pub struct ProcessInfo {
     pub memory: u64,
     pub threads: u32,
     pub state: char,
+    /// Start time after boot, in clock ticks. With the pid it names one
+    /// process even after the pid is reused; [`send_signal`] checks it.
+    pub start_ticks: u64,
     /// Bytes per second received and sent over TCP while the list is shown;
     /// `None` when unknown (another user's process, or the list hidden).
     pub download: Option<u64>,
@@ -195,6 +198,7 @@ impl ProcessCollector {
                     memory: raw.private_pages.saturating_mul(self.page_bytes),
                     threads: stat.threads,
                     state: stat.state,
+                    start_ticks: stat.start_ticks,
                     download,
                     upload,
                 }

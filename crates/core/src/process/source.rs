@@ -353,46 +353,133 @@ pub fn current_uid() -> u32 {
 }
 
 /// Ask a process to stop (`force == false`, SIGTERM) or stop it at once
-/// (SIGKILL). Fails with [`io::ErrorKind::PermissionDenied`] for processes
-/// of other users.
-pub fn send_signal(source: ProcessSource, pid: u32, force: bool) -> io::Result<()> {
+/// (SIGKILL).
+///
+/// The process is named by its pid and its start time (`start_ticks` of
+/// [`ProcStat`](super::ProcStat)): when the process has ended and its pid
+/// now belongs to another one, nothing is sent and the result is
+/// [`io::ErrorKind::NotFound`]. Fails with [`io::ErrorKind::PermissionDenied`]
+/// for processes of other users.
+pub fn send_signal(
+    source: ProcessSource,
+    pid: u32,
+    start_ticks: u64,
+    force: bool,
+) -> io::Result<()> {
     match source {
-        ProcessSource::Direct => {
-            let pid = i32::try_from(pid)
-                .ok()
-                .and_then(rustix::process::Pid::from_raw)
-                .ok_or_else(|| io::Error::from(io::ErrorKind::InvalidInput))?;
-            let signal = if force {
-                rustix::process::Signal::KILL
-            } else {
-                rustix::process::Signal::TERM
-            };
-            rustix::process::kill_process(pid, signal).map_err(io::Error::from)
-        }
-        ProcessSource::FlatpakHost => {
-            let output = Command::new("flatpak-spawn")
-                .args(["--host", "kill", "-s", if force { "KILL" } else { "TERM" }])
-                .arg(pid.to_string())
-                .stdin(Stdio::null())
-                .output()?;
-            if output.status.success() {
-                return Ok(());
-            }
-            let message = String::from_utf8_lossy(&output.stderr);
-            Err(if message.contains("not permitted") {
-                io::Error::from(io::ErrorKind::PermissionDenied)
-            } else if message.contains("No such process") {
-                io::Error::from(io::ErrorKind::NotFound)
-            } else {
-                io::Error::other(message.trim().to_owned())
-            })
-        }
+        ProcessSource::Direct => signal_direct(pid, start_ticks, force),
+        ProcessSource::FlatpakHost => signal_host(pid, start_ticks, force),
     }
+}
+
+fn signal_direct(pid: u32, start_ticks: u64, force: bool) -> io::Result<()> {
+    use rustix::process::{self, Pid, PidfdFlags, Signal};
+
+    let raw = i32::try_from(pid)
+        .ok()
+        .and_then(Pid::from_raw)
+        .ok_or_else(|| io::Error::from(io::ErrorKind::InvalidInput))?;
+    let signal = if force { Signal::KILL } else { Signal::TERM };
+    // A pidfd holds on to this very process: once its start time is checked,
+    // the signal cannot reach a newer process that took over the pid.
+    let pidfd = match process::pidfd_open(raw, PidfdFlags::empty()) {
+        Ok(fd) => Some(fd),
+        Err(rustix::io::Errno::NOSYS) => None, // Linux before 5.3
+        Err(e) => return Err(e.into()),
+    };
+    let stat = std::fs::read_to_string(format!("/proc/{pid}/stat"))
+        .map_err(|_| io::Error::from(io::ErrorKind::NotFound))?;
+    let same =
+        super::parse_proc_stat(stat.trim_end()).is_some_and(|s| s.start_ticks == start_ticks);
+    if !same {
+        return Err(io::Error::from(io::ErrorKind::NotFound));
+    }
+    match pidfd {
+        Some(fd) => process::pidfd_send_signal(fd, signal),
+        None => process::kill_process(raw, signal),
+    }
+    .map_err(io::Error::from)
+}
+
+/// On the host the start time is checked right before `kill`, by the same
+/// shell: field 22 of `/proc/<pid>/stat`. After the name is cut off, field 3
+/// comes right after the three arguments, so field 22 is `${23}`.
+const HOST_KILL: &str = r#"
+s=$(sed 's/.*) //' "/proc/$1/stat" 2>/dev/null) || exit 3
+set -- "$1" "$2" "$3" $s
+[ "${23}" = "$2" ] || exit 3
+exec kill -s "$3" "$1"
+"#;
+
+fn signal_host(pid: u32, start_ticks: u64, force: bool) -> io::Result<()> {
+    let output = Command::new("flatpak-spawn")
+        .args(["--host", "sh", "-c", HOST_KILL, "sh"])
+        .args([
+            pid.to_string(),
+            start_ticks.to_string(),
+            (if force { "KILL" } else { "TERM" }).to_owned(),
+        ])
+        .stdin(Stdio::null())
+        .output()?;
+    if output.status.success() {
+        return Ok(());
+    }
+    let message = String::from_utf8_lossy(&output.stderr);
+    Err(
+        if output.status.code() == Some(3) || message.contains("No such process") {
+            io::Error::from(io::ErrorKind::NotFound)
+        } else if message.contains("not permitted") {
+            io::Error::from(io::ErrorKind::PermissionDenied)
+        } else {
+            io::Error::other(message.trim().to_owned())
+        },
+    )
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A child that sleeps, and its start time.
+    fn sleeper() -> (std::process::Child, u32, u64) {
+        let child = Command::new("sleep").arg("30").spawn().unwrap();
+        let pid = child.id();
+        let stat = std::fs::read_to_string(format!("/proc/{pid}/stat")).unwrap();
+        let start = super::super::parse_proc_stat(stat.trim_end())
+            .unwrap()
+            .start_ticks;
+        (child, pid, start)
+    }
+
+    #[test]
+    fn a_signal_reaches_only_the_process_that_was_meant() {
+        let (mut child, pid, start) = sleeper();
+        // Another start time: the pid now names another process.
+        let err = send_signal(ProcessSource::Direct, pid, start + 1, false).unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::NotFound);
+        assert!(child.try_wait().unwrap().is_none(), "still running");
+
+        send_signal(ProcessSource::Direct, pid, start, false).unwrap();
+        let status = child.wait().unwrap();
+        assert!(!status.success());
+    }
+
+    #[test]
+    fn the_host_script_checks_the_start_time() {
+        // The same script the Flatpak build runs on the host, run here.
+        let run = |pid: u32, start: u64| {
+            Command::new("sh")
+                .args(["-c", HOST_KILL, "sh"])
+                .args([pid.to_string(), start.to_string(), "TERM".to_owned()])
+                .status()
+                .unwrap()
+        };
+        let (mut child, pid, start) = sleeper();
+        assert_eq!(run(pid, start + 1).code(), Some(3));
+        assert!(child.try_wait().unwrap().is_none(), "still running");
+        assert!(run(pid, start).success());
+        assert!(!child.wait().unwrap().success());
+    }
 
     #[test]
     fn user_databases_name_root() {
