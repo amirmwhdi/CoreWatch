@@ -1,5 +1,5 @@
 Name:           corewatch
-Version:        0.3.0
+Version:        0.4.0
 Release:        1%{?dist}
 Summary:        A modern system monitor for Linux
 License:        GPL-3.0-or-later
@@ -55,6 +55,17 @@ export CARGO_NET_OFFLINE=true
 %{_datadir}/icons/hicolor/scalable/apps/io.github.amirmwhdi.Corewatch.svg
 
 %changelog
+* Tue Nov 03 2026 Amirmahdi <amirmwhdi@users.noreply.github.com> - 0.4.0-1
+- Persian translation, with a right-to-left layout and Persian digits
+- Keyboard shortcuts: Ctrl+1 to Ctrl+9 open the pages, Ctrl+F searches the processes, Delete ends the selected one, and Ctrl+? lists them all
+- Search processes by name or process ID
+- Users from systemd-homed, LDAP and other user databases are shown by name
+- A laptop's NVIDIA graphics card can go back to sleep while Corewatch runs
+- Ending a process never reaches another process that took over its ID
+- A failing drive or a slow user database no longer holds up the other pages
+- Smooth graphs pause while the system's Power Saver mode is on
+- Drive temperatures from UDisks come back when UDisks starts late or restarts
+
 * Sun Oct 25 2026 Amirmahdi <amirmwhdi@users.noreply.github.com> - 0.3.0-1
 - Overview, Processes, Network and Sensors pages
 

@@ -5,8 +5,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: corewatch\n"
 "Report-Msgid-Bugs-To: https://github.com/amirmwhdi/CoreWatch/issues\n"
-"POT-Creation-Date: 2026-11-03 22:40+0330\n"
-"PO-Revision-Date: 2026-11-03 19:10+0000\n"
+"POT-Creation-Date: 2026-11-03 23:29+0330\n"
+"PO-Revision-Date: 2026-11-03 19:59+0000\n"
 "Last-Translator: Amirmahdi <amirmwhdi@users.noreply.github.com>\n"
 "Language-Team: Persian\n"
 "Language: fa\n"
@@ -23,7 +23,7 @@ msgid "0123456789."
 msgstr "۰۱۲۳۴۵۶۷۸۹٫"
 
 #. Translators: a percentage, e.g. "37%"
-#: crates/app/src/i18n.rs:166 crates/app/src/modules/processes.rs:559
+#: crates/app/src/i18n.rs:166 crates/app/src/modules/processes.rs:608
 msgid "{value}%"
 msgstr "{value}٪"
 
@@ -114,7 +114,7 @@ msgid "Fully charged"
 msgstr "کاملاً شارژ"
 
 #: crates/app/src/modules/battery.rs:221 crates/app/src/modules/cpu.rs:139
-#: crates/app/src/modules/gpu.rs:133
+#: crates/app/src/modules/gpu.rs:135
 msgid "Unknown"
 msgstr "نامشخص"
 
@@ -172,7 +172,7 @@ msgstr "خواندن"
 msgid "Write"
 msgstr "نوشتن"
 
-#: crates/app/src/modules/disk.rs:207 crates/app/src/modules/gpu.rs:176
+#: crates/app/src/modules/disk.rs:207 crates/app/src/modules/gpu.rs:178
 #: crates/app/src/widgets/sensor_group.rs:115 data/ui/stable/preferences.blp:64
 msgid "Temperature"
 msgstr "دما"
@@ -213,73 +213,73 @@ msgid "Asleep"
 msgstr "در خواب"
 
 #. Translators: e.g. "Driver amdgpu · 0000:01:00.0"
-#: crates/app/src/modules/gpu.rs:137
+#: crates/app/src/modules/gpu.rs:139
 msgid "Driver {driver} · {id}"
 msgstr "درایور {driver} · {id}"
 
-#: crates/app/src/modules/gpu.rs:150
+#: crates/app/src/modules/gpu.rs:152 crates/app/src/modules/gpu.rs:207
 msgid "Load of {model}"
 msgstr "بار {model}"
 
-#: crates/app/src/modules/gpu.rs:165 data/ui/stable/battery-page.blp:30
+#: crates/app/src/modules/gpu.rs:167 data/ui/stable/battery-page.blp:30
 msgid "Status"
 msgstr "وضعیت"
 
-#: crates/app/src/modules/gpu.rs:166
+#: crates/app/src/modules/gpu.rs:168
 msgid "Asleep to save power; values show when it wakes"
 msgstr ""
 "برای صرفه‌جویی در مصرف برق در خواب است؛ مقادیر پس از بیدار شدن نمایش داده "
 "می‌شوند"
 
-#: crates/app/src/modules/gpu.rs:167
+#: crates/app/src/modules/gpu.rs:169
 msgid "Load"
 msgstr "بار"
 
-#: crates/app/src/modules/gpu.rs:168
+#: crates/app/src/modules/gpu.rs:170
 msgid "Clock Speed"
 msgstr "سرعت کلاک"
 
-#: crates/app/src/modules/gpu.rs:169
+#: crates/app/src/modules/gpu.rs:171
 msgid "Memory Clock"
 msgstr "کلاک حافظه"
 
-#: crates/app/src/modules/gpu.rs:170
+#: crates/app/src/modules/gpu.rs:172
 msgid "Memory (VRAM)"
 msgstr "حافظه (VRAM)"
 
-#: crates/app/src/modules/gpu.rs:177
+#: crates/app/src/modules/gpu.rs:179
 msgid "Power"
 msgstr "توان"
 
-#: crates/app/src/modules/gpu.rs:178 crates/app/src/widgets/sensor_group.rs:140
+#: crates/app/src/modules/gpu.rs:180 crates/app/src/widgets/sensor_group.rs:140
 msgid "Fan"
 msgstr "فن"
 
-#: crates/app/src/modules/gpu.rs:220
+#: crates/app/src/modules/gpu.rs:231
 msgid "Not reported by the driver"
 msgstr "درایور گزارش نمی‌دهد"
 
-#: crates/app/src/modules/gpu.rs:230 crates/app/src/modules/memory.rs:94
+#: crates/app/src/modules/gpu.rs:241 crates/app/src/modules/memory.rs:94
 #: crates/app/src/modules/overview.rs:105
 msgid "{used} of {total}"
 msgstr "{used} از {total}"
 
 #. Translators: a current value and its maximum, e.g. "1150 MHz / 1366 MHz"
-#: crates/app/src/modules/gpu.rs:264
+#: crates/app/src/modules/gpu.rs:275
 msgid "{now} / {max}"
 msgstr "{now} / {max}"
 
-#: crates/app/src/modules/gpu.rs:272 crates/app/src/modules/overview.rs:119
+#: crates/app/src/modules/gpu.rs:283 crates/app/src/modules/overview.rs:119
 msgid "{cur} MHz"
 msgstr "{cur} مگاهرتز"
 
 #. Translators: power in watts, e.g. "98 W"
-#: crates/app/src/modules/gpu.rs:277
+#: crates/app/src/modules/gpu.rs:288
 msgid "{value} W"
 msgstr "{value} وات"
 
 #: crates/app/src/modules/memory.rs:58 crates/app/src/modules/overview.rs:47
-#: crates/app/src/modules/processes.rs:130
+#: crates/app/src/modules/processes.rs:134
 msgid "Memory"
 msgstr "حافظه"
 
@@ -306,12 +306,12 @@ msgid "Traffic of {name}"
 msgstr "ترافیک {name}"
 
 #: crates/app/src/modules/network.rs:169
-#: crates/app/src/modules/processes.rs:137
+#: crates/app/src/modules/processes.rs:141
 msgid "Download"
 msgstr "دریافت"
 
 #: crates/app/src/modules/network.rs:169
-#: crates/app/src/modules/processes.rs:144
+#: crates/app/src/modules/processes.rs:148
 msgid "Upload"
 msgstr "ارسال"
 
@@ -428,36 +428,36 @@ msgstr "{value} گیگاهرتز"
 msgid "Open {page}"
 msgstr "باز کردن {page}"
 
-#: crates/app/src/modules/processes.rs:124
+#: crates/app/src/modules/processes.rs:128
 msgid "Name"
 msgstr "نام"
 
-#: crates/app/src/modules/processes.rs:126
+#: crates/app/src/modules/processes.rs:130
 msgid "User"
 msgstr "کاربر"
 
-#: crates/app/src/modules/processes.rs:127
+#: crates/app/src/modules/processes.rs:131
 msgid "CPU"
 msgstr "پردازنده"
 
-#: crates/app/src/modules/processes.rs:149
+#: crates/app/src/modules/processes.rs:153
 msgid "ID"
 msgstr "شناسه"
 
-#: crates/app/src/modules/processes.rs:249 crates/app/src/shortcuts.rs:65
+#: crates/app/src/modules/processes.rs:279 crates/app/src/shortcuts.rs:65
 msgid "Processes"
 msgstr "فرایندها"
 
-#: crates/app/src/modules/processes.rs:280
+#: crates/app/src/modules/processes.rs:310
 msgid "{n} process"
 msgid_plural "{n} processes"
 msgstr[0] "{n} فرایند"
 
-#: crates/app/src/modules/processes.rs:371
+#: crates/app/src/modules/processes.rs:401
 msgid "End “{name}”?"
 msgstr "فرایند «{name}» بسته شود؟"
 
-#: crates/app/src/modules/processes.rs:375
+#: crates/app/src/modules/processes.rs:405
 msgid ""
 "Unsaved work in this program may be lost. Force Stop ends it at once, without"
 " letting it clean up."
@@ -465,28 +465,28 @@ msgstr ""
 "ممکن است کارهای ذخیره‌نشده در این برنامه از دست بروند. «توقف اجباری» آن را "
 "فوراً و بدون فرصت جمع‌وجور کردن می‌بندد."
 
-#: crates/app/src/modules/processes.rs:379
+#: crates/app/src/modules/processes.rs:409
 msgid "_Cancel"
 msgstr "_لغو"
 
-#: crates/app/src/modules/processes.rs:380
+#: crates/app/src/modules/processes.rs:410
 msgid "_Force Stop"
 msgstr "_توقف اجباری"
 
-#: crates/app/src/modules/processes.rs:381
+#: crates/app/src/modules/processes.rs:411
 msgid "_End Process"
 msgstr "_پایان فرایند"
 
-#: crates/app/src/modules/processes.rs:402
+#: crates/app/src/modules/processes.rs:433
 msgid "You can only end your own processes"
 msgstr "فقط فرایندهای خودتان را می‌توانید ببندید"
 
-#: crates/app/src/modules/processes.rs:405
+#: crates/app/src/modules/processes.rs:436
 msgid "The process has already ended"
 msgstr "فرایند پیش‌تر بسته شده است"
 
-#: crates/app/src/modules/processes.rs:409
-#: crates/app/src/modules/processes.rs:411
+#: crates/app/src/modules/processes.rs:440
+#: crates/app/src/modules/processes.rs:442
 msgid "Could not end the process"
 msgstr "بستن فرایند ممکن نشد"
 
@@ -586,16 +586,16 @@ msgstr "{what} {number}"
 msgid "{value} RPM"
 msgstr "{value} دور در دقیقه"
 
-#: crates/app/src/window.rs:333
+#: crates/app/src/window.rs:335 crates/app/src/window.rs:354
 msgid "Unavailable"
 msgstr "در دسترس نیست"
 
 #. Translators: the git commit this build came from, e.g. "Commit a6f02ff"
-#: crates/app/src/window.rs:378
+#: crates/app/src/window.rs:393
 msgid "Commit {hash}"
 msgstr "کامیت {hash}"
 
-#: crates/app/src/window.rs:385
+#: crates/app/src/window.rs:400
 msgid "Latest Commit"
 msgstr "آخرین کامیت"
 
@@ -674,69 +674,120 @@ msgstr ""
 msgid "Amirmahdi"
 msgstr "امیرمهدی"
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:44
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:45
 msgid "Every resource at a glance"
 msgstr "همهٔ منابع در یک نگاه"
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:48
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:49
 msgid ""
 "Sort, search and end processes, with each app's download and upload speed"
 msgstr ""
 "مرتب‌سازی، جست‌وجو و بستن فرایندها، همراه با سرعت دریافت و ارسال هر برنامه"
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:52
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:53
 msgid "Total and per-core usage, frequency and CPU sensors"
 msgstr "مصرف کل و هر هسته، فرکانس و حسگرهای پردازنده"
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:56
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:57
 msgid "Load, clocks, memory, temperature, power and fan of every graphics card"
 msgstr "بار، کلاک، حافظه، دما، توان و فن هر کارت گرافیک"
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:60
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:61
 msgid "Activity, speeds and temperature of each drive"
 msgstr "فعالیت، سرعت و دمای هر دیسک"
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:64
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:65
 msgid "Download and upload speed per interface"
 msgstr "سرعت دریافت و ارسال هر رابط شبکه"
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:88
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:89
 msgid "system"
 msgstr "سیستم"
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:89
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:90
 msgid "monitor"
 msgstr "پایش"
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:90
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:91
 msgid "cpu"
 msgstr "پردازنده"
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:91
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:92
 msgid "memory"
 msgstr "حافظه"
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:92
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:93
 msgid "disk"
 msgstr "دیسک"
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:93
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:94
 msgid "process"
 msgstr "فرایند"
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:94
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:95
 msgid "network"
 msgstr "شبکه"
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:95
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:96
 msgid "temperature"
 msgstr "دما"
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:107
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:108
+msgid "Persian translation, with a right-to-left layout and Persian digits"
+msgstr "ترجمهٔ فارسی، با چیدمان راست‌به‌چپ و ارقام فارسی"
+
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:109
+msgid ""
+"Keyboard shortcuts: Ctrl+1 to Ctrl+9 open the pages, Ctrl+F searches the "
+"processes, Delete ends the selected one, and Ctrl+? lists them all"
+msgstr ""
+"میان‌برهای صفحه‌کلید: Ctrl+1 تا Ctrl+9 صفحه‌ها را باز می‌کنند، Ctrl+F "
+"فرایندها را جست‌وجو می‌کند، Delete فرایند انتخاب‌شده را می‌بندد و Ctrl+? همه "
+"را فهرست می‌کند"
+
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:110
+msgid "Search processes by name or process ID"
+msgstr "جست‌وجوی فرایندها با نام یا شناسهٔ فرایند"
+
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:111
+msgid ""
+"Users from systemd-homed, LDAP and other user databases are shown by name"
+msgstr ""
+"کاربرهای systemd-homed، LDAP و دیگر پایگاه‌های کاربری با نامشان نمایش داده "
+"می‌شوند"
+
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:112
+msgid ""
+"A laptop's NVIDIA graphics card can go back to sleep while Corewatch runs"
+msgstr ""
+"کارت گرافیک NVIDIA لپ‌تاپ در زمان اجرای Corewatch هم می‌تواند دوباره به خواب "
+"برود"
+
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:113
+msgid "Ending a process never reaches another process that took over its ID"
+msgstr "بستن یک فرایند هرگز به فرایند دیگری که شناسه‌اش را گرفته نمی‌رسد"
+
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:114
+msgid ""
+"A failing drive or a slow user database no longer holds up the other pages"
+msgstr "یک دیسک معیوب یا پایگاه کاربری کند دیگر بقیهٔ صفحه‌ها را متوقف نمی‌کند"
+
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:115
+msgid "Smooth graphs pause while the system's Power Saver mode is on"
+msgstr "حرکت نرم نمودارها در حالت صرفه‌جویی انرژی سیستم متوقف می‌شود"
+
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:116
+msgid ""
+"Drive temperatures from UDisks come back when UDisks starts late or restarts"
+msgstr ""
+"دمای دیسک‌ها از UDisks، وقتی UDisks دیرتر اجرا شود یا دوباره راه‌اندازی شود، "
+"برمی‌گردد"
+
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:123
 msgid "New Overview page with every resource at a glance"
 msgstr "صفحهٔ جدید «نمای کلی» با همهٔ منابع در یک نگاه"
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:108
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:124
 msgid ""
 "New Processes page with app icons and per-process download and upload speeds:"
 " sort, search, and end or force-stop a process"
@@ -744,22 +795,22 @@ msgstr ""
 "صفحهٔ جدید «فرایندها» با آیکون برنامه‌ها و سرعت دریافت و ارسال هر فرایند: "
 "مرتب‌سازی، جست‌وجو و بستن یا توقف اجباری فرایند"
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:109
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:125
 msgid "New Network page: speeds, addresses, link speed and Wi-Fi signal"
 msgstr "صفحهٔ جدید «شبکه»: سرعت‌ها، نشانی‌ها، سرعت اتصال و سیگنال وای‌فای"
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:110
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:126
 msgid ""
 "Temperatures and fan speeds on the page they belong to, and a Sensors page "
 "for the rest"
 msgstr ""
 "دماها و سرعت فن‌ها در صفحهٔ مربوط به خودشان، و صفحهٔ «حسگرها» برای بقیه"
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:111
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:127
 msgid "Temperature of each drive on the Disks page"
 msgstr "دمای هر دیسک در صفحهٔ «دیسک‌ها»"
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:112
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:128
 msgid ""
 "Rewritten Graphics page: every card with its model name, clock speeds, power "
 "and fan, NVIDIA cards with the proprietary driver, and sleeping laptop GPUs "
@@ -769,11 +820,11 @@ msgstr ""
 "پشتیبانی از کارت‌های NVIDIA با درایور انحصاری؛ و کارت گرافیک لپ‌تاپ در خواب، "
 "بیدار نمی‌شود"
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:113
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:129
 msgid "Smooth, continuously scrolling graphs"
 msgstr "نمودارهای نرم با حرکت پیوسته"
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:114
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:130
 msgid ""
 "Preferences: start page or last page, temperature unit, binary or decimal "
 "sizes, and bits or bytes for network speeds"
@@ -781,27 +832,27 @@ msgstr ""
 "ترجیحات: صفحهٔ شروع یا آخرین صفحه، یکای دما، اندازه‌های دودویی یا ده‌دهی، و "
 "بیت یا بایت برای سرعت شبکه"
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:121
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:137
 msgid "New Graphics, Disks and Battery pages"
 msgstr "صفحه‌های جدید «گرافیک»، «دیسک‌ها» و «باتری»"
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:122
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:138
 msgid "Preferences: color scheme and update speed"
 msgstr "ترجیحات: طرح رنگ و سرعت به‌روزرسانی"
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:123
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:139
 msgid "A banner tells you when a data source stops answering"
 msgstr "وقتی یک منبع داده پاسخ ندهد، یک نوار هشدار نمایش داده می‌شود"
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:124
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:140
 msgid "Installable with Meson, and available as a Flatpak"
 msgstr "قابل نصب با Meson و در دسترس به‌صورت Flatpak"
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:130
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:146
 msgid "Log file and clearer error reports."
 msgstr "فایل گزارش و گزارش خطای روشن‌تر."
 
-#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:135
+#: data/io.github.amirmwhdi.Corewatch.metainfo.xml:151
 msgid "First preview: processor and memory."
 msgstr "نخستین پیش‌نمایش: پردازنده و حافظه."
 

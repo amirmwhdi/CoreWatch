@@ -41,27 +41,27 @@
 
   <screenshots>
     <screenshot type="default">
-      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.3.0/data/screenshots/light/overview.png</image>
+      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.4.0/data/screenshots/light/overview.png</image>
       <caption>Every resource at a glance</caption>
     </screenshot>
     <screenshot>
-      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.3.0/data/screenshots/light/processes.png</image>
+      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.4.0/data/screenshots/light/processes.png</image>
       <caption>Sort, search and end processes, with each app's download and upload speed</caption>
     </screenshot>
     <screenshot>
-      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.3.0/data/screenshots/light/processor.png</image>
+      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.4.0/data/screenshots/light/processor.png</image>
       <caption>Total and per-core usage, frequency and CPU sensors</caption>
     </screenshot>
     <screenshot>
-      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.3.0/data/screenshots/light/graphics.png</image>
+      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.4.0/data/screenshots/light/graphics.png</image>
       <caption>Load, clocks, memory, temperature, power and fan of every graphics card</caption>
     </screenshot>
     <screenshot>
-      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.3.0/data/screenshots/light/disks.png</image>
+      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.4.0/data/screenshots/light/disks.png</image>
       <caption>Activity, speeds and temperature of each drive</caption>
     </screenshot>
     <screenshot>
-      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.3.0/data/screenshots/light/network.png</image>
+      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.4.0/data/screenshots/light/network.png</image>
       <caption>Download and upload speed per interface</caption>
     </screenshot>
   </screenshots>
@@ -102,6 +102,21 @@
   </branding>
 
   <releases>
+    <release version="0.4.0" date="2026-11-03">
+      <description>
+        <ul>
+          <li>Persian translation, with a right-to-left layout and Persian digits</li>
+          <li>Keyboard shortcuts: Ctrl+1 to Ctrl+9 open the pages, Ctrl+F searches the processes, Delete ends the selected one, and Ctrl+? lists them all</li>
+          <li>Search processes by name or process ID</li>
+          <li>Users from systemd-homed, LDAP and other user databases are shown by name</li>
+          <li>A laptop's NVIDIA graphics card can go back to sleep while Corewatch runs</li>
+          <li>Ending a process never reaches another process that took over its ID</li>
+          <li>A failing drive or a slow user database no longer holds up the other pages</li>
+          <li>Smooth graphs pause while the system's Power Saver mode is on</li>
+          <li>Drive temperatures from UDisks come back when UDisks starts late or restarts</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.3.0" date="2026-10-25">
       <description>
         <ul>

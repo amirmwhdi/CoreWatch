@@ -1,3 +1,17 @@
+corewatch (0.4.0-1) unstable; urgency=medium
+
+  * Persian translation, with a right-to-left layout and Persian digits
+  * Keyboard shortcuts: Ctrl+1 to Ctrl+9 open the pages, Ctrl+F searches the processes, Delete ends the selected one, and Ctrl+? lists them all
+  * Search processes by name or process ID
+  * Users from systemd-homed, LDAP and other user databases are shown by name
+  * A laptop's NVIDIA graphics card can go back to sleep while Corewatch runs
+  * Ending a process never reaches another process that took over its ID
+  * A failing drive or a slow user database no longer holds up the other pages
+  * Smooth graphs pause while the system's Power Saver mode is on
+  * Drive temperatures from UDisks come back when UDisks starts late or restarts
+
+ -- Amirmahdi <amirmwhdi@users.noreply.github.com>  Tue, 03 Nov 2026 12:00:00 +0000
+
 corewatch (0.3.0-1) unstable; urgency=medium
 
   * New upstream release: Overview, Processes, Network and Sensors pages.

@@ -57,7 +57,7 @@
         {
           "type": "git",
           "url": "https://github.com/amirmwhdi/CoreWatch.git",
-          "tag": "v0.3.0",
+          "tag": "v0.4.0",
           "commit": "FILL-IN-AFTER-TAGGING"
         },
         "cargo-sources.json"
