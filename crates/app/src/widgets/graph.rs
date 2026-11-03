@@ -12,9 +12,11 @@
 //! interval, and a self-scaling graph eases to its new top. While on screen
 //! the graph redraws only when the line has moved by a pixel, so a slow
 //! scroll costs few frames, and a hidden graph costs nothing. "Smooth Graphs"
-//! in Preferences turns this off ([`set_smooth`]).
+//! in Preferences turns this off ([`set_smooth`]), and so does the system's
+//! power saver mode while it is on ([`follow_power_saver`]).
 
 use adw::prelude::*;
+use gio::prelude::PowerProfileMonitorExt;
 use gtk::subclass::prelude::*;
 use gtk::{gdk, glib, graphene, gsk};
 use std::cell::{Cell, RefCell};
@@ -33,6 +35,9 @@ thread_local! {
     static HISTORY: Cell<u32> = const { Cell::new(60) };
     /// Whether graphs scroll between samples (Preferences, "Smooth Graphs").
     static SMOOTH: Cell<bool> = const { Cell::new(true) };
+    /// The system's power saver mode is on: no scrolling, whatever SMOOTH says.
+    static POWER_SAVER: Cell<bool> = const { Cell::new(false) };
+    static POWER_MONITOR: RefCell<Option<gio::PowerProfileMonitor>> = const { RefCell::new(None) };
     /// Every live graph, so a new history length reaches them all.
     static GRAPHS: RefCell<Vec<glib::WeakRef<Graph>>> = const { RefCell::new(Vec::new()) };
 }
@@ -40,7 +45,35 @@ thread_local! {
 /// Turn the continuous scroll of every graph on or off. Off, a graph moves
 /// once per value and has no per-frame work at all.
 pub fn set_smooth(smooth: bool) {
-    if SMOOTH.with(|s| s.replace(smooth)) == smooth {
+    let before = scrolling();
+    SMOOTH.with(|s| s.set(smooth));
+    apply_scrolling(before);
+}
+
+/// Stop scrolling while the system's power saver mode is on (GNOME's
+/// "Power Saver" power mode), and start again when it goes off.
+pub fn follow_power_saver() {
+    let monitor = gio::PowerProfileMonitor::get_default();
+    let update = |monitor: &gio::PowerProfileMonitor| {
+        let before = scrolling();
+        POWER_SAVER.with(|p| p.set(monitor.is_power_saver_enabled()));
+        apply_scrolling(before);
+    };
+    update(&monitor);
+    monitor.connect_power_saver_enabled_notify(update);
+    // Kept for the life of the app, so its notifications keep coming.
+    POWER_MONITOR.with(|m| m.replace(Some(monitor)));
+}
+
+/// Graphs scroll: "Smooth Graphs" is on and power saver mode is off.
+fn scrolling() -> bool {
+    SMOOTH.with(Cell::get) && !POWER_SAVER.with(Cell::get)
+}
+
+/// Start or stop every graph's scrolling after a change of [`scrolling`].
+fn apply_scrolling(before: bool) {
+    let smooth = scrolling();
+    if smooth == before {
         return;
     }
     for_each_graph(|graph| {
@@ -97,6 +130,8 @@ mod imp {
         /// that would look the same.
         pub drawn_shift: Cell<f32>,
         pub drawn_top: Cell<f32>,
+        /// See [`Graph::target_top`].
+        pub peak: Cell<f32>,
         pub tick: RefCell<Option<gtk::TickCallbackId>>,
         /// StyleManager is global: its handlers must go when the graph does,
         /// or every removed disk block would leave two closures behind.
@@ -115,6 +150,7 @@ mod imp {
                 interval: Cell::new(DEFAULT_INTERVAL_US),
                 drawn_shift: Cell::new(0.0),
                 drawn_top: Cell::new(1.0),
+                peak: Cell::new(1.0),
                 tick: RefCell::default(),
                 style_handlers: RefCell::default(),
             }
@@ -125,7 +161,7 @@ mod imp {
         /// How far into the current interval we are, 0.0..=1.0: the share of
         /// one step the line has scrolled left since the last value.
         pub fn phase(&self) -> f32 {
-            if self.pushed_at.get() == 0 || !SMOOTH.with(Cell::get) {
+            if self.pushed_at.get() == 0 || !scrolling() {
                 return 1.0;
             }
             let elapsed = glib::monotonic_time() - self.pushed_at.get();
@@ -133,8 +169,14 @@ mod imp {
         }
 
         /// The top the graph scales to: 1.0, or the largest value held.
+        /// Kept up to date when values change, not on every frame.
         pub fn target_top(&self) -> f32 {
-            match self.autoscale.get() {
+            self.peak.get()
+        }
+
+        /// Find the largest value held again, after values changed.
+        pub fn update_peak(&self) {
+            let peak = match self.autoscale.get() {
                 Some(floor) => self
                     .values
                     .borrow()
@@ -143,7 +185,8 @@ mod imp {
                     .copied()
                     .fold(floor, f32::max),
                 None => 1.0,
-            }
+            };
+            self.peak.set(peak);
         }
 
         /// Distance between two points in pixels. One point lies past each
@@ -199,6 +242,7 @@ mod imp {
                     values.pop_front();
                 }
             }
+            self.update_peak();
             self.obj().queue_draw();
         }
     }
@@ -220,7 +264,13 @@ mod imp {
         fn constructed(&self) {
             self.parent_constructed();
             let graph = self.obj();
-            GRAPHS.with(|graphs| graphs.borrow_mut().push(graph.downgrade()));
+            GRAPHS.with(|graphs| {
+                let mut graphs = graphs.borrow_mut();
+                // Drop the graphs that are gone (a removed disk or network
+                // interface), so the list does not grow for ever.
+                graphs.retain(|weak| weak.upgrade().is_some());
+                graphs.push(graph.downgrade());
+            });
             graph.set_hexpand(true);
             graph.set_overflow(gtk::Overflow::Hidden);
             graph.add_css_class("card");
@@ -241,7 +291,7 @@ mod imp {
 
             // Scroll only while on screen.
             graph.connect_map(|graph| {
-                if SMOOTH.with(Cell::get) {
+                if scrolling() {
                     graph.imp().start_ticking();
                 }
             });
@@ -281,7 +331,7 @@ mod imp {
             // Fixed graphs hold 0.0..=1.0; self-scaling ones divide by the
             // peak, easing toward a new peak instead of jumping to it.
             let target = self.target_top();
-            let top = if self.autoscale.get().is_some() && SMOOTH.with(Cell::get) {
+            let top = if self.autoscale.get().is_some() && scrolling() {
                 let shown = self.drawn_top.get();
                 if shown <= 0.0 || (target - shown).abs() <= target * 0.002 {
                     target
@@ -375,6 +425,7 @@ impl Graph {
     pub fn new_autoscale(height: i32, floor: f32) -> Self {
         let graph = Self::new(height);
         graph.imp().autoscale.set(Some(floor));
+        graph.imp().update_peak();
         graph
     }
 
@@ -382,6 +433,7 @@ impl Graph {
     pub fn push(&self, value: f32) {
         let imp = self.imp();
         push_capped(&imp.values, value, imp.capacity.get());
+        imp.update_peak();
         imp.mark_push();
         if imp.autoscale.get().is_some() {
             return;
@@ -400,6 +452,7 @@ impl Graph {
         let imp = self.imp();
         push_capped(&imp.values, primary, imp.capacity.get());
         push_capped(&imp.secondary, secondary, imp.capacity.get());
+        imp.update_peak();
         imp.mark_push();
     }
 }

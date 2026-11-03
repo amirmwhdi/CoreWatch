@@ -14,6 +14,8 @@ corewatch-core = { path = "crates/core" }
 # The version features (v4_18, v1_7) set the floor: Debian 13 ships these.
 gtk = { package = "gtk4", version = "0.11", features = ["v4_18"] }
 adw = { package = "libadwaita", version = "0.9", features = ["v1_7"] }
+# GLib 2.70 for PowerProfileMonitor; Debian 13 ships 2.84.
+gio = { version = "0.22", features = ["v2_70"] }
 async-channel = "2.3"
 thiserror = "2"
 rustix = { version = "1.1", features = ["fs", "param", "process"] }

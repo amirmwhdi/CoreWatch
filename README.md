@@ -128,7 +128,8 @@ and Wi-Fi signal strength.
 - **Battery:** charge level graph, charging status, time remaining, health,
   power draw and charge cycles, on laptops.
 - **Smooth graphs** that scroll continuously, like GNOME System Monitor. You
-  can turn this off to save power.
+  can turn this off to save power, and it pauses by itself while the
+  system's Power Saver mode is on.
 - **Keyboard shortcuts:** Ctrl+1 to Ctrl+9 open the pages, Ctrl+F searches
   the processes, Delete ends the selected one; Ctrl+? lists them all.
 - **In English and Persian,** with right-to-left layout and Persian digits.

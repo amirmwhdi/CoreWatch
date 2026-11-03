@@ -11,6 +11,7 @@ repository.workspace = true
 corewatch-core.workspace = true
 gtk.workspace = true
 adw.workspace = true
+gio.workspace = true
 async-channel.workspace = true
 gettext-rs.workspace = true
 tracing.workspace = true
