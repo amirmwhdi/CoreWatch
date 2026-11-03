@@ -34,6 +34,7 @@
   </developer>
 
   <launchable type="desktop-id">io.github.amirmwhdi.Corewatch.desktop</launchable>
+  <translation type="gettext">corewatch</translation>
   <provides>
     <binary>corewatch</binary>
   </provides>

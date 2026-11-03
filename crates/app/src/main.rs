@@ -69,12 +69,14 @@ Options:
   -h, --help      Print this help and exit
 
 Environment:
-  {log}=<filter>        Log filter, e.g. debug or corewatch_core=trace
+  {log}=<filter>     Log filter, e.g. debug or corewatch_core=trace
   {root}=<dir>    Read <dir>/proc and <dir>/sys instead of the real ones
+  {locale}=<dir>  Read translations from <dir>/<lang>/LC_MESSAGES
 
 Log files: {dir}",
         log = logging::LOG_ENV,
         root = corewatch_core::root::SYSROOT_ENV,
+        locale = crate::i18n::LOCALEDIR_ENV,
         dir = logging::log_dir().display(),
     );
 }

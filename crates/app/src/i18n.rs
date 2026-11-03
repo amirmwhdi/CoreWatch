@@ -1,13 +1,15 @@
 //! Translation plumbing.
 //!
-//! Every string a user sees goes through [`gettext`] or [`ngettext`]. No
-//! translation ships with Corewatch yet; with no `.mo` file installed these
-//! calls return the English text unchanged. Log messages and `--help` stay in
-//! English on purpose, so bug reports are readable by everyone.
+//! Every string a user sees goes through [`gettext`] or [`ngettext`]. The
+//! translations are the `po/<lang>.po` files, installed by Meson as
+//! `corewatch.mo`; without one these calls return the English text
+//! unchanged. Log messages and `--help` stay in English on purpose, so bug
+//! reports are readable by everyone.
 
 use gtk::glib;
 use std::cell::Cell;
 use std::fmt::Display;
+use std::path::PathBuf;
 
 pub use gettextrs::{gettext, ngettext};
 
@@ -21,6 +23,24 @@ pub const LOCALEDIR: &str = match option_env!("COREWATCH_LOCALEDIR") {
     None => "/usr/share/locale",
 };
 
+/// Read translations from this folder instead, e.g. a Meson build tree:
+/// `COREWATCH_LOCALEDIR=build/po`.
+pub const LOCALEDIR_ENV: &str = "COREWATCH_LOCALEDIR";
+
+/// Where the `.mo` files are: [`LOCALEDIR_ENV`] when set, otherwise
+/// `share/locale` next to the program's `bin` folder when it exists (an
+/// AppImage, or any prefix the files were moved to), otherwise [`LOCALEDIR`].
+fn localedir() -> PathBuf {
+    if let Some(dir) = std::env::var_os(LOCALEDIR_ENV) {
+        return dir.into();
+    }
+    std::env::current_exe()
+        .ok()
+        .and_then(|exe| Some(exe.parent()?.parent()?.join("share/locale")))
+        .filter(|dir| dir.is_dir())
+        .unwrap_or_else(|| LOCALEDIR.into())
+}
+
 /// Bind the text domain. Call once, before the first window is built.
 ///
 /// The locale itself is not set here: GTK calls `setlocale(LC_ALL, "")` while
@@ -30,8 +50,10 @@ pub const LOCALEDIR: &str = match option_env!("COREWATCH_LOCALEDIR") {
 pub fn init() {
     use gettextrs::{bind_textdomain_codeset, bindtextdomain, textdomain};
 
-    if let Err(error) = bindtextdomain(GETTEXT_PACKAGE, LOCALEDIR) {
-        tracing::warn!(%error, localedir = LOCALEDIR, "cannot bind text domain");
+    let dir = localedir();
+    tracing::debug!(localedir = %dir.display(), "translations");
+    if let Err(error) = bindtextdomain(GETTEXT_PACKAGE, &dir) {
+        tracing::warn!(%error, localedir = %dir.display(), "cannot bind text domain");
     }
     if let Err(error) = bind_textdomain_codeset(GETTEXT_PACKAGE, "UTF-8") {
         tracing::warn!(%error, "cannot set text domain codeset");
@@ -60,7 +82,12 @@ pub fn fmt(template: &str, args: &[(&str, &dyn Display)]) -> String {
         });
         match value {
             Some((end, value)) => {
-                out.push_str(&value.to_string());
+                let text = value.to_string();
+                if is_number(&text) {
+                    out.push_str(&digits(&text));
+                } else {
+                    out.push_str(&text);
+                }
                 rest = &after[end + 1..];
             }
             None => {
@@ -71,6 +98,64 @@ pub fn fmt(template: &str, args: &[(&str, &dyn Display)]) -> String {
     }
     out.push_str(rest);
     out
+}
+
+/// Plain numbers ("37", "1.25", "-3"); names with digits ("wlp2s0") and
+/// IDs ("0000:01:00.0") are left as they are.
+fn is_number(text: &str) -> bool {
+    text.bytes().any(|b| b.is_ascii_digit())
+        && text
+            .bytes()
+            .all(|b| b.is_ascii_digit() || b == b'.' || b == b'-')
+        && !text[1..].contains('-')
+}
+
+thread_local! {
+    /// The digits 0 to 9 and the decimal point of the UI language.
+    static DIGITS: [char; 11] = digit_table(&gettext(
+        // Translators: the digits 0 to 9 and then the decimal separator, as
+        // numbers are written in your language, e.g. "۰۱۲۳۴۵۶۷۸۹٫" in
+        // Persian. Keep "0123456789." for Western digits.
+        "0123456789.",
+    ));
+}
+
+/// The 11 characters of a digit table; Western digits when the translation
+/// does not have exactly 11.
+fn digit_table(text: &str) -> [char; 11] {
+    let chars: Vec<char> = text.chars().collect();
+    let mut table = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.'];
+    if chars.len() == table.len() {
+        table.copy_from_slice(&chars);
+    }
+    table
+}
+
+fn map_digits(text: &str, table: &[char; 11]) -> String {
+    text.chars()
+        .map(|c| match c {
+            '0'..='9' => table[c as usize - '0' as usize],
+            '.' => table[10],
+            c => c,
+        })
+        .collect()
+}
+
+/// A number written with the UI language's digits, e.g. "۴۲" in Persian.
+pub fn digits(text: &str) -> String {
+    DIGITS.with(|table| map_digits(text, table))
+}
+
+/// Western digits for any decimal digits a user typed, so "۴۲" finds 42.
+pub fn ascii_digits(text: &str) -> String {
+    let from = |c: char, zero: char| char::from_digit(c as u32 - zero as u32, 10);
+    text.chars()
+        .map(|c| match c {
+            '۰'..='۹' => from(c, '۰').unwrap_or(c),
+            '٠'..='٩' => from(c, '٠').unwrap_or(c),
+            c => c,
+        })
+        .collect()
 }
 
 /// A share 0.0..=1.0 as a whole percentage, e.g. "37%". The template is
@@ -198,7 +283,7 @@ pub fn count(n: usize) -> u32 {
 
 #[cfg(test)]
 mod tests {
-    use super::fmt;
+    use super::*;
 
     #[test]
     fn fills_named_placeholders_in_any_order() {
@@ -219,6 +304,28 @@ mod tests {
     #[test]
     fn values_are_not_expanded_again() {
         assert_eq!(fmt("{a}", &[("a", &"{a}")]), "{a}");
+    }
+
+    #[test]
+    fn only_plain_numbers_get_local_digits() {
+        let persian = digit_table("۰۱۲۳۴۵۶۷۸۹٫");
+        assert_eq!(map_digits("12.5", &persian), "۱۲٫۵");
+        assert!(is_number("37") && is_number("1.25") && is_number("-3"));
+        for name in ["wlp2s0", "0000:01:00.0", "RX 580", "", "-", "1-2"] {
+            assert!(!is_number(name), "{name}");
+        }
+    }
+
+    #[test]
+    fn a_wrong_digit_table_keeps_western_digits() {
+        assert_eq!(map_digits("4.2", &digit_table("abc")), "4.2");
+    }
+
+    #[test]
+    fn typed_digits_become_ascii() {
+        assert_eq!(ascii_digits("۴۲"), "42");
+        assert_eq!(ascii_digits("٤٢x"), "42x");
+        assert_eq!(ascii_digits("abc 7"), "abc 7");
     }
 
     #[test]

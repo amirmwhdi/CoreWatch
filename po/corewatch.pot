@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: corewatch\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-26 16:30+0000\n"
+"POT-Creation-Date: 2026-11-03 22:40+0330\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -18,23 +18,30 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
 
+#. Translators: the digits 0 to 9 and then the decimal separator, as
+#. numbers are written in your language, e.g. "۰۱۲۳۴۵۶۷۸۹٫" in
+#. Persian. Keep "0123456789." for Western digits.
+#: crates/app/src/i18n.rs:119
+msgid "0123456789."
+msgstr ""
+
 #. Translators: a percentage, e.g. "37%"
-#: crates/app/src/i18n.rs:81 crates/app/src/modules/processes.rs:506
+#: crates/app/src/i18n.rs:166 crates/app/src/modules/processes.rs:559
 msgid "{value}%"
 msgstr ""
 
 #. Translators: a transfer speed, e.g. "12.3 MiB/s"
-#: crates/app/src/i18n.rs:160 crates/app/src/i18n.rs:172
+#: crates/app/src/i18n.rs:245 crates/app/src/i18n.rs:257
 msgid "{size}/s"
 msgstr ""
 
 #. Translators: a temperature, e.g. "54 °C"
-#: crates/app/src/i18n.rs:184
+#: crates/app/src/i18n.rs:269
 msgid "{value} °C"
 msgstr ""
 
 #. Translators: a temperature, e.g. "129 °F"
-#: crates/app/src/i18n.rs:189
+#: crates/app/src/i18n.rs:274
 msgid "{value} °F"
 msgstr ""
 
@@ -274,7 +281,7 @@ msgid "{value} W"
 msgstr ""
 
 #: crates/app/src/modules/memory.rs:58 crates/app/src/modules/overview.rs:47
-#: crates/app/src/modules/processes.rs:116
+#: crates/app/src/modules/processes.rs:130
 msgid "Memory"
 msgstr ""
 
@@ -301,12 +308,12 @@ msgid "Traffic of {name}"
 msgstr ""
 
 #: crates/app/src/modules/network.rs:169
-#: crates/app/src/modules/processes.rs:123
+#: crates/app/src/modules/processes.rs:137
 msgid "Download"
 msgstr ""
 
 #: crates/app/src/modules/network.rs:169
-#: crates/app/src/modules/processes.rs:130
+#: crates/app/src/modules/processes.rs:144
 msgid "Upload"
 msgstr ""
 
@@ -425,64 +432,64 @@ msgstr ""
 msgid "Open {page}"
 msgstr ""
 
-#: crates/app/src/modules/processes.rs:110
+#: crates/app/src/modules/processes.rs:124
 msgid "Name"
 msgstr ""
 
-#: crates/app/src/modules/processes.rs:112
+#: crates/app/src/modules/processes.rs:126
 msgid "User"
 msgstr ""
 
-#: crates/app/src/modules/processes.rs:113
+#: crates/app/src/modules/processes.rs:127
 msgid "CPU"
 msgstr ""
 
-#: crates/app/src/modules/processes.rs:135
+#: crates/app/src/modules/processes.rs:149
 msgid "ID"
 msgstr ""
 
-#: crates/app/src/modules/processes.rs:214
+#: crates/app/src/modules/processes.rs:249 crates/app/src/shortcuts.rs:65
 msgid "Processes"
 msgstr ""
 
-#: crates/app/src/modules/processes.rs:245
+#: crates/app/src/modules/processes.rs:280
 msgid "{n} process"
 msgid_plural "{n} processes"
 msgstr[0] ""
 msgstr[1] ""
 
-#: crates/app/src/modules/processes.rs:318
+#: crates/app/src/modules/processes.rs:371
 msgid "End “{name}”?"
 msgstr ""
 
-#: crates/app/src/modules/processes.rs:322
+#: crates/app/src/modules/processes.rs:375
 msgid ""
 "Unsaved work in this program may be lost. Force Stop ends it at once, "
 "without letting it clean up."
 msgstr ""
 
-#: crates/app/src/modules/processes.rs:326
+#: crates/app/src/modules/processes.rs:379
 msgid "_Cancel"
 msgstr ""
 
-#: crates/app/src/modules/processes.rs:327
+#: crates/app/src/modules/processes.rs:380
 msgid "_Force Stop"
 msgstr ""
 
-#: crates/app/src/modules/processes.rs:328
+#: crates/app/src/modules/processes.rs:381
 msgid "_End Process"
 msgstr ""
 
-#: crates/app/src/modules/processes.rs:349
+#: crates/app/src/modules/processes.rs:402
 msgid "You can only end your own processes"
 msgstr ""
 
-#: crates/app/src/modules/processes.rs:352
+#: crates/app/src/modules/processes.rs:405
 msgid "The process has already ended"
 msgstr ""
 
-#: crates/app/src/modules/processes.rs:356
-#: crates/app/src/modules/processes.rs:358
+#: crates/app/src/modules/processes.rs:409
+#: crates/app/src/modules/processes.rs:411
 msgid "Could not end the process"
 msgstr ""
 
@@ -518,6 +525,44 @@ msgstr ""
 msgid "Last Opened Page"
 msgstr ""
 
+#: crates/app/src/shortcuts.rs:30 data/ui/stable/preferences.blp:10
+msgid "General"
+msgstr ""
+
+#: crates/app/src/shortcuts.rs:33 data/ui/stable/preferences.blp:7
+#: data/ui/stable/window.blp:9
+msgid "Preferences"
+msgstr ""
+
+#: crates/app/src/shortcuts.rs:38 data/ui/stable/window.blp:14
+msgid "Keyboard Shortcuts"
+msgstr ""
+
+#: crates/app/src/shortcuts.rs:43
+msgid "Close Window"
+msgstr ""
+
+#: crates/app/src/shortcuts.rs:48
+msgid "Quit"
+msgstr ""
+
+#: crates/app/src/shortcuts.rs:55
+msgid "Navigation"
+msgstr ""
+
+#. Translators: Ctrl+1 opens the first page of the sidebar, Ctrl+2 the second, …
+#: crates/app/src/shortcuts.rs:58
+msgid "Go to Page 1 to 9"
+msgstr ""
+
+#: crates/app/src/shortcuts.rs:68
+msgid "Search Processes"
+msgstr ""
+
+#: crates/app/src/shortcuts.rs:73
+msgid "End Selected Process"
+msgstr ""
+
 #. Translators: e.g. "k10temp · Critical at 95 °C"
 #: crates/app/src/widgets/sensor_group.rs:41
 msgid "{device} · {critical}"
@@ -541,16 +586,16 @@ msgstr ""
 msgid "{value} RPM"
 msgstr ""
 
-#: crates/app/src/window.rs:266
+#: crates/app/src/window.rs:333
 msgid "Unavailable"
 msgstr ""
 
 #. Translators: the git commit this build came from, e.g. "Commit a6f02ff"
-#: crates/app/src/window.rs:311
+#: crates/app/src/window.rs:378
 msgid "Commit {hash}"
 msgstr ""
 
-#: crates/app/src/window.rs:318
+#: crates/app/src/window.rs:385
 msgid "Latest Commit"
 msgstr ""
 
@@ -826,14 +871,6 @@ msgstr ""
 msgid "Details"
 msgstr ""
 
-#: data/ui/stable/preferences.blp:7 data/ui/stable/window.blp:9
-msgid "Preferences"
-msgstr ""
-
-#: data/ui/stable/preferences.blp:10
-msgid "General"
-msgstr ""
-
 #: data/ui/stable/preferences.blp:14
 msgid "Appearance"
 msgstr ""
@@ -939,7 +976,7 @@ msgid "Bits per second (Mb/s)"
 msgstr ""
 
 #: data/ui/stable/processes-page.blp:21
-msgid "Search processes"
+msgid "Search by name or ID"
 msgstr ""
 
 #: data/ui/stable/processes-page.blp:27
@@ -950,19 +987,19 @@ msgstr ""
 msgid "End Process…"
 msgstr ""
 
-#: data/ui/stable/window.blp:16
+#: data/ui/stable/window.blp:21
 msgid "About Corewatch"
 msgstr ""
 
-#: data/ui/stable/window.blp:52
+#: data/ui/stable/window.blp:57
 msgid "Main Menu"
 msgstr ""
 
-#: data/ui/stable/window.blp:85
+#: data/ui/stable/window.blp:90
 msgid "No data sources available"
 msgstr ""
 
-#: data/ui/stable/window.blp:86
+#: data/ui/stable/window.blp:91
 msgid ""
 "Corewatch could not read /proc. Run corewatch --verbose from a terminal for "
 "details."

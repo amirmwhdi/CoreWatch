@@ -70,12 +70,11 @@ impl ProcessesPage {
             #[upgrade_or]
             true,
             move |item| {
-                let query = search_entry.text();
-                let query = query.trim();
+                let query = i18n::ascii_digits(search_entry.text().trim());
                 query.is_empty()
                     || item
                         .downcast_ref::<row::ProcessRow>()
-                        .is_some_and(|r| matches_search(&r.name(), &r.pid_text(), query))
+                        .is_some_and(|r| matches_search(&r.name(), &r.pid().to_string(), &query))
             }
         ));
         search_entry.connect_search_changed(glib::clone!(
@@ -479,7 +478,7 @@ mod row {
             let row: Self = glib::Object::new();
             let imp = row.imp();
             imp.pid.set(info.pid);
-            *imp.pid_text.borrow_mut() = info.pid.to_string();
+            *imp.pid_text.borrow_mut() = i18n::digits(&info.pid.to_string());
             imp.uid.set(info.uid.unwrap_or(u32::MAX));
             *imp.user.borrow_mut() = info.user.to_string();
             *imp.name.borrow_mut() = info.name.to_string();
