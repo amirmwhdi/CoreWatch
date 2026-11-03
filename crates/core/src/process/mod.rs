@@ -63,6 +63,9 @@ struct Known {
 pub struct ProcessCollector {
     reader: Reader,
     active: &'static AtomicBool,
+    /// User names by uid: `/etc/passwd`, then each other uid as it is first
+    /// seen (named by the user databases, or the uid as text). Asked once
+    /// per uid, so a slow user database costs one lookup, not one per tick.
     users: HashMap<u32, Arc<str>>,
     known: HashMap<u32, Known>,
     prev_cpu: Option<CpuTimes>,
@@ -168,11 +171,10 @@ impl ProcessCollector {
                     },
                 );
                 let user = match raw.uid {
-                    Some(uid) => self
-                        .users
-                        .get(&uid)
-                        .cloned()
-                        .unwrap_or_else(|| Arc::from(uid.to_string())),
+                    Some(uid) => Arc::clone(self.users.entry(uid).or_insert_with(|| {
+                        let name = self.reader.user_name(root, uid);
+                        Arc::from(name.unwrap_or_else(|| uid.to_string()))
+                    })),
                     None => Arc::from("?"),
                 };
                 let (download, upload) = match &rates {
