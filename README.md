@@ -62,8 +62,8 @@ you can watch the processor while you look at your disks.
 </p>
 
 Every running process with its app icon, CPU and memory use, and how fast it
-is downloading and uploading. Sort by any column, search by name, show only
-your own processes, and end a process (or force-stop one that does not
+is downloading and uploading. Sort by any column, search by name or process ID,
+show only your own processes, and end a process (or force-stop one that does not
 listen) right from the list.
 
 ### Processor
@@ -109,8 +109,8 @@ and Wi-Fi signal strength.
 
 - **Overview** of every resource at a glance, with live graphs.
 - **Processes:** a sortable table with app icons, CPU, memory, download and
-  upload speed, user and process ID; search, "only my processes", End
-  Process and Force Stop.
+  upload speed, user and process ID; search by name or ID, "only my
+  processes", End Process and Force Stop.
 - **Processor:** total usage graph, one graph per logical core, model, cores
   and threads, current frequency.
 - **Memory:** used, available, cache and buffers, swap, and a usage graph.
@@ -129,6 +129,8 @@ and Wi-Fi signal strength.
   power draw and charge cycles, on laptops.
 - **Smooth graphs** that scroll continuously, like GNOME System Monitor. You
   can turn this off to save power.
+- **Keyboard shortcuts:** Ctrl+1 to Ctrl+9 open the pages, Ctrl+F searches
+  the processes, Delete ends the selected one; Ctrl+? lists them all.
 - **Fits any screen:** the layout adapts down to 360 pixels wide.
 - **Tells you when something goes wrong:** if a data source stops answering,
   a banner says so instead of showing stale numbers.

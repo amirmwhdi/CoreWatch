@@ -42,6 +42,7 @@ pub const MODULE: Module = Module {
 
 struct ProcessesPage {
     root: gtk::Widget,
+    search: gtk::SearchEntry,
     store: gio::ListStore,
     rows: RefCell<HashMap<u32, row::ProcessRow>>,
     /// Read the first time the list is shown.
@@ -60,21 +61,35 @@ impl ProcessesPage {
         let columns = ui.columns.get();
         let store = gio::ListStore::new::<row::ProcessRow>();
 
-        // Search by name, optionally only the user's own processes.
+        // Search by name (any part, any case) or by process ID (its start),
+        // optionally only the user's own processes.
+        let search_entry = ui.search.get();
+        let search = gtk::CustomFilter::new(glib::clone!(
+            #[weak]
+            search_entry,
+            #[upgrade_or]
+            true,
+            move |item| {
+                let query = search_entry.text();
+                let query = query.trim();
+                query.is_empty()
+                    || item
+                        .downcast_ref::<row::ProcessRow>()
+                        .is_some_and(|r| matches_search(&r.name(), &r.pid_text(), query))
+            }
+        ));
+        search_entry.connect_search_changed(glib::clone!(
+            #[weak]
+            search,
+            move |_| search.changed(gtk::FilterChange::Different)
+        ));
+        // Typing anywhere on the page starts a search.
+        search_entry.set_key_capture_widget(Some(&view));
         let name_expr = gtk::PropertyExpression::new(
             row::ProcessRow::static_type(),
             gtk::Expression::NONE,
             "name",
         );
-        let search = gtk::StringFilter::builder()
-            .expression(&name_expr)
-            .match_mode(gtk::StringFilterMatchMode::Substring)
-            .ignore_case(true)
-            .build();
-        ui.search
-            .bind_property("text", &search, "search")
-            .sync_create()
-            .build();
         let my_uid = current_uid();
         let mine = ui.mine.get();
         let owner = gtk::CustomFilter::new(glib::clone!(
@@ -158,7 +173,28 @@ impl ProcessesPage {
             }
         ));
 
+        // Delete on the list: the same as the End Process button.
+        let delete = gtk::ShortcutController::new();
+        delete.add_shortcut(gtk::Shortcut::new(
+            gtk::ShortcutTrigger::parse_string("Delete"),
+            Some(gtk::CallbackAction::new(glib::clone!(
+                #[weak]
+                end_button,
+                #[upgrade_or]
+                glib::Propagation::Proceed,
+                move |_, _| {
+                    if !end_button.is_sensitive() {
+                        return glib::Propagation::Proceed;
+                    }
+                    end_button.emit_clicked();
+                    glib::Propagation::Stop
+                }
+            ))),
+        ));
+        columns.add_controller(delete);
+
         Self {
+            search: search_entry,
             store,
             rows: RefCell::default(),
             icons: OnceCell::new(),
@@ -246,6 +282,24 @@ impl ResourcePage for ProcessesPage {
             &[("n", &n)],
         ))
     }
+
+    fn has_search(&self) -> bool {
+        true
+    }
+
+    fn focus_search(&self) {
+        self.search.grab_focus();
+        self.search.select_region(0, -1);
+    }
+}
+
+/// A process matches when its name contains `query` (ignoring case), or
+/// when `query` is a number its process ID starts with.
+fn matches_search(name: &str, pid: &str, query: &str) -> bool {
+    if query.bytes().all(|b| b.is_ascii_digit()) && pid.starts_with(query) {
+        return true;
+    }
+    name.to_lowercase().contains(&query.to_lowercase())
 }
 
 /// A text column bound to `property`; sortable by the numeric or string
@@ -560,5 +614,21 @@ mod view {
         pub fn new() -> Self {
             glib::Object::new()
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::matches_search;
+
+    #[test]
+    fn search_by_name_or_process_id() {
+        assert!(matches_search("Firefox", "4242", "fire"));
+        assert!(matches_search("Firefox", "4242", "FOX"));
+        assert!(matches_search("Firefox", "4242", "42"));
+        assert!(!matches_search("Firefox", "4242", "24"));
+        assert!(!matches_search("bash", "1", "fire"));
+        // Digits in a name still match the name.
+        assert!(matches_search("python3", "900", "3"));
     }
 }

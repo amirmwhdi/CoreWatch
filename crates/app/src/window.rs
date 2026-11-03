@@ -194,7 +194,28 @@ pub fn present(app: &adw::Application) {
         }
     ));
     app.add_action(&pref_action);
-    app.set_accels_for_action("app.preferences", &["<primary>comma"]);
+
+    let shortcuts_action = gio::SimpleAction::new("shortcuts", None);
+    shortcuts_action.connect_activate(glib::clone!(
+        #[weak]
+        window,
+        move |_, _| crate::compat::show_shortcuts(window.upcast_ref(), crate::shortcuts::groups())
+    ));
+    app.add_action(&shortcuts_action);
+
+    // Closing every window ends the app; each window still saves its state
+    // in its close-request handler.
+    let quit_action = gio::SimpleAction::new("quit", None);
+    quit_action.connect_activate(glib::clone!(
+        #[weak]
+        app,
+        move |_, _| {
+            for window in app.windows() {
+                window.close();
+            }
+        }
+    ));
+    app.add_action(&quit_action);
 
     let about_action = gio::SimpleAction::new("about", None);
     about_action.connect_activate(glib::clone!(
@@ -258,7 +279,53 @@ pub fn present(app: &adw::Application) {
     ));
     app.add_action(&show_page);
 
+    // Ctrl+1 … Ctrl+9: the pages in sidebar order.
+    let show_page_number = gio::SimpleAction::new("show-page-number", Some(glib::VariantTy::INT32));
+    show_page_number.connect_activate(glib::clone!(
+        #[weak]
+        sidebar,
+        move |_, param| {
+            // `(2)` in an action name is an int32, so the type must be one.
+            let Some(n) = param.and_then(|p| p.get::<i32>()) else {
+                return;
+            };
+            if let Some(row) = sidebar.row_at_index(n - 1) {
+                sidebar.select_row(Some(&row));
+            }
+        }
+    ));
+    app.add_action(&show_page_number);
+
     let pages = Rc::new(pages);
+
+    // Ctrl+F: search on the open page, otherwise on the first page that has
+    // a search (the process list).
+    let find_action = gio::SimpleAction::new("find", None);
+    find_action.connect_activate(glib::clone!(
+        #[weak]
+        stack,
+        #[weak]
+        sidebar,
+        #[weak]
+        split,
+        #[strong]
+        pages,
+        move |_, _| {
+            let open = stack.visible_child_name();
+            let searchable = || pages.iter().filter(|(page, _, _)| page.has_search());
+            let target = searchable()
+                .find(|(page, _, _)| open.as_deref() == Some(page.id()))
+                .or_else(|| searchable().next());
+            if let Some((page, _, row)) = target {
+                sidebar.select_row(Some(row));
+                split.set_show_content(true);
+                page.focus_search();
+            }
+        }
+    ));
+    app.add_action(&find_action);
+    crate::shortcuts::set_accels(app);
+
     glib::spawn_future_local(async move {
         while let Ok(snapshot) = rx.recv().await {
             for (page, frame, row) in pages.iter() {

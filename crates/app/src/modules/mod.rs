@@ -45,6 +45,15 @@ pub trait ResourcePage {
 
     /// Short live text for the sidebar row, e.g. `"37%"`.
     fn summary(&self, snapshot: &Snapshot) -> Option<String>;
+
+    /// Whether the page has a search entry, for Ctrl+F.
+    fn has_search(&self) -> bool {
+        false
+    }
+
+    /// Move the keyboard focus to the page's search entry. Called only when
+    /// [`ResourcePage::has_search`] is true, after the page is shown.
+    fn focus_search(&self) {}
 }
 
 /// Builds a module's collector; see [`Module::collector`].

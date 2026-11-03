@@ -9,6 +9,7 @@ mod logging;
 mod modules;
 mod preferences;
 mod settings;
+mod shortcuts;
 mod widgets;
 mod window;
 
