@@ -109,6 +109,8 @@ impl ResourcePage for GpuPage {
 /// for stay hidden.
 struct GpuBlock {
     container: gtk::Box,
+    /// The card's name; NVML can give a better one after the first tick.
+    title: gtk::Label,
     graph: Graph,
     status: adw::ActionRow,
     usage: adw::ActionRow,
@@ -183,6 +185,7 @@ impl GpuBlock {
         container.append(&rows);
         Self {
             container,
+            title,
             graph,
             status,
             usage,
@@ -197,6 +200,14 @@ impl GpuBlock {
     }
 
     fn update(&self, d: &GpuDevice) {
+        if self.title.label() != d.name.as_str() {
+            self.title.set_label(&d.name);
+            self.graph
+                .update_property(&[gtk::accessible::Property::Label(&i18n::fmt(
+                    &gettext("Load of {model}"),
+                    &[("model", &d.name)],
+                ))]);
+        }
         // Load when the driver reports it; nouveau and older Intel chips
         // without RC6 report only the clock, so the graph shows the clock's
         // share of its maximum there.

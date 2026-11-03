@@ -158,7 +158,9 @@ and Wi-Fi signal strength.
 | Intel (i915, xe) | Load (from the time the GPU spends idle) and clock speed |
 
 A laptop's graphics card that is asleep to save power is shown as asleep and
-is not woken up just to be measured.
+is not woken up just to be measured. An NVIDIA card in a laptop shows its
+values while something uses it; a few seconds after it becomes idle,
+Corewatch lets go of it so it can sleep again.
 
 ### Good to know
 

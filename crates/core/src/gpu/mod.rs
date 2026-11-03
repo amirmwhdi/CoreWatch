@@ -18,6 +18,12 @@
 //! A laptop's discrete GPU sleeps when unused, and reading its files or
 //! asking NVML would wake it. A card whose `power/runtime_status` is
 //! `suspended` is reported as asleep and not read.
+//!
+//! NVML also keeps an NVIDIA card awake for as long as it is open. On a
+//! laptop (runtime power management on, `power/control` is `auto`) it is
+//! therefore opened only while the card is awake anyway, and closed again
+//! when the card has been idle for a few seconds, so the card can go back
+//! to sleep ([`NvmlPolicy`]). A desktop card keeps NVML open.
 
 mod nvml;
 pub mod pci;
@@ -157,9 +163,15 @@ struct Card {
     name: String,
     vendor: GpuVendor,
     driver: Option<String>,
+    /// Read through NVML (the proprietary NVIDIA driver).
+    nvidia: bool,
     runtime_status: PathBuf,
     files: Files,
     nvml: Option<NvmlDevice>,
+    /// The card sleeps when unused (`power/control` is `auto`).
+    runtime_pm: bool,
+    /// The load NVML reported last tick, to know when the card is idle.
+    last_nvml_usage: Option<f32>,
     /// The idle counter and when it was read, for the next tick's load.
     last_idle: Option<(u64, Instant)>,
 }
@@ -168,6 +180,76 @@ pub struct GpuCollector {
     cards: Vec<Card>,
     // Declared after `cards`: their NVML handles go before NVML shuts down.
     nvml: Option<Nvml>,
+    nvml_policy: NvmlPolicy,
+}
+
+/// How long an NVIDIA laptop card must show no load before NVML is closed
+/// so it can sleep.
+pub const NVML_IDLE_CLOSE: Duration = Duration::from_secs(5);
+/// After closing NVML for an idle card, how long to wait before opening it
+/// again while the card stays awake (something else, an external display
+/// for one, may be keeping it awake).
+pub const NVML_REOPEN_AFTER: Duration = Duration::from_secs(30);
+
+/// When NVML should be open. Pure state, tested on its own.
+#[derive(Debug, Default)]
+pub struct NvmlPolicy {
+    /// Since when every NVIDIA card has shown no load.
+    idle_since: Option<Instant>,
+    /// No opening before this time.
+    closed_until: Option<Instant>,
+}
+
+/// What [`NvmlPolicy::step`] asks for.
+#[derive(Debug, PartialEq, Eq)]
+pub enum NvmlAction {
+    Open,
+    Close,
+    Keep,
+}
+
+impl NvmlPolicy {
+    /// One tick. `runtime_pm`: a laptop card that sleeps when unused.
+    /// `awake`: some NVIDIA card is awake now. `idle`: NVML is open and
+    /// every card it reads shows no load.
+    pub fn step(
+        &mut self,
+        now: Instant,
+        runtime_pm: bool,
+        awake: bool,
+        open: bool,
+        idle: bool,
+    ) -> NvmlAction {
+        if !awake {
+            self.idle_since = None;
+            return if open {
+                NvmlAction::Close
+            } else {
+                NvmlAction::Keep
+            };
+        }
+        if !open {
+            let waiting = self.closed_until.is_some_and(|until| now < until);
+            return if waiting {
+                NvmlAction::Keep
+            } else {
+                self.closed_until = None;
+                NvmlAction::Open
+            };
+        }
+        if !runtime_pm || !idle {
+            self.idle_since = None;
+            return NvmlAction::Keep;
+        }
+        let since = *self.idle_since.get_or_insert(now);
+        if now.saturating_duration_since(since) >= NVML_IDLE_CLOSE {
+            self.idle_since = None;
+            self.closed_until = Some(now + NVML_REOPEN_AFTER);
+            NvmlAction::Close
+        } else {
+            NvmlAction::Keep
+        }
+    }
 }
 
 impl GpuCollector {
@@ -181,7 +263,6 @@ impl GpuCollector {
             ));
         }
         let pci_ids = read_pci_ids(root);
-        let mut nvml = None;
         let mut cards: Vec<Card> = dirs
             .into_iter()
             .map(|dir| {
@@ -194,31 +275,23 @@ impl GpuCollector {
                     .file_name()
                     .map(|n| n.to_string_lossy().into_owned())
                     .unwrap_or_default();
-                let mut nvml_device = None;
-                let mut name = None;
-                if driver.as_deref() == Some("nvidia") {
-                    if nvml.is_none() {
-                        nvml = Some(Nvml::open());
-                    }
-                    if let Some(Some(lib)) = &nvml {
-                        nvml_device = lib.device(&id);
-                        name = nvml_device.as_ref().and_then(|d| lib.name(d));
-                    }
-                }
-                let name = name
-                    .or_else(|| {
-                        let model = pci::model_name(pci_ids.as_deref()?, &ids)?;
-                        Some(with_vendor(vendor, &model))
-                    })
+                // NVML is opened on the first tick, and only for a card that
+                // is awake; until then the name comes from pci.ids.
+                let name = pci::model_name(pci_ids.as_deref().unwrap_or_default(), &ids)
+                    .map(|model| with_vendor(vendor, &model))
                     .unwrap_or_else(|| format!("{} Graphics", vendor.as_str()));
                 Card {
                     files: find_files(&dir, vendor, driver.as_deref()),
+                    nvidia: driver.as_deref() == Some("nvidia"),
+                    runtime_pm: fs::read_to_string(dir.join("power/control"))
+                        .is_ok_and(|c| c.trim() == "auto"),
                     runtime_status: dir.join("power/runtime_status"),
                     id,
                     name,
                     vendor,
                     driver,
-                    nvml: nvml_device,
+                    nvml: None,
+                    last_nvml_usage: None,
                     last_idle: None,
                 }
             })
@@ -228,8 +301,52 @@ impl GpuCollector {
         });
         Ok(Self {
             cards,
-            nvml: nvml.flatten(),
+            nvml: None,
+            nvml_policy: NvmlPolicy::default(),
         })
+    }
+
+    /// Open or close NVML for this tick; `asleep` is per card.
+    fn manage_nvml(&mut self, asleep: &[bool], now: Instant) {
+        let nvidia = || self.cards.iter().zip(asleep).filter(|(c, _)| c.nvidia);
+        if nvidia().next().is_none() {
+            return;
+        }
+        let awake = nvidia().any(|(_, asleep)| !asleep);
+        let runtime_pm = nvidia().any(|(c, _)| c.runtime_pm);
+        let idle = self.nvml.is_some()
+            && nvidia().all(|(c, _)| c.last_nvml_usage.is_some_and(|u| u < 0.01));
+        let action = self
+            .nvml_policy
+            .step(now, runtime_pm, awake, self.nvml.is_some(), idle);
+        match action {
+            NvmlAction::Keep => {}
+            NvmlAction::Close => {
+                tracing::debug!("closing NVML so the card can sleep");
+                // The handles go before NVML shuts down.
+                for card in &mut self.cards {
+                    card.nvml = None;
+                    card.last_nvml_usage = None;
+                }
+                self.nvml = None;
+            }
+            NvmlAction::Open => {
+                let Some(lib) = Nvml::open() else {
+                    // No proprietary library: never ask again.
+                    for card in &mut self.cards {
+                        card.nvidia = false;
+                    }
+                    return;
+                };
+                for card in self.cards.iter_mut().filter(|c| c.nvidia) {
+                    card.nvml = lib.device(&card.id);
+                    if let Some(name) = card.nvml.as_ref().and_then(|d| lib.name(d)) {
+                        card.name = name;
+                    }
+                }
+                self.nvml = Some(lib);
+            }
+        }
     }
 }
 
@@ -385,17 +502,31 @@ impl Collector for GpuCollector {
     }
 
     fn collect(&mut self, _root: &SysRoot, out: &mut Snapshot) -> Result<(), CollectError> {
+        let asleep: Vec<bool> = self
+            .cards
+            .iter()
+            .map(|card| {
+                fs::read_to_string(&card.runtime_status).is_ok_and(|s| s.trim() == "suspended")
+            })
+            .collect();
+        self.manage_nvml(&asleep, Instant::now());
         let devices = self
             .cards
             .iter_mut()
-            .map(|card| {
-                let asleep =
-                    fs::read_to_string(&card.runtime_status).is_ok_and(|s| s.trim() == "suspended");
+            .zip(asleep)
+            .map(|(card, asleep)| {
                 let mut reading = if asleep {
                     NvmlReading::default()
                 } else {
                     match (&self.nvml, &card.nvml) {
-                        (Some(lib), Some(device)) => lib.read(device),
+                        (Some(lib), Some(device)) => {
+                            let reading = lib.read(device);
+                            card.last_nvml_usage = reading.usage;
+                            reading
+                        }
+                        // An NVIDIA card while NVML is closed: its files say
+                        // nothing, and reading them could keep it awake.
+                        _ if card.nvidia => NvmlReading::default(),
                         _ => read_files(&card.files),
                     }
                 };
@@ -419,7 +550,7 @@ impl Collector for GpuCollector {
                     temp_c: reading.temp_c,
                     power_w: reading.power_w,
                     power_cap_w: reading.power_cap_w,
-                    fan_rpm: (!asleep && card.nvml.is_none())
+                    fan_rpm: (!asleep && !card.nvidia)
                         .then(|| read_num(&card.files.fan))
                         .flatten(),
                     fan_percent: reading.fan_percent,
@@ -485,6 +616,43 @@ fn read_num<T: std::str::FromStr>(path: &Option<PathBuf>) -> Option<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn nvml_lets_a_laptop_card_sleep() {
+        let t0 = Instant::now();
+        let at = |secs: u64| t0 + Duration::from_secs(secs);
+        let mut p = NvmlPolicy::default();
+        // Asleep at start: NVML is not opened.
+        assert_eq!(p.step(at(0), true, false, false, false), NvmlAction::Keep);
+        // A game wakes the card: open, and keep it open while it works.
+        assert_eq!(p.step(at(1), true, true, false, false), NvmlAction::Open);
+        assert_eq!(p.step(at(2), true, true, true, false), NvmlAction::Keep);
+        // The game ends: idle for a few seconds, then closed.
+        assert_eq!(p.step(at(3), true, true, true, true), NvmlAction::Keep);
+        assert_eq!(p.step(at(7), true, true, true, true), NvmlAction::Keep);
+        assert_eq!(p.step(at(8), true, true, true, true), NvmlAction::Close);
+        // Still awake (autosuspend delay): not opened again right away.
+        assert_eq!(p.step(at(9), true, true, false, false), NvmlAction::Keep);
+        assert_eq!(p.step(at(37), true, true, false, false), NvmlAction::Keep);
+        // Something else keeps it awake: open again after the pause.
+        assert_eq!(p.step(at(38), true, true, false, false), NvmlAction::Open);
+    }
+
+    #[test]
+    fn nvml_closes_when_the_card_falls_asleep() {
+        let now = Instant::now();
+        let mut p = NvmlPolicy::default();
+        assert_eq!(p.step(now, true, false, true, false), NvmlAction::Close);
+    }
+
+    #[test]
+    fn nvml_stays_open_on_a_desktop_card() {
+        let t0 = Instant::now();
+        let mut p = NvmlPolicy::default();
+        assert_eq!(p.step(t0, false, true, false, false), NvmlAction::Open);
+        let later = t0 + Duration::from_secs(3600);
+        assert_eq!(p.step(later, false, true, true, true), NvmlAction::Keep);
+    }
 
     #[test]
     fn dpm_levels_give_current_and_highest_clock() {
