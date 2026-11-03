@@ -326,6 +326,7 @@ pub fn present(app: &adw::Application) {
     app.add_action(&find_action);
     crate::shortcuts::set_accels(app);
 
+    let handle_loop = Rc::downgrade(&handle);
     glib::spawn_future_local(async move {
         while let Ok(snapshot) = rx.recv().await {
             for (page, frame, row) in pages.iter() {
@@ -337,6 +338,19 @@ pub fn present(app: &adw::Application) {
                 if let Some(text) = page.summary(&snapshot) {
                     row.set_subtitle(&text);
                 }
+            }
+        }
+        // The channel closed. When the window closed, the handle is gone
+        // and this is the normal end; otherwise the sampler thread died, and
+        // every page shows "Data unavailable" instead of frozen numbers.
+        if handle_loop
+            .upgrade()
+            .is_some_and(|handle| handle.borrow().is_some())
+        {
+            tracing::error!("the sampler thread stopped");
+            for (_, frame, row) in pages.iter() {
+                while !frame.set_has_data(false) {}
+                row.set_subtitle(&gettext("Unavailable"));
             }
         }
     });

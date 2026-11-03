@@ -97,6 +97,33 @@ fn one_failing_collector_does_not_stop_the_others() {
 }
 
 #[test]
+fn a_panicking_collector_is_disabled_and_the_others_go_on() {
+    struct Panics(u32);
+    impl Collector for Panics {
+        fn name(&self) -> &'static str {
+            "panics"
+        }
+        fn collect(
+            &mut self,
+            _: &SysRoot,
+            _: &mut Snapshot,
+        ) -> Result<(), corewatch_core::CollectError> {
+            self.0 += 1;
+            assert!(self.0 < 2, "runs only once");
+            panic!("a bug in a collector");
+        }
+    }
+
+    let root = fixture("basic");
+    let mut sampler = Sampler::new(root, Duration::from_secs(1));
+    sampler.add(Box::new(Panics(0)));
+    sampler.add(Box::new(MemoryCollector));
+    for _ in 0..3 {
+        assert!(sampler.sample_once().memory.is_some());
+    }
+}
+
+#[test]
 fn sampler_thread_delivers_and_stops_on_drop() {
     let root = fixture("basic");
     let mut sampler = Sampler::new(root, Duration::from_millis(20));

@@ -5,6 +5,7 @@
 
 use crate::throttle::{FailureTracker, Report};
 use crate::{Collector, Snapshot, SysRoot};
+use std::panic::AssertUnwindSafe;
 use std::sync::mpsc::{self, RecvTimeoutError};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
@@ -14,6 +15,9 @@ use std::time::{Duration, Instant};
 struct Slot {
     collector: Box<dyn Collector>,
     failures: FailureTracker,
+    /// Set after the collector panicked: its state may be half-updated, so
+    /// it is not run again. Its page then shows "Data unavailable".
+    broken: bool,
 }
 
 /// Control messages sent to the running sampler thread.
@@ -41,6 +45,7 @@ impl Sampler {
         self.slots.push(Slot {
             collector,
             failures: FailureTracker::default(),
+            broken: false,
         });
     }
 
@@ -57,9 +62,22 @@ impl Sampler {
     pub fn sample_once(&mut self) -> Snapshot {
         let mut snapshot = Snapshot::new();
         for slot in &mut self.slots {
+            if slot.broken {
+                continue;
+            }
             let name = slot.collector.name();
             let started = Instant::now();
-            let result = slot.collector.collect(&self.root, &mut snapshot);
+            // Collectors must not panic, but a bug in one must not stop the
+            // thread and with it every other page.
+            let collected = std::panic::catch_unwind(AssertUnwindSafe(|| {
+                slot.collector.collect(&self.root, &mut snapshot)
+            }));
+            let Ok(result) = collected else {
+                // The panic hook has logged the message and backtrace.
+                tracing::error!(collector = name, "collector panicked; disabled");
+                slot.broken = true;
+                continue;
+            };
             let elapsed_us = u64::try_from(started.elapsed().as_micros()).unwrap_or(u64::MAX);
             tracing::debug!(
                 collector = name,
