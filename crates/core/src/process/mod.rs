@@ -8,6 +8,7 @@
 pub mod net;
 mod parse;
 mod source;
+mod users;
 
 pub use parse::{parse_passwd, parse_proc_stat, parse_statm, ProcStat};
 pub use source::{current_uid, send_signal, ProcessSource};
@@ -19,6 +20,7 @@ use source::Reader;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use users::UserNames;
 
 /// Ticks between two scans while the process list is not shown.
 pub const IDLE_EVERY: u32 = 10;
@@ -66,10 +68,7 @@ struct Known {
 pub struct ProcessCollector {
     reader: Reader,
     active: &'static AtomicBool,
-    /// User names by uid: `/etc/passwd`, then each other uid as it is first
-    /// seen (named by the user databases, or the uid as text). Asked once
-    /// per uid, so a slow user database costs one lookup, not one per tick.
-    users: HashMap<u32, Arc<str>>,
+    users: UserNames,
     known: HashMap<u32, Known>,
     prev_cpu: Option<CpuTimes>,
     page_bytes: u64,
@@ -88,10 +87,7 @@ impl ProcessCollector {
         active: &'static AtomicBool,
     ) -> Result<Self, CollectError> {
         let mut reader = Reader::new(source);
-        let users = parse_passwd(&reader.passwd())
-            .into_iter()
-            .map(|(uid, name)| (uid, Arc::from(name)))
-            .collect();
+        let users = UserNames::new(&reader.passwd(), root, source);
         let mut collector = Self {
             reader,
             active,
@@ -174,10 +170,7 @@ impl ProcessCollector {
                     },
                 );
                 let user = match raw.uid {
-                    Some(uid) => Arc::clone(self.users.entry(uid).or_insert_with(|| {
-                        let name = self.reader.user_name(root, uid);
-                        Arc::from(name.unwrap_or_else(|| uid.to_string()))
-                    })),
+                    Some(uid) => self.users.get(uid),
                     None => Arc::from("?"),
                 };
                 let (download, upload) = match &rates {

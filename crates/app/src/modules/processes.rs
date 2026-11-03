@@ -546,6 +546,12 @@ mod row {
                 *imp.icon.borrow_mut() = Some(icons.lookup(&info.name));
                 self.notify_icon();
             }
+            // A user's name can arrive after the row was made (a slow user
+            // database): the uid is shown until then.
+            if *imp.user.borrow() != *info.user {
+                *imp.user.borrow_mut() = info.user.to_string();
+                self.notify_user();
+            }
             if imp.cpu.replace(info.cpu) != info.cpu {
                 self.notify_cpu();
                 set_text(&imp.cpu_text, cpu_text(info.cpu), || self.notify_cpu_text());

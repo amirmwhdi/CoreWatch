@@ -309,6 +309,40 @@ mod disk {
     }
 
     #[test]
+    fn a_hanging_filesystem_does_not_stall_the_tick() {
+        /// Answers only after a while, like statvfs on a failing drive.
+        struct Slow(Arc<AtomicUsize>);
+        impl SpaceProbe for Slow {
+            fn space(&self, _: &Path) -> Option<Space> {
+                if self.0.fetch_add(1, Ordering::Relaxed) == 0 {
+                    std::thread::sleep(Duration::from_millis(600));
+                }
+                Some(Space::from_blocks(1000, 250, 200, 4096))
+            }
+        }
+
+        let root = fixture("basic");
+        let calls = Arc::new(AtomicUsize::new(0));
+        let mut collector =
+            DiskCollector::with_probe(&root, Box::new(Slow(calls)), Instant::now()).unwrap();
+        let mut snap = Snapshot::new();
+        let started = Instant::now();
+        collector.collect(&root, &mut snap).unwrap();
+        // The tick gave up waiting, but the disks themselves are there.
+        assert!(started.elapsed() < Duration::from_millis(500));
+        let disk = snap.disk.take().unwrap();
+        assert!(!disk.disks.is_empty());
+        assert!(disk.filesystems.is_empty());
+
+        // A later refresh picks up the late answer.
+        std::thread::sleep(Duration::from_millis(700));
+        for _ in 0..corewatch_core::disk::FS_EVERY {
+            collector.collect(&root, &mut snap).unwrap();
+        }
+        assert_eq!(snap.disk.unwrap().filesystems.len(), 3);
+    }
+
+    #[test]
     fn missing_mountinfo_keeps_disks_working() {
         let (p, _) = probe(&["/"]);
         let mut collector = DiskCollector::with_probe(&later(), p, Instant::now()).unwrap();

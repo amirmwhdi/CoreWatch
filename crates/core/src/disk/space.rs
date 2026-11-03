@@ -3,7 +3,10 @@
 //! `statvfs` reads the real filesystem and cannot be pointed at a fake root,
 //! so it sits behind [`SpaceProbe`] and tests swap in their own numbers.
 
+use super::MountEntry;
 use std::path::Path;
+use std::sync::mpsc;
+use std::time::Duration;
 
 /// Space on one filesystem, in bytes, counted like `df`.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -55,6 +58,83 @@ impl SpaceProbe for Statvfs {
             )),
             Err(error) => {
                 tracing::debug!(mount_point = %mount_point.display(), %error, "statvfs failed");
+                None
+            }
+        }
+    }
+}
+
+/// How long a tick waits for the space of the filesystems. `statvfs`
+/// answers in microseconds, but on a failing drive (or a stuck mount) it can
+/// hang for minutes; then the last known values stay and every other page
+/// keeps updating.
+pub const SPACE_WAIT: Duration = Duration::from_millis(200);
+
+/// Asks a [`SpaceProbe`] on its own thread.
+pub(crate) struct SpaceWorker {
+    requests: mpsc::Sender<Vec<MountEntry>>,
+    results: mpsc::Receiver<Vec<(MountEntry, Space)>>,
+    /// A request is out and its answer has not come back.
+    busy: bool,
+    /// The slow-answer warning was logged.
+    warned: bool,
+}
+
+impl SpaceWorker {
+    /// `None` when the thread cannot start.
+    pub fn spawn(probe: Box<dyn SpaceProbe>) -> Option<Self> {
+        let (requests, todo) = mpsc::channel::<Vec<MountEntry>>();
+        let (done, results) = mpsc::channel();
+        std::thread::Builder::new()
+            .name("corewatch-space".into())
+            .spawn(move || {
+                // Ends when the collector, and with it `requests`, is dropped.
+                for entries in todo {
+                    let answer = entries
+                        .into_iter()
+                        .filter_map(|entry| {
+                            let space = probe.space(&entry.mount_point)?;
+                            Some((entry, space))
+                        })
+                        .collect();
+                    if done.send(answer).is_err() {
+                        break;
+                    }
+                }
+            })
+            .map_err(|e| tracing::warn!("cannot start the filesystem space thread: {e}"))
+            .ok()?;
+        Some(Self {
+            requests,
+            results,
+            busy: false,
+            warned: false,
+        })
+    }
+
+    /// Ask for the space of `entries` and wait up to [`SPACE_WAIT`]. `None`
+    /// when no answer came in time (the old values should stay); a late
+    /// answer is returned by a later call. While a request is still out, no
+    /// new one is sent.
+    pub fn ask(&mut self, entries: Vec<MountEntry>) -> Option<Vec<(MountEntry, Space)>> {
+        if !self.busy {
+            if self.requests.send(entries).is_err() {
+                return None;
+            }
+            self.busy = true;
+        }
+        match self.results.recv_timeout(SPACE_WAIT) {
+            Ok(answer) => {
+                self.busy = false;
+                if std::mem::take(&mut self.warned) {
+                    tracing::info!("filesystem space answers again");
+                }
+                Some(answer)
+            }
+            Err(_) => {
+                if !std::mem::replace(&mut self.warned, true) {
+                    tracing::warn!("a filesystem does not answer; its space is not updated");
+                }
                 None
             }
         }

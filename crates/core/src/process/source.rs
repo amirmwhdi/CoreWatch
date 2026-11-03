@@ -13,19 +13,13 @@ use std::io::{self, BufRead, BufReader, Write};
 use std::os::unix::fs::MetadataExt;
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 
-/// Commands on stdin: `u` prints `/etc/passwd`, `n <uid>` the passwd entry
-/// of one user from every user database (`getent`), `s` scans, `f` lists the
+/// Commands on stdin: `u` prints `/etc/passwd`, `s` scans, `f` lists the
 /// sockets of every readable process (see `net::parse_fd_listing`); each ends
-/// with `E`. `ls` is the one program it starts, once per `f`; `getent` runs
-/// once per user missing from `/etc/passwd`.
+/// with `E`. `ls` is the one program it starts, once per `f`.
 const HOST_SCRIPT: &str = r#"
 while read -r cmd; do
   case $cmd in
   u) while IFS= read -r l; do printf 'U %s\n' "$l"; done < /etc/passwd ;;
-  n\ *)
-    getent passwd "${cmd#n }" 2>/dev/null | while IFS= read -r l; do
-      printf 'U %s\n' "$l"
-    done ;;
   s)
     read -r l < /proc/stat && printf 'S %s\n' "$l"
     for d in /proc/[0-9]*; do
@@ -110,27 +104,6 @@ impl Reader {
         }
     }
 
-    /// The name of a user missing from `/etc/passwd` (systemd-homed, LDAP,
-    /// …), from the system's user databases. `None` when no database knows
-    /// it, or when `root` is not the real machine.
-    pub fn user_name(&mut self, root: &SysRoot, uid: u32) -> Option<String> {
-        if !root.is_host() {
-            return None;
-        }
-        match self {
-            Self::Direct { .. } => user_name_nss(uid),
-            Self::Host(shell) => {
-                let lines = with_shell(shell, |s| s.request(&format!("n {uid}"))).ok()?;
-                let text = lines
-                    .iter()
-                    .filter_map(|l| l.strip_prefix("U "))
-                    .collect::<Vec<_>>()
-                    .join("\n");
-                parse::parse_passwd(&text).remove(&uid)
-            }
-        }
-    }
-
     /// Which process owns which socket. Empty when it cannot be read.
     pub fn socket_owners(&mut self, root: &SysRoot) -> Owners {
         match self {
@@ -158,37 +131,6 @@ impl Reader {
                 })
             }
         }
-    }
-}
-
-/// `getpwuid_r`: asks every user database configured in nsswitch.conf.
-fn user_name_nss(uid: u32) -> Option<String> {
-    let mut buf = vec![0u8; 1024];
-    loop {
-        // SAFETY: an all-zero `passwd` is a valid value (null pointers, zero
-        // ids); getpwuid_r only writes into `pwd` and `buf`, both alive and
-        // `buf.len()` long, and sets `found` to `&pwd` or null.
-        let mut pwd: libc::passwd = unsafe { std::mem::zeroed() };
-        let mut found: *mut libc::passwd = std::ptr::null_mut();
-        let err = unsafe {
-            libc::getpwuid_r(
-                uid,
-                &mut pwd,
-                buf.as_mut_ptr().cast(),
-                buf.len(),
-                &mut found,
-            )
-        };
-        if err == libc::ERANGE && buf.len() < 64 * 1024 {
-            buf.resize(buf.len() * 4, 0);
-            continue;
-        }
-        if err != 0 || found.is_null() || pwd.pw_name.is_null() {
-            return None;
-        }
-        // SAFETY: on success pw_name points to a NUL-terminated string in `buf`.
-        let name = unsafe { std::ffi::CStr::from_ptr(pwd.pw_name) };
-        return name.to_str().ok().map(str::to_owned);
     }
 }
 
@@ -479,16 +421,5 @@ mod tests {
         assert!(child.try_wait().unwrap().is_none(), "still running");
         assert!(run(pid, start).success());
         assert!(!child.wait().unwrap().success());
-    }
-
-    #[test]
-    fn user_databases_name_root() {
-        assert_eq!(user_name_nss(0).as_deref(), Some("root"));
-    }
-
-    #[test]
-    fn no_user_database_lookup_for_a_fake_root() {
-        let root = SysRoot::at("tests/fixtures/desktop");
-        assert_eq!(Reader::new(ProcessSource::Direct).user_name(&root, 0), None);
     }
 }

@@ -7,10 +7,11 @@ mod space;
 
 pub use diskstats::{parse_diskstats, DiskStat, IoCounters, SECTOR_BYTES};
 pub use mountinfo::{local_filesystems, parse_mountinfo, MountEntry};
-pub use space::{Space, SpaceProbe, Statvfs};
+pub use space::{Space, SpaceProbe, Statvfs, SPACE_WAIT};
 
 use crate::{CollectError, Collector, Snapshot, SysRoot};
 use devices::DeviceInfo;
+use space::SpaceWorker;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::Instant;
@@ -82,7 +83,8 @@ impl DiskSample {
 }
 
 pub struct DiskCollector {
-    probe: Box<dyn SpaceProbe>,
+    /// `None` when its thread could not start: no filesystem list then.
+    space: Option<SpaceWorker>,
     prev: HashMap<String, IoCounters>,
     prev_at: Instant,
     info: HashMap<String, DeviceInfo>,
@@ -111,7 +113,7 @@ impl DiskCollector {
             .map(|s| (s.name, s.counters))
             .collect();
         Ok(Self {
-            probe,
+            space: SpaceWorker::spawn(probe),
             prev,
             prev_at: now,
             info: HashMap::new(),
@@ -206,16 +208,21 @@ impl DiskCollector {
             }
         };
         self.mountinfo_failed = false;
-        self.filesystems = local_filesystems(&entries)
+        let Some(answer) = self
+            .space
+            .as_mut()
+            .and_then(|space| space.ask(local_filesystems(&entries)))
+        else {
+            return;
+        };
+        self.filesystems = answer
             .into_iter()
-            .filter_map(|entry| {
-                let space = self.probe.space(&entry.mount_point)?;
-                (space.total > 0).then_some(Filesystem {
-                    mount_point: entry.mount_point,
-                    source: entry.source,
-                    fs_type: entry.fs_type,
-                    space,
-                })
+            .filter(|(_, space)| space.total > 0)
+            .map(|(entry, space)| Filesystem {
+                mount_point: entry.mount_point,
+                source: entry.source,
+                fs_type: entry.fs_type,
+                space,
             })
             .collect();
     }
