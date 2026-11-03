@@ -286,6 +286,22 @@ it. Modules are registered in one place, `crates/app/src/modules/mod.rs`.
 
 The window and the sampler never change when a module is added.
 
+### Releasing
+
+The version is written in Cargo, Meson, the metainfo and every packaging
+recipe. `scripts/version.sh` moves them all at once, and CI fails when they
+disagree:
+
+```sh
+scripts/version.sh                          # the current version
+scripts/version.sh check                    # do all files agree?
+scripts/version.sh bump 0.4.0 notes.txt     # new version, one note per line
+```
+
+The notes become the metainfo release and the Debian and RPM changelog
+entries. Then commit `release: <version>`, tag `v<version>` and push the
+tag: the Release workflow builds and publishes every package.
+
 ## License
 
 Corewatch is free software, released under the GNU General Public License,

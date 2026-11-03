@@ -32,6 +32,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+      - name: Versions agree
+        run: scripts/version.sh check
       - name: Format
         run: cargo fmt --all --check
       - name: Lint

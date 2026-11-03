@@ -33,11 +33,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n 1)
-          meson_version=$(sed -n "s/^  version: '\(.*\)',/\1/p" meson.build)
-          if [[ "$version" != "$meson_version" ]]; then
-            echo "Cargo.toml says $version, meson.build says $meson_version"; exit 1
-          fi
+          # Every file must name the same version (Cargo, Meson, metainfo, packaging).
+          version=$(scripts/version.sh check)
           if [[ "$GITHUB_REF_TYPE" == tag && "$GITHUB_REF_NAME" != "v$version" ]]; then
             echo "Tag $GITHUB_REF_NAME does not match version $version"; exit 1
           fi
