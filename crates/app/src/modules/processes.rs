@@ -263,7 +263,13 @@ impl ProcessesPage {
         let end_button = ui.end_button.get();
         selection
             .bind_property("selected-item", &end_button, "sensitive")
-            .transform_to(|_, item: Option<glib::Object>| Some(item.is_some()))
+            .transform_to(|_, item: Option<glib::Object>| {
+                let row = item
+                    .and_downcast::<gtk::TreeListRow>()
+                    .and_then(|r| r.item())
+                    .and_downcast::<row::ProcessRow>();
+                Some(row.is_some_and(|r| r.can_end()))
+            })
             .sync_create()
             .build();
         let toasts = ui.toasts.get();
@@ -273,7 +279,7 @@ impl ProcessesPage {
             #[weak]
             toasts,
             move |button| {
-                if let Some(process) = selected(&selection) {
+                if let Some(process) = selected(&selection).filter(|p| p.can_end()) {
                     confirm_end(button.upcast_ref(), &toasts, &process);
                 }
             }
@@ -826,6 +832,14 @@ pub(crate) mod row {
 
         pub fn is_group(&self) -> bool {
             self.imp().children.borrow().is_some()
+        }
+
+        /// Whether End Process applies: a process, or an app's group. Not
+        /// the Kernel group (kernel threads cannot be ended) nor Other
+        /// Processes, which holds processes that have nothing to do with
+        /// each other.
+        pub fn can_end(&self) -> bool {
+            !self.is_group() || !matches!(self.group().as_deref(), None | Some(KERNEL))
         }
 
         /// A group row's name and totals, from its processes.
