@@ -596,6 +596,21 @@ fn sensor_collector_reads_temperatures_and_fans() {
 }
 
 #[test]
+fn a_process_whose_name_is_not_utf8_is_listed() {
+    use corewatch_core::process::{ProcessCollector, ProcessSource};
+    use std::sync::atomic::AtomicBool;
+
+    static ACTIVE: AtomicBool = AtomicBool::new(true);
+    let root = fixture("odd-name");
+    let mut collector = ProcessCollector::new(&root, ProcessSource::Direct, &ACTIVE).unwrap();
+    let mut snap = Snapshot::new();
+    collector.collect(&root, &mut snap).unwrap();
+    let list = snap.processes.unwrap().processes;
+    assert_eq!(list.len(), 1);
+    assert_eq!(&*list[0].name, "bad\u{fffd}name");
+}
+
+#[test]
 fn process_collector_lists_processes_with_full_names() {
     use corewatch_core::process::{ProcessCollector, ProcessSource};
     use std::sync::atomic::AtomicBool;

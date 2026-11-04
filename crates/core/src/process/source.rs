@@ -10,7 +10,6 @@ use super::net::{parse_fd_listing, Owners};
 use super::parse::{self, parse_proc_stat, parse_statm, parse_status_uid, RawProcess};
 use crate::{CollectError, SysRoot};
 use std::io::{self, BufRead, BufReader, Write};
-use std::os::unix::fs::MetadataExt;
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 
 /// Commands on stdin: `u` prints `/etc/passwd`, `s` scans, `f` lists the
@@ -71,7 +70,7 @@ pub(super) struct Scan {
 }
 
 pub(super) enum Reader {
-    Direct { buf: String },
+    Direct { buf: Vec<u8> },
     Host(Option<HostShell>),
 }
 
@@ -79,7 +78,7 @@ impl Reader {
     pub fn new(source: ProcessSource) -> Self {
         match source {
             ProcessSource::Direct => Self::Direct {
-                buf: String::with_capacity(1024),
+                buf: Vec::with_capacity(4096),
             },
             ProcessSource::FlatpakHost => Self::Host(None),
         }
@@ -134,41 +133,66 @@ impl Reader {
     }
 }
 
-fn scan_direct(root: &SysRoot, buf: &mut String) -> Result<Scan, CollectError> {
+/// One scan of `/proc`, in as few system calls as it takes (seven per
+/// process): `/proc` is opened once, a process's files are opened relative
+/// to it (`openat`) and read in one go into one reused buffer, and the
+/// owner comes from one `fstatat`. No paths are allocated per file.
+fn scan_direct(root: &SysRoot, buf: &mut Vec<u8>) -> Result<Scan, CollectError> {
+    use rustix::fs::{statat, AtFlags, Dir, Mode, OFlags};
+
     let dir = root.proc_path("");
-    let entries = std::fs::read_dir(&dir).map_err(|source| CollectError::Io {
+    let io_error = |source: rustix::io::Errno| CollectError::Io {
         path: dir.clone(),
-        source,
-    })?;
+        source: source.into(),
+    };
+    let proc_fd = rustix::fs::open(
+        &dir,
+        OFlags::RDONLY | OFlags::DIRECTORY | OFlags::CLOEXEC,
+        Mode::empty(),
+    )
+    .map_err(io_error)?;
+    let mut path = String::with_capacity(32);
     let mut processes = Vec::with_capacity(512);
-    for entry in entries.flatten() {
-        let name = entry.file_name();
-        let Some(pid) = name
+    for entry in Dir::read_from(&proc_fd).map_err(io_error)?.flatten() {
+        let Some(pid) = entry
+            .file_name()
             .to_str()
-            .filter(|n| n.bytes().all(|b| b.is_ascii_digit()))
+            .ok()
+            .filter(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()))
         else {
-            continue;
+            continue; // not a process: "self", "stat", "."
+        };
+        let mut file = |name: &str, buf: &mut Vec<u8>| {
+            path.clear();
+            path.push_str(pid);
+            path.push('/');
+            path.push_str(name);
+            read_at(&proc_fd, &path, buf)
         };
         // A process can exit between listing and reading: skip it quietly.
-        if root.read_proc_into(&format!("{pid}/stat"), buf).is_err() {
+        // A name need not be UTF-8: read bytes, decode lossily.
+        if file("stat", buf).is_err() {
             continue;
         }
-        let Some(stat) = parse_proc_stat(buf.trim_end()) else {
+        let Some(stat) = parse_proc_stat(String::from_utf8_lossy(buf).trim_end()) else {
             continue;
         };
-        if root.read_proc_into(&format!("{pid}/statm"), buf).is_err() {
+        if file("statm", buf).is_err() {
             continue;
         }
-        let Some(private_pages) = parse_statm(buf) else {
+        let Some(private_pages) = std::str::from_utf8(buf).ok().and_then(parse_statm) else {
             continue;
         };
         // The owner of /proc/<pid> is the process's effective uid; reading
         // `status` would cost one more file per process.
-        let uid = entry.metadata().ok().map(|m| m.uid()).or_else(|| {
-            root.read_proc_into(&format!("{pid}/status"), buf)
-                .ok()
-                .and_then(|()| parse_status_uid(buf))
-        });
+        let uid = statat(&proc_fd, pid, AtFlags::empty())
+            .ok()
+            .map(|st| st.st_uid)
+            .or_else(|| {
+                file("status", buf)
+                    .ok()
+                    .and_then(|()| parse_status_uid(&String::from_utf8_lossy(buf)))
+            });
         processes.push(RawProcess {
             stat,
             uid,
@@ -183,6 +207,27 @@ fn scan_direct(root: &SysRoot, buf: &mut String) -> Result<Scan, CollectError> {
         cpu_line,
         processes,
     })
+}
+
+/// Read the file at `path`, relative to the directory `dir`, into `buf`.
+///
+/// Files in /proc are made whole on the first read, so a read that leaves
+/// room in the buffer has everything; only a full buffer asks for more.
+fn read_at(dir: &impl std::os::fd::AsFd, path: &str, buf: &mut Vec<u8>) -> rustix::io::Result<()> {
+    use rustix::fs::{openat, Mode, OFlags};
+    let file = openat(dir, path, OFlags::RDONLY | OFlags::CLOEXEC, Mode::empty())?;
+    buf.clear();
+    loop {
+        if buf.capacity() - buf.len() < 1024 {
+            buf.reserve(4096);
+        }
+        let room = buf.capacity() - buf.len();
+        // Appends what was read to `buf`.
+        let n = rustix::io::read(&file, rustix::buffer::spare_capacity(buf))?;
+        if n == 0 || n < room {
+            return Ok(());
+        }
+    }
 }
 
 fn socket_owners_direct(root: &SysRoot) -> Owners {
