@@ -129,16 +129,23 @@ pub fn show(parent: &gtk::Widget, process: &ProcessRow) {
     window.dialog.present(Some(parent));
 
     // Refresh once now, then every second until the window closes or the
-    // process ends.
-    let weak = window.dialog.downgrade();
+    // process ends. The loop holds the window's widgets, so it cannot wait
+    // for them to be freed: the dialog's closed signal stops it.
+    let closed = Rc::new(Cell::new(false));
+    window.dialog.connect_closed(glib::clone!(
+        #[strong]
+        closed,
+        move |_| closed.set(true)
+    ));
     let process = process.clone();
     glib::spawn_future_local(async move {
         loop {
-            if weak.upgrade().is_none() {
+            if closed.get() {
                 break;
             }
             window.live(&process);
-            if !refresh(&window, source, pid, start_ticks).await {
+            // Closed while the details were read: show nothing more.
+            if !refresh(&window, source, pid, start_ticks).await || closed.get() {
                 break;
             }
             glib::timeout_future(Duration::from_secs(1)).await;
