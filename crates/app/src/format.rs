@@ -46,6 +46,34 @@ pub fn plural<'a>(n: impl TryInto<u64>, one: &'a str, many: &'a str) -> &'a str 
     }
 }
 
+/// How long tasks waited for a resource, for a "Pressure" row:
+/// "Some tasks waited 12% of the time, all tasks 2% (last 10 s)".
+pub fn pressure(p: &corewatch_core::pressure::Pressure, with_full: bool) -> String {
+    match p.full.filter(|_| with_full) {
+        Some(full) => fmt(
+            "Some tasks waited {some} of the time, all tasks {full} (last 10 s)",
+            &[("some", &percent(p.some)), ("full", &percent(full))],
+        ),
+        None => fmt(
+            "Some tasks waited {some} of the time (last 10 s)",
+            &[("some", &percent(p.some))],
+        ),
+    }
+}
+
+/// Show a "Pressure" row with `p`, or hide it when there is none.
+pub fn set_pressure_row(
+    row: &adw::ActionRow,
+    p: Option<&corewatch_core::pressure::Pressure>,
+    with_full: bool,
+) {
+    use adw::prelude::*;
+    row.set_visible(p.is_some());
+    if let Some(p) = p {
+        row.set_subtitle(&pressure(p, with_full));
+    }
+}
+
 /// A share 0.0..=1.0 as a whole percentage, e.g. "37%".
 pub fn percent(fraction: f32) -> String {
     format!("{:.0}%", fraction * 100.0)

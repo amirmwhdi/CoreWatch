@@ -114,6 +114,10 @@ and Wi-Fi signal strength.
 - **Processor:** total usage graph, one graph per logical core, model, cores
   and threads, current frequency.
 - **Memory:** used, available, cache and buffers, swap, and a usage graph.
+- **Pressure:** how much of the time tasks waited for the processor,
+  memory or disks (the kernel's pressure stall information), on the
+  Overview and on each of those pages: a better answer to "why is it slow"
+  than the load average.
 - **Graphics:** every card with its model name, driver, load graph, core and
   memory clock, video memory, temperature, power and fan.
 - **Disks:** activity graph, read and write speed, temperature of each

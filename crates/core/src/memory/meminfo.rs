@@ -58,6 +58,7 @@ pub fn parse_meminfo(text: &str) -> Result<MemorySample, CollectError> {
         buffers,
         swap_total,
         swap_used: swap_total.saturating_sub(swap_free),
+        pressure: None,
     })
 }
 

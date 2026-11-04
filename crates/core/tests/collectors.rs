@@ -23,6 +23,18 @@ fn memory_collector_fills_its_field_only() {
     assert_eq!(m.used, 2_000_000 * 1024);
     assert_eq!(m.swap_used, 0);
     assert!(snap.cpu.is_none());
+    let pressure = m.pressure.unwrap();
+    assert!((pressure.some - 0.125).abs() < 1e-6);
+    assert!((pressure.full.unwrap() - 0.02).abs() < 1e-6);
+}
+
+#[test]
+fn no_pressure_without_psi() {
+    // This fixture has no /proc/pressure, like a kernel without PSI.
+    let root = fixture("no-cpufreq");
+    let mut snap = Snapshot::new();
+    MemoryCollector.collect(&root, &mut snap).unwrap();
+    assert_eq!(snap.memory.unwrap().pressure, None);
 }
 
 #[test]
@@ -37,6 +49,7 @@ fn cpu_collector_reads_info_cores_and_frequency() {
     assert_eq!(cpu.info.logical, 2);
     assert_eq!(cpu.info.physical, Some(2));
     assert_eq!(cpu.cores.len(), 2);
+    assert!((cpu.pressure.unwrap().some - 0.04).abs() < 1e-6);
     // Same file read twice: no time passed, so usage is zero.
     assert_eq!(cpu.usage, 0.0);
     assert_eq!(cpu.cores[0].freq_mhz, Some(2400));
@@ -285,7 +298,9 @@ mod disk {
         let mut snap = Snapshot::new();
         collector.collect(&root, &mut snap).unwrap();
 
-        let fs = snap.disk.unwrap().filesystems;
+        let disk = snap.disk.unwrap();
+        assert!((disk.pressure.unwrap().full.unwrap() - 0.2).abs() < 1e-6);
+        let fs = disk.filesystems;
         let points: Vec<_> = fs.iter().map(|f| f.mount_point.clone()).collect();
         assert_eq!(points, [PathBuf::from("/"), PathBuf::from("/mnt/My Data")]);
         assert_eq!(fs[0].fs_type, "ext4");

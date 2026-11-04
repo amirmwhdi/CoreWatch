@@ -34,6 +34,7 @@ struct OverviewPage {
     disk: Card,
     network: Card,
     system: Card,
+    pressure: Card,
     battery: Card,
 }
 
@@ -53,9 +54,48 @@ impl OverviewPage {
                 String::from("System"),
                 "preferences-system-symbolic",
             ),
+            pressure: card("cpu", String::from("Pressure"), "cw-pressure-symbolic"),
             battery: card("battery", String::from("Battery"), "battery-symbolic"),
             root: view.upcast(),
         }
+    }
+}
+
+impl OverviewPage {
+    /// The Pressure card: the resource tasks waited for most, and the card
+    /// opens that resource's page.
+    fn update_pressure(&self, s: &Snapshot) {
+        let all = [
+            ("cpu", "CPU", s.cpu.as_ref().and_then(|c| c.pressure)),
+            (
+                "memory",
+                "Memory",
+                s.memory.as_ref().and_then(|m| m.pressure),
+            ),
+            ("disk", "I/O", s.disk.as_ref().and_then(|d| d.pressure)),
+        ];
+        let known: Vec<_> = all
+            .iter()
+            .filter_map(|(page, name, p)| Some((*page, *name, p.as_ref()?.some)))
+            .collect();
+        let Some(&(page, name, worst)) = known.iter().max_by(|a, b| a.2.total_cmp(&b.2)) else {
+            return;
+        };
+        let value = if worst < 0.01 {
+            String::from("None")
+        } else {
+            format::fmt(
+                "{resource} {share}",
+                &[("resource", &name), ("share", &format::percent(worst))],
+            )
+        };
+        let detail = known
+            .iter()
+            .map(|(_, name, share)| format!("{name} {}", format::percent(*share)))
+            .collect::<Vec<_>>()
+            .join(" · ");
+        self.pressure.set(Some(worst), &value, &detail);
+        self.pressure.open_page(page);
     }
 }
 
@@ -182,6 +222,8 @@ impl ResourcePage for OverviewPage {
             );
         }
 
+        self.update_pressure(s);
+
         if let Some(b) = s.battery.as_ref().and_then(|b| b.batteries.first()) {
             self.battery.set(
                 Some(b.capacity),
@@ -297,6 +339,14 @@ impl Card {
             value,
             detail,
             graph,
+        }
+    }
+
+    /// The page the card opens.
+    fn open_page(&self, page: &str) {
+        let target = page.to_variant();
+        if self.button.action_target_value().as_ref() != Some(&target) {
+            self.button.set_action_target_value(Some(&target));
         }
     }
 

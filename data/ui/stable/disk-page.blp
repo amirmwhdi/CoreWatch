@@ -32,6 +32,16 @@ template $CwDiskPage: Adw.Bin {
           ]
         }
 
+        // Hidden on kernels without pressure information.
+        Adw.PreferencesGroup pressure_group {
+          visible: false;
+
+          Adw.ActionRow pressure {
+            title: "I/O Pressure";
+            subtitle: "…";
+          }
+        }
+
         Adw.PreferencesGroup fs_group {
           title: "Filesystems";
         }

@@ -30,6 +30,7 @@ struct CpuPage {
     model: adw::ActionRow,
     usage: adw::ActionRow,
     freq: adw::ActionRow,
+    pressure: adw::ActionRow,
     info_set: Cell<bool>,
     threads_desc: RefCell<String>,
     core_grid: gtk::FlowBox,
@@ -47,6 +48,7 @@ impl CpuPage {
             model: ui.model.get(),
             usage: ui.usage.get(),
             freq: ui.freq.get(),
+            pressure: ui.pressure.get(),
             info_set: Cell::new(false),
             threads_desc: RefCell::default(),
             core_grid: ui.core_grid.get(),
@@ -142,6 +144,9 @@ impl ResourcePage for CpuPage {
             None => String::from("Unknown"),
         });
 
+        // The system-wide "full" line of the CPU is always zero: some only.
+        format::set_pressure_row(&self.pressure, cpu.pressure.as_ref(), false);
+
         self.ensure_cores(cpu.cores.len());
         for ((graph, label), core) in self.cores.borrow().iter().zip(&cpu.cores) {
             graph.push(core.usage);
@@ -185,6 +190,8 @@ mod view {
             pub usage: TemplateChild<adw::ActionRow>,
             #[template_child]
             pub freq: TemplateChild<adw::ActionRow>,
+            #[template_child]
+            pub pressure: TemplateChild<adw::ActionRow>,
             #[template_child]
             pub core_grid: TemplateChild<gtk::FlowBox>,
         }

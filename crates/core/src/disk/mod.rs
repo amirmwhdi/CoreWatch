@@ -9,6 +9,7 @@ pub use diskstats::{parse_diskstats, DiskStat, IoCounters, SECTOR_BYTES};
 pub use mountinfo::{local_filesystems, parse_mountinfo, MountEntry};
 pub use space::{Space, SpaceProbe, Statvfs, SPACE_WAIT};
 
+use crate::pressure::{self, Pressure, Resource};
 use crate::{CollectError, Collector, Snapshot, SysRoot};
 use devices::DeviceInfo;
 use space::SpaceWorker;
@@ -66,6 +67,8 @@ pub struct DiskSample {
     pub disks: Vec<DiskDevice>,
     /// Sorted by mount point.
     pub filesystems: Vec<Filesystem>,
+    /// How much of the time tasks waited for disk I/O; `None` without PSI.
+    pub pressure: Option<Pressure>,
 }
 
 impl DiskSample {
@@ -183,6 +186,7 @@ impl DiskCollector {
         out.disk = Some(DiskSample {
             disks,
             filesystems: self.filesystems.clone(),
+            pressure: pressure::read(root, Resource::Io),
         });
         Ok(())
     }

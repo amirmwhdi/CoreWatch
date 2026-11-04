@@ -47,6 +47,13 @@ template $CwMemoryPage: Adw.Bin {
               valign: center;
             }
           }
+
+          // Hidden on kernels without pressure information.
+          Adw.ActionRow pressure {
+            title: "Pressure";
+            subtitle: "…";
+            visible: false;
+          }
         }
       };
     };

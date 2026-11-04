@@ -6,6 +6,7 @@ mod stat;
 pub use info::CpuInfo;
 pub use stat::{parse_stat, CoreTimes, CpuTimes, StatTimes};
 
+use crate::pressure::{self, Pressure, Resource};
 use crate::{CollectError, Collector, Snapshot, SysRoot};
 use std::sync::Arc;
 
@@ -27,6 +28,8 @@ pub struct CpuSample {
     pub usage: f32,
     /// One entry per online logical core, in kernel order.
     pub cores: Vec<CoreSample>,
+    /// How much of the time tasks waited for a CPU; `None` without PSI.
+    pub pressure: Option<Pressure>,
 }
 
 impl CpuSample {
@@ -82,6 +85,7 @@ impl Collector for CpuCollector {
             info: Arc::clone(&self.info),
             usage: now.total.usage_since(&self.prev.total),
             cores,
+            pressure: pressure::read(root, Resource::Cpu),
         });
         self.prev = now;
         Ok(())

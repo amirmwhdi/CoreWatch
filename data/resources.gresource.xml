@@ -17,6 +17,7 @@
     <file preprocess="xml-stripblanks">ui/sensors-page.ui</file>
     <file alias="icons/scalable/apps/io.github.amirmwhdi.Corewatch.svg">icons/io.github.amirmwhdi.Corewatch.svg</file>
     <file alias="icons/scalable/status/cw-temperature-symbolic.svg" preprocess="xml-stripblanks">icons/symbolic/cw-temperature-symbolic.svg</file>
+    <file alias="icons/scalable/status/cw-pressure-symbolic.svg" preprocess="xml-stripblanks">icons/symbolic/cw-pressure-symbolic.svg</file>
     <!-- Loaded automatically by AdwApplication from <app-id path>/style.css -->
     <file>style.css</file>
   </gresource>

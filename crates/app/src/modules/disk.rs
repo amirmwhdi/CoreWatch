@@ -38,6 +38,8 @@ struct DiskPage {
     /// plugged in so its graph keeps its history.
     disks: RefCell<BTreeMap<String, DiskBlock>>,
     fs_group: adw::PreferencesGroup,
+    pressure_group: adw::PreferencesGroup,
+    pressure: adw::ActionRow,
     fs_rows: RefCell<Vec<(PathBuf, adw::ActionRow, gtk::LevelBar)>>,
 }
 
@@ -52,6 +54,8 @@ impl DiskPage {
             no_disks: ui.no_disks.get(),
             disks: RefCell::default(),
             fs_group: ui.fs_group.get(),
+            pressure_group: ui.pressure_group.get(),
+            pressure: ui.pressure.get(),
             fs_rows: RefCell::default(),
             sensors: SensorGroup::new(ui.sensors_group.get(), Home::Disk),
             root: view.upcast(),
@@ -156,6 +160,8 @@ impl ResourcePage for DiskPage {
         let Some(disk) = &snapshot.disk else { return };
         self.sync_disks(&disk.disks);
         self.sync_filesystems(&disk.filesystems);
+        self.pressure_group.set_visible(disk.pressure.is_some());
+        format::set_pressure_row(&self.pressure, disk.pressure.as_ref(), true);
     }
 
     fn has_data(&self, snapshot: &Snapshot) -> bool {
@@ -333,6 +339,10 @@ mod view {
             pub no_disks: TemplateChild<gtk::Label>,
             #[template_child]
             pub fs_group: TemplateChild<adw::PreferencesGroup>,
+            #[template_child]
+            pub pressure_group: TemplateChild<adw::PreferencesGroup>,
+            #[template_child]
+            pub pressure: TemplateChild<adw::ActionRow>,
         }
 
         #[glib::object_subclass]

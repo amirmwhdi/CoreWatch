@@ -40,6 +40,13 @@ template $CwCpuPage: Adw.Bin {
             subtitle: "…";
             subtitle-selectable: true;
           }
+
+          // Hidden on kernels without pressure information.
+          Adw.ActionRow pressure {
+            title: "Pressure";
+            subtitle: "…";
+            visible: false;
+          }
         }
 
         Label {

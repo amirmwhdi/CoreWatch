@@ -29,6 +29,7 @@ struct MemoryPage {
     cached: adw::ActionRow,
     swap: adw::ActionRow,
     swap_bar: gtk::LevelBar,
+    pressure: adw::ActionRow,
 }
 
 impl MemoryPage {
@@ -44,6 +45,7 @@ impl MemoryPage {
             cached: ui.cached.get(),
             swap: ui.swap.get(),
             swap_bar: ui.swap_bar.get(),
+            pressure: ui.pressure.get(),
             root: view.upcast(),
         }
     }
@@ -97,6 +99,7 @@ impl ResourcePage for MemoryPage {
             self.swap_bar.set_visible(true);
             self.swap_bar.set_value(f64::from(m.swap_fraction()));
         }
+        format::set_pressure_row(&self.pressure, m.pressure.as_ref(), true);
     }
 
     fn has_data(&self, snapshot: &Snapshot) -> bool {
@@ -136,6 +139,8 @@ mod view {
             pub swap: TemplateChild<adw::ActionRow>,
             #[template_child]
             pub swap_bar: TemplateChild<gtk::LevelBar>,
+            #[template_child]
+            pub pressure: TemplateChild<adw::ActionRow>,
         }
 
         #[glib::object_subclass]
