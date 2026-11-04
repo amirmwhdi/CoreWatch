@@ -40,27 +40,27 @@
 
   <screenshots>
     <screenshot type="default">
-      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.4.0/data/screenshots/light/overview.png</image>
+      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.5.0/data/screenshots/light/overview.png</image>
       <caption>Every resource at a glance</caption>
     </screenshot>
     <screenshot>
-      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.4.0/data/screenshots/light/processes.png</image>
+      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.5.0/data/screenshots/light/processes.png</image>
       <caption>Sort, search and end processes, with each app's download and upload speed</caption>
     </screenshot>
     <screenshot>
-      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.4.0/data/screenshots/light/processor.png</image>
+      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.5.0/data/screenshots/light/processor.png</image>
       <caption>Total and per-core usage, frequency and CPU sensors</caption>
     </screenshot>
     <screenshot>
-      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.4.0/data/screenshots/light/graphics.png</image>
+      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.5.0/data/screenshots/light/graphics.png</image>
       <caption>Load, clocks, memory, temperature, power and fan of every graphics card</caption>
     </screenshot>
     <screenshot>
-      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.4.0/data/screenshots/light/disks.png</image>
+      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.5.0/data/screenshots/light/disks.png</image>
       <caption>Activity, speeds and temperature of each drive</caption>
     </screenshot>
     <screenshot>
-      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.4.0/data/screenshots/light/network.png</image>
+      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.5.0/data/screenshots/light/network.png</image>
       <caption>Download and upload speed per interface</caption>
     </screenshot>
   </screenshots>
@@ -101,6 +101,21 @@
   </branding>
 
   <releases>
+    <release version="0.5.0" date="2026-11-04">
+      <description>
+        <ul>
+          <li>Group by App: one row per app, with the total CPU, memory, graphics and network use of its processes</li>
+          <li>Graphics card use of each process, for amdgpu, Intel, NVIDIA and other drivers</li>
+          <li>Process details: command line, program file, start time, disk reads and writes, and network connections, with Suspend, Resume and Lower Priority</li>
+          <li>Pressure: how long tasks waited for the processor, memory and disks, on the Overview and on each page</li>
+          <li>Performance and efficient cores are shown apart on hybrid processors</li>
+          <li>Alerts for high temperatures, full memory or disks, and a process that keeps a core busy, with an option to keep watching in the background</li>
+          <li>Graph history of 1, 5 or 15 minutes, or an hour, and the battery's charge over the last day</li>
+          <li>A faster process scan</li>
+          <li>Corewatch is now in English only</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.4.0" date="2026-11-03">
       <description>
         <ul>

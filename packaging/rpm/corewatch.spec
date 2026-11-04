@@ -1,5 +1,5 @@
 Name:           corewatch
-Version:        0.4.0
+Version:        0.5.0
 Release:        1%{?dist}
 Summary:        A modern system monitor for Linux
 License:        GPL-3.0-or-later
@@ -53,6 +53,17 @@ export CARGO_NET_OFFLINE=true
 %{_datadir}/icons/hicolor/scalable/apps/io.github.amirmwhdi.Corewatch.svg
 
 %changelog
+* Wed Nov 04 2026 Amirmahdi <amirmwhdi@users.noreply.github.com> - 0.5.0-1
+- Group by App: one row per app, with the total CPU, memory, graphics and network use of its processes
+- Graphics card use of each process, for amdgpu, Intel, NVIDIA and other drivers
+- Process details: command line, program file, start time, disk reads and writes, and network connections, with Suspend, Resume and Lower Priority
+- Pressure: how long tasks waited for the processor, memory and disks, on the Overview and on each page
+- Performance and efficient cores are shown apart on hybrid processors
+- Alerts for high temperatures, full memory or disks, and a process that keeps a core busy, with an option to keep watching in the background
+- Graph history of 1, 5 or 15 minutes, or an hour, and the battery's charge over the last day
+- A faster process scan
+- Corewatch is now in English only
+
 * Tue Nov 03 2026 Amirmahdi <amirmwhdi@users.noreply.github.com> - 0.4.0-1
 - Persian translation, with a right-to-left layout and Persian digits
 - Keyboard shortcuts: Ctrl+1 to Ctrl+9 open the pages, Ctrl+F searches the processes, Delete ends the selected one, and Ctrl+? lists them all
