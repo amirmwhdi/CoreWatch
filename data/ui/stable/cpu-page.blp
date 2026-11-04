@@ -1,8 +1,6 @@
 using Gtk 4.0;
 using Adw 1;
 
-translation-domain "corewatch";
-
 // CPU page. The per-core graphs are added to core_grid at run time, once the
 // first sample says how many cores there are.
 template $CwCpuPage: Adw.Bin {
@@ -26,26 +24,26 @@ template $CwCpuPage: Adw.Bin {
 
         Adw.PreferencesGroup {
           Adw.ActionRow model {
-            title: _("Model");
+            title: "Model";
             subtitle: "…";
             subtitle-selectable: true;
           }
 
           Adw.ActionRow usage {
-            title: _("Usage");
+            title: "Usage";
             subtitle: "…";
             subtitle-selectable: true;
           }
 
           Adw.ActionRow freq {
-            title: _("Frequency");
+            title: "Frequency";
             subtitle: "…";
             subtitle-selectable: true;
           }
         }
 
         Label {
-          label: _("Logical cores");
+          label: "Logical cores";
           xalign: 0;
 
           styles [
@@ -64,7 +62,7 @@ template $CwCpuPage: Adw.Bin {
 
         // Sensors that belong to this page; filled by widgets::SensorGroup.
         Adw.PreferencesGroup sensors_group {
-          title: _("Sensors");
+          title: "Sensors";
           visible: false;
         }
       };

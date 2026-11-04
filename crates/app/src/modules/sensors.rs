@@ -3,7 +3,7 @@
 //! pages through `widgets::SensorGroup`.
 
 use super::{Module, ResourcePage};
-use crate::i18n::{self, gettext};
+use crate::format;
 use crate::widgets::sensor_group::{readings, value_label, Reading};
 use adw::prelude::*;
 use adw::subclass::prelude::ObjectSubclassIsExt;
@@ -59,10 +59,8 @@ impl SensorsPage {
         if readings.is_empty() {
             let status = adw::StatusPage::builder()
                 .icon_name("cw-temperature-symbolic")
-                .title(gettext("No Other Sensors"))
-                .description(gettext(
-                    "The sensors of the processor, graphics card, drives, network and battery are shown on their own pages.",
-                ))
+                .title("No Other Sensors")
+                .description("The sensors of the processor, graphics card, drives, network and battery are shown on their own pages.")
                 .vexpand(true)
                 .build();
             self.chips_box.append(&status);
@@ -102,7 +100,7 @@ impl ResourcePage for SensorsPage {
     }
 
     fn title(&self) -> String {
-        gettext("Sensors")
+        String::from("Sensors")
     }
 
     fn icon_name(&self) -> &'static str {
@@ -129,7 +127,7 @@ impl ResourcePage for SensorsPage {
                 rows.push((r.title.clone(), r.critical.clone().unwrap_or_default()));
             }
         }
-        let shape: Shape = (chips, i18n::units_generation());
+        let shape: Shape = (chips, format::units_generation());
         if *self.shape.borrow() != shape {
             self.rebuild(&readings);
             *self.shape.borrow_mut() = shape;
@@ -153,12 +151,12 @@ impl ResourcePage for SensorsPage {
 
 fn chip_title(chip: &Chip) -> String {
     match chip.kind {
-        ChipKind::Cpu => gettext("Processor"),
-        ChipKind::Gpu => gettext("Graphics"),
-        ChipKind::Storage => gettext("Drive"),
-        ChipKind::Board => gettext("Motherboard"),
-        ChipKind::Network => gettext("Wireless card"),
-        ChipKind::Battery => gettext("Battery"),
+        ChipKind::Cpu => String::from("Processor"),
+        ChipKind::Gpu => String::from("Graphics"),
+        ChipKind::Storage => String::from("Drive"),
+        ChipKind::Board => String::from("Motherboard"),
+        ChipKind::Network => String::from("Wireless card"),
+        ChipKind::Battery => String::from("Battery"),
         ChipKind::Other => chip.driver.clone(),
     }
 }

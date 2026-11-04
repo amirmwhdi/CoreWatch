@@ -1,7 +1,7 @@
 //! CPU page: total usage graph, model, frequency, one small graph per core.
 
 use super::{Module, ResourcePage};
-use crate::i18n::{self, gettext, ngettext};
+use crate::format;
 use crate::widgets::{Graph, SensorGroup};
 use adw::prelude::*;
 use adw::subclass::prelude::ObjectSubclassIsExt;
@@ -84,7 +84,7 @@ impl ResourcePage for CpuPage {
     }
 
     fn title(&self) -> String {
-        gettext("Processor")
+        String::from("Processor")
     }
 
     fn icon_name(&self) -> &'static str {
@@ -104,19 +104,19 @@ impl ResourcePage for CpuPage {
         if !self.info_set.get() {
             self.model.set_subtitle(&cpu.info.model);
             let logical = cpu.info.logical;
-            let threads = i18n::fmt(
-                &ngettext("{n} thread", "{n} threads", i18n::count(logical)),
+            let threads = format::fmt(
+                format::plural(logical, "{n} thread", "{n} threads"),
                 &[("n", &logical)],
             );
             let threads = match cpu.info.physical {
                 Some(physical) => {
-                    let cores = i18n::fmt(
-                        &ngettext("{n} core", "{n} cores", i18n::count(physical)),
+                    let cores = format::fmt(
+                        format::plural(physical, "{n} core", "{n} cores"),
                         &[("n", &physical)],
                     );
-                    // Translators: e.g. "8 cores, 16 threads"
-                    i18n::fmt(
-                        &gettext("{cores}, {threads}"),
+                    // e.g. "8 cores, 16 threads"
+                    format::fmt(
+                        "{cores}, {threads}",
                         &[("cores", &cores), ("threads", &threads)],
                     )
                 }
@@ -126,26 +126,29 @@ impl ResourcePage for CpuPage {
             self.info_set.set(true);
         }
         let threads = self.threads_desc.borrow();
-        self.usage.set_subtitle(&i18n::fmt(
-            // Translators: e.g. "37% · 8 cores, 16 threads"
-            &gettext("{usage} · {threads}"),
-            &[("usage", &i18n::percent(cpu.usage)), ("threads", &*threads)],
+        self.usage.set_subtitle(&format::fmt(
+            // e.g. "37% · 8 cores, 16 threads"
+            "{usage} · {threads}",
+            &[
+                ("usage", &format::percent(cpu.usage)),
+                ("threads", &*threads),
+            ],
         ));
         self.freq.set_subtitle(&match cpu.max_freq_mhz() {
-            Some(mhz) => i18n::fmt(
-                &gettext("{ghz} GHz (fastest core)"),
+            Some(mhz) => format::fmt(
+                "{ghz} GHz (fastest core)",
                 &[("ghz", &format!("{:.2}", f64::from(mhz) / 1000.0))],
             ),
-            None => gettext("Unknown"),
+            None => String::from("Unknown"),
         });
 
         self.ensure_cores(cpu.cores.len());
         for ((graph, label), core) in self.cores.borrow().iter().zip(&cpu.cores) {
             graph.push(core.usage);
-            label.set_label(&i18n::fmt(
-                // Translators: one logical core, e.g. "CPU 3 · 12%"
-                &gettext("CPU {id} · {usage}"),
-                &[("id", &core.id), ("usage", &i18n::percent(core.usage))],
+            label.set_label(&format::fmt(
+                // one logical core, e.g. "CPU 3 · 12%"
+                "CPU {id} · {usage}",
+                &[("id", &core.id), ("usage", &format::percent(core.usage))],
             ));
         }
     }
@@ -155,7 +158,7 @@ impl ResourcePage for CpuPage {
     }
 
     fn summary(&self, snapshot: &Snapshot) -> Option<String> {
-        snapshot.cpu.as_ref().map(|c| i18n::percent(c.usage))
+        snapshot.cpu.as_ref().map(|c| format::percent(c.usage))
     }
 }
 

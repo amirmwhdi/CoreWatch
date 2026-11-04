@@ -1,8 +1,6 @@
 using Gtk 4.0;
 using Adw 1;
 
-translation-domain "corewatch";
-
 // Battery page. Displays battery level graph, status, remaining time, health, and power metrics.
 template $CwBatteryPage: Adw.Bin {
   child: ScrolledWindow {
@@ -24,16 +22,16 @@ template $CwBatteryPage: Adw.Bin {
         }
 
         Adw.PreferencesGroup info_group {
-          title: _("Battery Details");
+          title: "Battery Details";
 
           Adw.ActionRow status_row {
-            title: _("Status");
+            title: "Status";
             subtitle: "…";
             subtitle-selectable: true;
           }
 
           Adw.ActionRow level_row {
-            title: _("Charge Level");
+            title: "Charge Level";
             subtitle: "…";
             subtitle-selectable: true;
 
@@ -45,31 +43,31 @@ template $CwBatteryPage: Adw.Bin {
           }
 
           Adw.ActionRow time_row {
-            title: _("Time Remaining");
+            title: "Time Remaining";
             subtitle: "…";
             subtitle-selectable: true;
           }
 
           Adw.ActionRow rate_row {
-            title: _("Charge / Discharge Rate");
+            title: "Charge / Discharge Rate";
             subtitle: "…";
             subtitle-selectable: true;
           }
 
           Adw.ActionRow health_row {
-            title: _("Health and Capacity");
+            title: "Health and Capacity";
             subtitle: "…";
             subtitle-selectable: true;
           }
 
           Adw.ActionRow power_supply_row {
-            title: _("AC Power Supply");
+            title: "AC Power Supply";
             subtitle: "…";
             subtitle-selectable: true;
           }
 
           Adw.ActionRow hardware_row {
-            title: _("Hardware");
+            title: "Hardware";
             subtitle: "…";
             subtitle-selectable: true;
           }
@@ -77,7 +75,7 @@ template $CwBatteryPage: Adw.Bin {
 
         // Sensors that belong to this page; filled by widgets::SensorGroup.
         Adw.PreferencesGroup sensors_group {
-          title: _("Sensors");
+          title: "Sensors";
           visible: false;
         }
       };

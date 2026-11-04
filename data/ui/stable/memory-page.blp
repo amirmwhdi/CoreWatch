@@ -1,8 +1,6 @@
 using Gtk 4.0;
 using Adw 1;
 
-translation-domain "corewatch";
-
 // Memory page: usage graph, then used, available, cache and swap.
 template $CwMemoryPage: Adw.Bin {
   child: ScrolledWindow {
@@ -25,22 +23,22 @@ template $CwMemoryPage: Adw.Bin {
 
         Adw.PreferencesGroup {
           Adw.ActionRow used {
-            title: _("Used");
+            title: "Used";
             subtitle: "…";
           }
 
           Adw.ActionRow available {
-            title: _("Available");
+            title: "Available";
             subtitle: "…";
           }
 
           Adw.ActionRow cached {
-            title: _("Cache and buffers");
+            title: "Cache and buffers";
             subtitle: "…";
           }
 
           Adw.ActionRow swap {
-            title: _("Swap");
+            title: "Swap";
             subtitle: "…";
 
             [suffix]

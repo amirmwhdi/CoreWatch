@@ -2,7 +2,7 @@
 //! speed), then the space used on each local filesystem.
 
 use super::{Module, ResourcePage};
-use crate::i18n::{self, gettext};
+use crate::format;
 use crate::widgets::{Graph, SensorGroup};
 use adw::prelude::*;
 use adw::subclass::prelude::ObjectSubclassIsExt;
@@ -119,12 +119,12 @@ impl DiskPage {
             self.fs_group.set_visible(!filesystems.is_empty());
         }
         for ((_, row, bar), fs) in rows.iter().zip(filesystems) {
-            row.set_subtitle(&i18n::fmt(
-                // Translators: e.g. "120 GiB of 500 GiB used · ext4 · /dev/nvme0n1p2"
-                &gettext("{used} of {total} used · {type} · {device}"),
+            row.set_subtitle(&format::fmt(
+                // e.g. "120 GiB of 500 GiB used · ext4 · /dev/nvme0n1p2"
+                "{used} of {total} used · {type} · {device}",
                 &[
-                    ("used", &i18n::size(fs.space.used)),
-                    ("total", &i18n::size(fs.space.total)),
+                    ("used", &format::size(fs.space.used)),
+                    ("total", &format::size(fs.space.total)),
                     ("type", &fs.fs_type),
                     ("device", &fs.source),
                 ],
@@ -140,7 +140,7 @@ impl ResourcePage for DiskPage {
     }
 
     fn title(&self) -> String {
-        gettext("Disks")
+        String::from("Disks")
     }
 
     fn icon_name(&self) -> &'static str {
@@ -163,7 +163,7 @@ impl ResourcePage for DiskPage {
     }
 
     fn summary(&self, snapshot: &Snapshot) -> Option<String> {
-        snapshot.disk.as_ref().map(|d| i18n::speed(d.total_bps()))
+        snapshot.disk.as_ref().map(|d| format::speed(d.total_bps()))
     }
 }
 
@@ -171,7 +171,7 @@ impl ResourcePage for DiskPage {
 struct DiskBlock {
     container: gtk::Box,
     description: gtk::Label,
-    /// Units the description was written in; see `i18n::units_generation`.
+    /// Units the description was written in; see `format::units_generation`.
     units: std::cell::Cell<u32>,
     graph: Graph,
     read: adw::ActionRow,
@@ -196,15 +196,15 @@ impl DiskBlock {
             .build();
 
         let graph = Graph::new(100);
-        graph.update_property(&[gtk::accessible::Property::Label(&i18n::fmt(
-            &gettext("Activity of {model}"),
+        graph.update_property(&[gtk::accessible::Property::Label(&format::fmt(
+            "Activity of {model}",
             &[("model", &device.model)],
         ))]);
 
         let row = |title: &str| adw::ActionRow::builder().title(title).subtitle("…").build();
-        let (read, write) = (row(&gettext("Read")), row(&gettext("Write")));
+        let (read, write) = (row("Read"), row("Write"));
         let rows = adw::PreferencesGroup::new();
-        let temp = row(&gettext("Temperature"));
+        let temp = row("Temperature");
         temp.set_visible(false);
         rows.add(&read);
         rows.add(&write);
@@ -222,7 +222,7 @@ impl DiskBlock {
         Self {
             container,
             description,
-            units: std::cell::Cell::new(i18n::units_generation()),
+            units: std::cell::Cell::new(format::units_generation()),
             graph,
             read,
             write,
@@ -231,7 +231,7 @@ impl DiskBlock {
     }
 
     fn update(&self, device: &DiskDevice) {
-        if self.units.replace(i18n::units_generation()) != i18n::units_generation() {
+        if self.units.replace(format::units_generation()) != format::units_generation() {
             self.description.set_label(&block_description(device));
         }
         if let Some(busy) = device.busy {
@@ -247,7 +247,7 @@ impl DiskBlock {
             .or_else(|| crate::drive_temps::celsius(&device.name));
         self.temp.set_visible(temp_c.is_some());
         if let Some(temp) = temp_c {
-            let text = i18n::celsius(temp);
+            let text = format::celsius(temp);
             if self.temp.subtitle().as_deref() != Some(text.as_str()) {
                 self.temp.set_subtitle(&text);
             }
@@ -257,12 +257,12 @@ impl DiskBlock {
 
 /// "NVMe · 512 GiB · nvme0n1"
 fn block_description(device: &DiskDevice) -> String {
-    i18n::fmt(
-        // Translators: disk type, size and kernel name, e.g. "NVMe · 512 GiB · nvme0n1"
-        &gettext("{kind} · {size} · {name}"),
+    format::fmt(
+        // disk type, size and kernel name, e.g. "NVMe · 512 GiB · nvme0n1"
+        "{kind} · {size} · {name}",
         &[
             ("kind", &kind_label(device.kind)),
-            ("size", &i18n::size(device.size)),
+            ("size", &format::size(device.size)),
             ("name", &device.name),
         ],
     )
@@ -271,9 +271,12 @@ fn block_description(device: &DiskDevice) -> String {
 /// "12.3 MiB/s · 4.1 GiB since boot"; "…" while the speed is not known yet.
 fn transfer(bps: Option<u64>, total: u64) -> String {
     match bps {
-        Some(bps) => i18n::fmt(
-            &gettext("{speed} · {total} since boot"),
-            &[("speed", &i18n::speed(bps)), ("total", &i18n::size(total))],
+        Some(bps) => format::fmt(
+            "{speed} · {total} since boot",
+            &[
+                ("speed", &format::speed(bps)),
+                ("total", &format::size(total)),
+            ],
         ),
         None => "…".to_owned(),
     }
@@ -281,10 +284,10 @@ fn transfer(bps: Option<u64>, total: u64) -> String {
 
 fn kind_label(kind: DiskKind) -> String {
     match kind {
-        DiskKind::Nvme => gettext("NVMe"),
-        DiskKind::Ssd => gettext("SSD"),
-        DiskKind::Hdd => gettext("Hard disk"),
-        DiskKind::Removable => gettext("Removable"),
+        DiskKind::Nvme => String::from("NVMe"),
+        DiskKind::Ssd => String::from("SSD"),
+        DiskKind::Hdd => String::from("Hard disk"),
+        DiskKind::Removable => String::from("Removable"),
     }
 }
 

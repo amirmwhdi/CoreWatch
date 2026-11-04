@@ -1,91 +1,89 @@
 using Gtk 4.0;
 using Adw 1;
 
-translation-domain "corewatch";
-
 template $CwPreferencesDialog: Adw.PreferencesDialog {
-  title: _("Preferences");
+  title: "Preferences";
 
   Adw.PreferencesPage {
-    title: _("General");
+    title: "General";
     icon-name: "preferences-other-symbolic";
 
     Adw.PreferencesGroup {
-      title: _("Appearance");
+      title: "Appearance";
 
       Adw.ComboRow theme_row {
-        title: _("Color Scheme");
-        subtitle: _("Choose light, dark, or follow system theme");
+        title: "Color Scheme";
+        subtitle: "Choose light, dark, or follow system theme";
         model: Gtk.StringList {
           strings [
-            _("Follow System"),
-            _("Light"),
-            _("Dark"),
+            "Follow System",
+            "Light",
+            "Dark",
           ]
         };
       }
     }
 
     Adw.PreferencesGroup {
-      title: _("Startup");
+      title: "Startup";
 
       // Filled in preferences.rs: "Last Opened Page", then every page.
       Adw.ComboRow start_row {
-        title: _("Open On");
-        subtitle: _("The page shown when Corewatch starts");
+        title: "Open On";
+        subtitle: "The page shown when Corewatch starts";
       }
     }
 
     Adw.PreferencesGroup {
-      title: _("Monitoring");
+      title: "Monitoring";
 
       Adw.ComboRow interval_row {
-        title: _("Update Speed");
-        subtitle: _("How often graphs and statistics are sampled");
+        title: "Update Speed";
+        subtitle: "How often graphs and statistics are sampled";
         model: Gtk.StringList {
           strings [
-            _("0.5 seconds"),
-            _("1 second (Default)"),
-            _("2 seconds (Power Saver)"),
+            "0.5 seconds",
+            "1 second (Default)",
+            "2 seconds (Power Saver)",
           ]
         };
       }
 
       Adw.SwitchRow smooth_row {
-        title: _("Smooth Graphs");
-        subtitle: _("Scroll graphs continuously between updates. Turn off to save power.");
+        title: "Smooth Graphs";
+        subtitle: "Scroll graphs continuously between updates. Turn off to save power.";
       }
     }
 
     Adw.PreferencesGroup {
-      title: _("Units");
+      title: "Units";
 
       Adw.ComboRow temperature_row {
-        title: _("Temperature");
+        title: "Temperature";
         model: Gtk.StringList {
           strings [
-            _("Celsius (°C)"),
-            _("Fahrenheit (°F)"),
+            "Celsius (°C)",
+            "Fahrenheit (°F)",
           ]
         };
       }
 
       Adw.ComboRow sizes_row {
-        title: _("Sizes");
+        title: "Sizes";
         model: Gtk.StringList {
           strings [
-            _("Binary"),
-            _("Decimal"),
+            "Binary",
+            "Decimal",
           ]
         };
       }
 
       Adw.ComboRow network_row {
-        title: _("Network Speed");
+        title: "Network Speed";
         model: Gtk.StringList {
           strings [
-            _("Bytes per second (MB/s)"),
-            _("Bits per second (Mb/s)"),
+            "Bytes per second (MB/s)",
+            "Bits per second (Mb/s)",
           ]
         };
       }

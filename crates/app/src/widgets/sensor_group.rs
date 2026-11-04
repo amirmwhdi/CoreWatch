@@ -5,7 +5,7 @@
 //! drive temperatures. What is left stays on the Sensors page. The group is
 //! hidden while the page has no sensor.
 
-use crate::i18n::{self, gettext};
+use crate::format;
 use adw::prelude::*;
 use corewatch_core::sensors::{Chip, Home, SensorSample, Temperature};
 use std::cell::RefCell;
@@ -36,9 +36,9 @@ impl Reading<'_> {
     pub fn subtitle(&self) -> String {
         let device = self.chip.model.as_deref().unwrap_or(&self.chip.driver);
         match &self.critical {
-            Some(critical) => i18n::fmt(
-                // Translators: e.g. "k10temp · Critical at 95 °C"
-                &gettext("{device} · {critical}"),
+            Some(critical) => format::fmt(
+                // e.g. "k10temp · Critical at 95 °C"
+                "{device} · {critical}",
                 &[("device", &device), ("critical", critical)],
             ),
             None => device.to_owned(),
@@ -64,7 +64,7 @@ impl SensorGroup {
                 .iter()
                 .map(|r| (r.title.clone(), r.subtitle()))
                 .collect(),
-            i18n::units_generation(),
+            format::units_generation(),
         );
         if *self.shape.borrow() != shape {
             for row in self.rows.take() {
@@ -112,32 +112,29 @@ pub fn readings(sensors: &SensorSample, home: Home) -> Vec<Reading<'_>> {
             let title = t
                 .label
                 .clone()
-                .unwrap_or_else(|| numbered(&gettext("Temperature"), i));
+                .unwrap_or_else(|| numbered("Temperature", i));
             let critical = t.critical.map(critical_at);
             out.push(Reading {
                 chip,
                 title,
                 critical,
-                value: i18n::celsius(t.celsius),
+                value: format::celsius(t.celsius),
             });
         }
         if !cores.is_empty() {
             let average = cores.iter().map(|t| t.celsius).sum::<f32>() / cores.len() as f32;
             out.push(Reading {
                 chip,
-                title: gettext("Core Average"),
+                title: String::from("Core Average"),
                 critical: cores.iter().find_map(|t| t.critical).map(critical_at),
-                value: i18n::celsius(average),
+                value: format::celsius(average),
             });
         }
         for (i, f) in chip.fans.iter().enumerate() {
             if chip.home(f.label.as_deref()) != home || chip.fan_shown_by_page(f.index) {
                 continue;
             }
-            let title = f
-                .label
-                .clone()
-                .unwrap_or_else(|| numbered(&gettext("Fan"), i));
+            let title = f.label.clone().unwrap_or_else(|| numbered("Fan", i));
             out.push(Reading {
                 chip,
                 title,
@@ -150,9 +147,9 @@ pub fn readings(sensors: &SensorSample, home: Home) -> Vec<Reading<'_>> {
 }
 
 fn critical_at(celsius: f32) -> String {
-    i18n::fmt(
-        &gettext("Critical at {value}"),
-        &[("value", &i18n::celsius(celsius))],
+    format::fmt(
+        "Critical at {value}",
+        &[("value", &format::celsius(celsius))],
     )
 }
 
@@ -175,16 +172,16 @@ pub fn value_label(row: &adw::ActionRow) -> gtk::Label {
 
 /// "Fan 2" for the second unlabeled fan.
 pub fn numbered(what: &str, index: usize) -> String {
-    i18n::fmt(
-        // Translators: an unnamed sensor and its number, e.g. "Fan 2"
-        &gettext("{what} {number}"),
+    format::fmt(
+        // an unnamed sensor and its number, e.g. "Fan 2"
+        "{what} {number}",
         &[("what", &what), ("number", &(index + 1))],
     )
 }
 
 pub fn rpm(value: u32) -> String {
-    // Translators: fan speed in revolutions per minute, e.g. "1200 RPM"
-    i18n::fmt(&gettext("{value} RPM"), &[("value", &value)])
+    // fan speed in revolutions per minute, e.g. "1200 RPM"
+    format::fmt("{value} RPM", &[("value", &value)])
 }
 
 #[cfg(test)]

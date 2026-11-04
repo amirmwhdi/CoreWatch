@@ -7,7 +7,7 @@
 
 use super::{Module, ResourcePage};
 use crate::app_icons::AppIcons;
-use crate::i18n::{self, gettext, ngettext};
+use crate::format;
 use adw::prelude::*;
 use adw::subclass::prelude::ObjectSubclassIsExt;
 use corewatch_core::process::{
@@ -74,7 +74,7 @@ impl ProcessesPage {
             #[upgrade_or]
             true,
             move |item| {
-                let query = i18n::ascii_digits(search_entry.text().trim());
+                let query = search_entry.text().trim().to_owned();
                 query.is_empty()
                     || item
                         .downcast_ref::<row::ProcessRow>()
@@ -125,32 +125,20 @@ impl ProcessesPage {
             .build();
         columns.set_model(Some(&selection));
 
-        let name = add_column(&columns, &gettext("Name"), "name", None, true);
+        let name = add_column(&columns, "Name", "name", None, true);
         name.set_sorter(Some(&gtk::StringSorter::new(Some(name_expr))));
-        add_column(&columns, &gettext("User"), "user", Some("user"), false);
-        let cpu = add_column(&columns, &gettext("CPU"), "cpu-text", Some("cpu"), false);
+        add_column(&columns, "User", "user", Some("user"), false);
+        let cpu = add_column(&columns, "CPU", "cpu-text", Some("cpu"), false);
+        add_column(&columns, "Memory", "memory-text", Some("memory"), false);
         add_column(
             &columns,
-            &gettext("Memory"),
-            "memory-text",
-            Some("memory"),
-            false,
-        );
-        add_column(
-            &columns,
-            &gettext("Download"),
+            "Download",
             "download-text",
             Some("download"),
             false,
         );
-        add_column(
-            &columns,
-            &gettext("Upload"),
-            "upload-text",
-            Some("upload"),
-            false,
-        );
-        add_column(&columns, &gettext("ID"), "pid-text", Some("pid"), false);
+        add_column(&columns, "Upload", "upload-text", Some("upload"), false);
+        add_column(&columns, "ID", "pid-text", Some("pid"), false);
         columns.sort_by_column(Some(&cpu), gtk::SortType::Descending);
 
         // The table only needs fresh data while it is on screen.
@@ -228,7 +216,7 @@ impl ProcessesPage {
             icons,
             columns,
             generation: Cell::new(0),
-            units: Cell::new(i18n::units_generation()),
+            units: Cell::new(format::units_generation()),
             count: Cell::new(0),
             root: view.upcast(),
         }
@@ -236,7 +224,7 @@ impl ProcessesPage {
 
     fn sync(&self, processes: &[ProcessInfo]) {
         let icons = self.icons.borrow();
-        let units = i18n::units_generation();
+        let units = format::units_generation();
         let relabel = self.units.replace(units) != units;
         let mut rows = self.rows.borrow_mut();
         let mut added = Vec::new();
@@ -276,7 +264,7 @@ impl ResourcePage for ProcessesPage {
     }
 
     fn title(&self) -> String {
-        gettext("Processes")
+        String::from("Processes")
     }
 
     fn icon_name(&self) -> &'static str {
@@ -306,8 +294,8 @@ impl ResourcePage for ProcessesPage {
 
     fn summary(&self, snapshot: &Snapshot) -> Option<String> {
         let n = snapshot.processes.as_ref()?.processes.len();
-        Some(i18n::fmt(
-            &ngettext("{n} process", "{n} processes", i18n::count(n)),
+        Some(format::fmt(
+            format::plural(n, "{n} process", "{n} processes"),
             &[("n", &n)],
         ))
     }
@@ -397,18 +385,16 @@ fn add_column(
 /// Ask before ending a process, then send the signal off the main thread.
 fn confirm_end(parent: &gtk::Widget, toasts: &adw::ToastOverlay, process: &row::ProcessRow) {
     let dialog = adw::AlertDialog::new(
-        Some(&i18n::fmt(
-            &gettext("End “{name}”?"),
+        Some(&format::fmt(
+            "End “{name}”?",
             &[("name", &process.name())],
         )),
-        Some(&gettext(
-            "Unsaved work in this program may be lost. Force Stop ends it at once, without letting it clean up.",
-        )),
+        Some("Unsaved work in this program may be lost. Force Stop ends it at once, without letting it clean up."),
     );
     dialog.add_responses(&[
-        ("cancel", &gettext("_Cancel")),
-        ("kill", &gettext("_Force Stop")),
-        ("end", &gettext("_End Process")),
+        ("cancel", "_Cancel"),
+        ("kill", "_Force Stop"),
+        ("end", "_End Process"),
     ]);
     dialog.set_response_appearance("kill", adw::ResponseAppearance::Destructive);
     dialog.set_response_appearance("end", adw::ResponseAppearance::Suggested);
@@ -430,16 +416,16 @@ fn confirm_end(parent: &gtk::Widget, toasts: &adw::ToastOverlay, process: &row::
             let message = match result {
                 Ok(Ok(())) => return,
                 Ok(Err(e)) if e.kind() == io::ErrorKind::PermissionDenied => {
-                    gettext("You can only end your own processes")
+                    String::from("You can only end your own processes")
                 }
                 Ok(Err(e)) if e.kind() == io::ErrorKind::NotFound => {
-                    gettext("The process has already ended")
+                    String::from("The process has already ended")
                 }
                 Ok(Err(error)) => {
                     tracing::warn!(pid, %error, "cannot end process");
-                    gettext("Could not end the process")
+                    String::from("Could not end the process")
                 }
-                Err(_) => gettext("Could not end the process"),
+                Err(_) => String::from("Could not end the process"),
             };
             toasts.add_toast(adw::Toast::new(&message));
         });
@@ -511,7 +497,7 @@ mod row {
             let imp = row.imp();
             imp.pid.set(info.pid);
             imp.start_ticks.set(info.start_ticks);
-            *imp.pid_text.borrow_mut() = i18n::digits(&info.pid.to_string());
+            *imp.pid_text.borrow_mut() = info.pid.to_string();
             imp.uid.set(info.uid.unwrap_or(u32::MAX));
             *imp.user.borrow_mut() = info.user.to_string();
             *imp.name.borrow_mut() = info.name.to_string();
@@ -519,7 +505,7 @@ mod row {
             imp.cpu.set(info.cpu);
             *imp.cpu_text.borrow_mut() = cpu_text(info.cpu);
             imp.memory.set(info.memory);
-            *imp.memory_text.borrow_mut() = i18n::size(info.memory);
+            *imp.memory_text.borrow_mut() = format::size(info.memory);
             imp.download.set(info.download.unwrap_or(0));
             *imp.download_text.borrow_mut() = speed_text(info.download);
             imp.upload.set(info.upload.unwrap_or(0));
@@ -558,7 +544,7 @@ mod row {
             }
             if imp.memory.replace(info.memory) != info.memory || relabel {
                 self.notify_memory();
-                set_text(&imp.memory_text, i18n::size(info.memory), || {
+                set_text(&imp.memory_text, format::size(info.memory), || {
                     self.notify_memory_text()
                 });
             }
@@ -591,7 +577,7 @@ mod row {
     fn speed_text(rate: Option<u64>) -> String {
         match rate {
             Some(0) => String::new(),
-            Some(rate) => i18n::net_speed(rate),
+            Some(rate) => format::net_speed(rate),
             None => "—".to_owned(),
         }
     }
@@ -604,8 +590,8 @@ mod row {
         } else {
             format!("{value:.0}")
         };
-        // Translators: a percentage, e.g. "37%"
-        i18n::fmt(&gettext("{value}%"), &[("value", &value)])
+        // a percentage, e.g. "37%"
+        format::fmt("{value}%", &[("value", &value)])
     }
 }
 

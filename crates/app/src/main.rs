@@ -4,7 +4,7 @@ mod app_icons;
 mod compat;
 mod config;
 mod drive_temps;
-mod i18n;
+mod format;
 mod logging;
 mod modules;
 mod preferences;
@@ -17,6 +17,8 @@ use adw::prelude::*;
 use gtk::{gio, glib};
 
 fn main() -> glib::ExitCode {
+    english_only();
+
     // Our own flags are handled here, before GApplication sees the arguments.
     let args: Vec<String> = std::env::args().skip(1).collect();
     let has = |short: &str, long: &str| args.iter().any(|a| a == short || a == long);
@@ -32,7 +34,6 @@ fn main() -> glib::ExitCode {
 
     // Logging starts before anything else; the guard flushes the log file on exit.
     let _log_guard = logging::init(has("-v", "--verbose"));
-    i18n::init();
 
     // The UI (Blueprint templates, style.css) is compiled into the binary by build.rs.
     if let Err(error) = register_resources() {
@@ -43,10 +44,21 @@ fn main() -> glib::ExitCode {
     let app = adw::Application::builder()
         .application_id(config::APP_ID)
         .build();
+    // GTK takes the text direction from the system language's script, not
+    // from translations: keep the English interface left to right.
+    app.connect_startup(|_| gtk::Widget::set_default_direction(gtk::TextDirection::Ltr));
     app.connect_activate(window::present);
     let code = app.run_with_args::<&str>(&[]);
     tracing::info!("exiting");
     code
+}
+
+/// Corewatch is in English only. GTK, libadwaita and GLib bring their own
+/// translations (dialog buttons, size units); `LANGUAGE=en` keeps all of it
+/// in English, whatever the system language. It must be set before GTK starts, and
+/// while no other thread runs: this is the first thing `main` does.
+fn english_only() {
+    std::env::set_var("LANGUAGE", "en");
 }
 
 /// Embed the GResource built by build.rs and register the custom widget
@@ -69,14 +81,12 @@ Options:
   -h, --help      Print this help and exit
 
 Environment:
-  {log}=<filter>     Log filter, e.g. debug or corewatch_core=trace
-  {root}=<dir>    Read <dir>/proc and <dir>/sys instead of the real ones
-  {locale}=<dir>  Read translations from <dir>/<lang>/LC_MESSAGES
+  {log}=<filter>   Log filter, e.g. debug or corewatch_core=trace
+  {root}=<dir>  Read <dir>/proc and <dir>/sys instead of the real ones
 
 Log files: {dir}",
         log = logging::LOG_ENV,
         root = corewatch_core::root::SYSROOT_ENV,
-        locale = crate::i18n::LOCALEDIR_ENV,
         dir = logging::log_dir().display(),
     );
 }

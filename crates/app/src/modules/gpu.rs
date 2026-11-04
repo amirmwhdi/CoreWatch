@@ -3,7 +3,7 @@
 //! them.
 
 use super::{Module, ResourcePage};
-use crate::i18n::{self, gettext};
+use crate::format;
 use crate::widgets::{Graph, SensorGroup};
 use adw::prelude::*;
 use adw::subclass::prelude::ObjectSubclassIsExt;
@@ -53,7 +53,7 @@ impl ResourcePage for GpuPage {
     }
 
     fn title(&self) -> String {
-        gettext("Graphics")
+        String::from("Graphics")
     }
 
     fn icon_name(&self) -> &'static str {
@@ -95,11 +95,11 @@ impl ResourcePage for GpuPage {
     fn summary(&self, snapshot: &Snapshot) -> Option<String> {
         let gpu = snapshot.gpu.as_ref()?;
         if let Some(usage) = gpu.max_usage() {
-            return Some(i18n::percent(usage));
+            return Some(format::percent(usage));
         }
         let first = gpu.devices.first()?;
         if first.asleep {
-            return Some(gettext("Asleep"));
+            return Some(String::from("Asleep"));
         }
         first.freq_mhz.map(mhz)
     }
@@ -132,11 +132,14 @@ impl GpuBlock {
             .selectable(true)
             .css_classes(["heading"])
             .build();
-        let driver = device.driver.clone().unwrap_or_else(|| gettext("Unknown"));
+        let driver = device
+            .driver
+            .clone()
+            .unwrap_or_else(|| String::from("Unknown"));
         let description = gtk::Label::builder()
-            .label(i18n::fmt(
-                // Translators: e.g. "Driver amdgpu · 0000:01:00.0"
-                &gettext("Driver {driver} · {id}"),
+            .label(format::fmt(
+                // e.g. "Driver amdgpu · 0000:01:00.0"
+                "Driver {driver} · {id}",
                 &[("driver", &driver), ("id", &device.id)],
             ))
             .xalign(0.0)
@@ -148,8 +151,8 @@ impl GpuBlock {
         header.append(&description);
 
         let graph = Graph::new(140);
-        graph.update_property(&[gtk::accessible::Property::Label(&i18n::fmt(
-            &gettext("Load of {model}"),
+        graph.update_property(&[gtk::accessible::Property::Label(&format::fmt(
+            "Load of {model}",
             &[("model", &device.name)],
         ))]);
 
@@ -164,20 +167,20 @@ impl GpuBlock {
             rows.add(&row);
             row
         };
-        let status = row(&gettext("Status"));
-        status.set_subtitle(&gettext("Asleep to save power; values show when it wakes"));
-        let usage = row(&gettext("Load"));
-        let clock = row(&gettext("Clock Speed"));
-        let mem_clock = row(&gettext("Memory Clock"));
-        let vram = row(&gettext("Memory (VRAM)"));
+        let status = row("Status");
+        status.set_subtitle("Asleep to save power; values show when it wakes");
+        let usage = row("Load");
+        let clock = row("Clock Speed");
+        let mem_clock = row("Memory Clock");
+        let vram = row("Memory (VRAM)");
         let vram_bar = gtk::LevelBar::builder()
             .width_request(120)
             .valign(gtk::Align::Center)
             .build();
         vram.add_suffix(&vram_bar);
-        let temp = row(&gettext("Temperature"));
-        let power = row(&gettext("Power"));
-        let fan = row(&gettext("Fan"));
+        let temp = row("Temperature");
+        let power = row("Power");
+        let fan = row("Fan");
 
         let container = gtk::Box::new(gtk::Orientation::Vertical, 12);
         container.append(&header);
@@ -203,8 +206,8 @@ impl GpuBlock {
         if self.title.label() != d.name.as_str() {
             self.title.set_label(&d.name);
             self.graph
-                .update_property(&[gtk::accessible::Property::Label(&i18n::fmt(
-                    &gettext("Load of {model}"),
+                .update_property(&[gtk::accessible::Property::Label(&format::fmt(
+                    "Load of {model}",
                     &[("model", &d.name)],
                 ))]);
         }
@@ -226,9 +229,9 @@ impl GpuBlock {
         set(
             &self.usage,
             (!d.asleep).then(|| match d.usage {
-                Some(usage) => i18n::percent(usage),
+                Some(usage) => format::percent(usage),
                 None if d.usage_pending => "…".to_owned(),
-                None => gettext("Not reported by the driver"),
+                None => String::from("Not reported by the driver"),
             }),
         );
         set(&self.clock, pair(d.freq_mhz, d.max_freq_mhz, mhz));
@@ -237,21 +240,24 @@ impl GpuBlock {
             pair(d.mem_freq_mhz, d.mem_max_freq_mhz, mhz),
         );
         let vram = match (d.vram_used, d.vram_total) {
-            (Some(used), Some(total)) => Some(i18n::fmt(
-                &gettext("{used} of {total}"),
-                &[("used", &i18n::size(used)), ("total", &i18n::size(total))],
+            (Some(used), Some(total)) => Some(format::fmt(
+                "{used} of {total}",
+                &[
+                    ("used", &format::size(used)),
+                    ("total", &format::size(total)),
+                ],
             )),
             _ => None,
         };
         set(&self.vram, vram);
         self.vram_bar
             .set_value(f64::from(d.vram_fraction().unwrap_or(0.0)));
-        set(&self.temp, d.temp_c.map(|t| i18n::celsius(t as f32)));
+        set(&self.temp, d.temp_c.map(|t| format::celsius(t as f32)));
         set(&self.power, pair(d.power_w, d.power_cap_w, watts));
         let fan = d
             .fan_rpm
             .map(rpm)
-            .or_else(|| d.fan_percent.map(i18n::percent));
+            .or_else(|| d.fan_percent.map(format::percent));
         set(&self.fan, fan);
     }
 }
@@ -270,9 +276,9 @@ fn set(row: &adw::ActionRow, text: Option<String>) {
 fn pair<T: Copy>(now: Option<T>, max: Option<T>, fmt: fn(T) -> String) -> Option<String> {
     let now = now?;
     Some(match max {
-        Some(max) => i18n::fmt(
-            // Translators: a current value and its maximum, e.g. "1150 MHz / 1366 MHz"
-            &gettext("{now} / {max}"),
+        Some(max) => format::fmt(
+            // a current value and its maximum, e.g. "1150 MHz / 1366 MHz"
+            "{now} / {max}",
             &[("now", &fmt(now)), ("max", &fmt(max))],
         ),
         None => fmt(now),
@@ -280,12 +286,12 @@ fn pair<T: Copy>(now: Option<T>, max: Option<T>, fmt: fn(T) -> String) -> Option
 }
 
 fn mhz(value: u32) -> String {
-    i18n::fmt(&gettext("{cur} MHz"), &[("cur", &value)])
+    format::fmt("{cur} MHz", &[("cur", &value)])
 }
 
 fn watts(value: f32) -> String {
-    // Translators: power in watts, e.g. "98 W"
-    i18n::fmt(&gettext("{value} W"), &[("value", &format!("{value:.0}"))])
+    // power in watts, e.g. "98 W"
+    format::fmt("{value} W", &[("value", &format!("{value:.0}"))])
 }
 
 fn rpm(value: u32) -> String {

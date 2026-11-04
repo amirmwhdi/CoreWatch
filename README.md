@@ -132,7 +132,6 @@ and Wi-Fi signal strength.
   system's Power Saver mode is on.
 - **Keyboard shortcuts:** Ctrl+1 to Ctrl+9 open the pages, Ctrl+F searches
   the processes, Delete ends the selected one; Ctrl+? lists them all.
-- **In English and Persian,** with right-to-left layout and Persian digits.
 - **Fits any screen:** the layout adapts down to 360 pixels wide.
 - **Tells you when something goes wrong:** if a data source stops answering,
   a banner says so instead of showing stale numbers.
@@ -165,6 +164,7 @@ Corewatch lets go of it so it can sleep again.
 
 ### Good to know
 
+- Corewatch is in English, whatever the language of the system.
 - Download and upload speeds per process count TCP traffic, not UDP or QUIC.
   For other users' processes they are only shown when Corewatch runs as root.
 - SATA drives show a temperature through UDisks when the kernel's
@@ -238,30 +238,6 @@ COREWATCH_SYSROOT=crates/core/tests/fixtures/basic \
 cargo test --workspace                                # tests
 ```
 
-### Translations
-
-Translations live in `po/`, one `<language>.po` file per language listed in
-`po/LINGUAS`. Corewatch ships in English and Persian (`fa`). To add a
-language or update one after the strings changed:
-
-```sh
-meson setup build
-meson compile -C build corewatch-pot          # refresh po/corewatch.pot
-msginit -i po/corewatch.pot -o po/<lang>.po -l <lang>   # a new language
-meson compile -C build corewatch-update-po    # merge new strings into every .po
-```
-
-Then add the language to `po/LINGUAS`. To try a translation without
-installing it, point Corewatch at the build tree:
-
-```sh
-meson compile -C build
-LANGUAGE=fa COREWATCH_LOCALEDIR=build/po cargo run -p corewatch
-```
-
-The string `0123456789.` sets the digits and decimal separator numbers are
-shown with; Persian translates it to `۰۱۲۳۴۵۶۷۸۹٫`.
-
 ## Privacy and permissions
 
 Corewatch reads `/proc` and `/sys` and nothing leaves your computer. It never
@@ -293,7 +269,6 @@ crates/core       corewatch-core: reads /proc and /sys, no GTK
 crates/app        corewatch: the GTK app
 data/ui/stable    Blueprint files for the UI, compiled into the binary
 data              desktop entry, metainfo, icon (installed by Meson)
-po                translations (Persian) and the template for new ones
 packaging         Flatpak manifest, Arch PKGBUILD, Debian and RPM packaging
 ```
 

@@ -3,7 +3,6 @@
 //! The layout lives in `data/ui/stable/window.blp` (the `CwWindow` template).
 //! This file never names a resource: it only loops over `modules::all()`.
 
-use crate::i18n::gettext;
 use crate::modules::{self, ResourcePage};
 use crate::settings::StartPage;
 use crate::widgets::PageFrame;
@@ -78,7 +77,7 @@ pub fn present(app: &adw::Application) {
     logging::log_startup_banner(&root);
     let settings = crate::settings::AppSettings::load();
     settings.apply_theme();
-    crate::i18n::set_units(settings.units);
+    crate::format::set_units(settings.units);
     crate::widgets::graph::set_history(settings.speed.history_points());
     crate::widgets::graph::set_smooth(settings.smooth_graphs);
     crate::widgets::graph::follow_power_saver();
@@ -332,7 +331,7 @@ pub fn present(app: &adw::Application) {
         while let Ok(snapshot) = rx.recv().await {
             for (page, frame, row) in pages.iter() {
                 if frame.set_has_data(page.has_data(&snapshot)) {
-                    row.set_subtitle(&gettext("Unavailable"));
+                    row.set_subtitle("Unavailable");
                     continue;
                 }
                 page.update(&snapshot);
@@ -351,7 +350,7 @@ pub fn present(app: &adw::Application) {
             tracing::error!("the sampler thread stopped");
             for (_, frame, row) in pages.iter() {
                 while !frame.set_has_data(false) {}
-                row.set_subtitle(&gettext("Unavailable"));
+                row.set_subtitle("Unavailable");
             }
         }
     });
@@ -388,16 +387,16 @@ fn add_whats_new(about: &adw::AboutDialog) {
     }
     notes.push_str(&format!(
         "<p>{}</p>",
-        crate::i18n::fmt(
-            // Translators: the git commit this build came from, e.g. "Commit a6f02ff"
-            &gettext("Commit {hash}"),
+        crate::format::fmt(
+            // the git commit this build came from, e.g. "Commit a6f02ff"
+            "Commit {hash}",
             &[("hash", &format!("<code>{short}</code>"))],
         )
     ));
     about.set_release_notes_version(config::VERSION);
     about.set_release_notes(&notes);
     about.add_link(
-        &gettext("Latest Commit"),
+        "Latest Commit",
         &format!(
             "https://github.com/amirmwhdi/CoreWatch/commit/{}",
             commit.hash

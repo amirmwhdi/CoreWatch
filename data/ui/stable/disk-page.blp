@@ -1,8 +1,6 @@
 using Gtk 4.0;
 using Adw 1;
 
-translation-domain "corewatch";
-
 // Disk page. One block per disk is added to disks_box at run time (disks come
 // and go); filesystem rows are added to fs_group the same way.
 template $CwDiskPage: Adw.Bin {
@@ -26,7 +24,7 @@ template $CwDiskPage: Adw.Bin {
         }
 
         Label no_disks {
-          label: _("No disks found");
+          label: "No disks found";
           visible: false;
 
           styles [
@@ -35,12 +33,12 @@ template $CwDiskPage: Adw.Bin {
         }
 
         Adw.PreferencesGroup fs_group {
-          title: _("Filesystems");
+          title: "Filesystems";
         }
 
         // Sensors that belong to this page; filled by widgets::SensorGroup.
         Adw.PreferencesGroup sensors_group {
-          title: _("Sensors");
+          title: "Sensors";
           visible: false;
         }
       };

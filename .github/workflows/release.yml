@@ -68,7 +68,7 @@ jobs:
         run: |
           apt-get update
           apt-get install -y --no-install-recommends ca-certificates curl xz-utils \
-            build-essential debhelper meson blueprint-compiler gettext \
+            build-essential debhelper meson blueprint-compiler \
             libgtk-4-dev libadwaita-1-dev desktop-file-utils appstream
       # gtk4-rs 0.11 needs Rust 1.92; Debian 13 ships 1.85.
       - uses: dtolnay/rust-toolchain@stable
@@ -135,7 +135,7 @@ jobs:
     steps:
       - name: Install build dependencies
         run: |
-          pacman -Syu --noconfirm --needed base-devel git cargo meson blueprint-compiler gettext \
+          pacman -Syu --noconfirm --needed base-devel git cargo meson blueprint-compiler \
             gtk4 libadwaita appstream desktop-file-utils
           useradd -m builder
       - uses: actions/checkout@v4
@@ -175,7 +175,7 @@ jobs:
         run: |
           apt-get update
           apt-get install -y --no-install-recommends ca-certificates curl xz-utils file \
-            build-essential meson blueprint-compiler gettext desktop-file-utils \
+            build-essential meson blueprint-compiler desktop-file-utils \
             libgtk-4-dev libadwaita-1-dev
       - uses: dtolnay/rust-toolchain@stable
       - uses: actions/download-artifact@v4

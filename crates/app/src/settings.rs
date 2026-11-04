@@ -1,7 +1,7 @@
 //! Persistent user settings stored in ~/.config/corewatch/settings.ini.
 
 use crate::config::DEFAULT_SAMPLE_INTERVAL;
-use crate::i18n::{NetworkUnits, SizeUnits, TemperatureUnit, Units};
+use crate::format::{NetworkUnits, SizeUnits, TemperatureUnit, Units};
 use gtk::glib;
 use std::path::PathBuf;
 use std::time::Duration;

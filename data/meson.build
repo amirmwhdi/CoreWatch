@@ -1,23 +1,11 @@
 # Desktop entry, AppStream metadata and icon. The UI itself (Blueprint and
 # style.css) is compiled into the binary by crates/app/build.rs.
 
-# Both are installed with the translations from po/ merged in.
-desktop_file = i18n.merge_file(
-  input: application_id + '.desktop',
-  output: application_id + '.desktop',
-  type: 'desktop',
-  po_dir: meson.project_source_root() / 'po',
-  install: true,
-  install_dir: datadir / 'applications',
-)
+desktop_file = files(application_id + '.desktop')
+install_data(desktop_file, install_dir: datadir / 'applications')
 
-metainfo_file = i18n.merge_file(
-  input: application_id + '.metainfo.xml',
-  output: application_id + '.metainfo.xml',
-  po_dir: meson.project_source_root() / 'po',
-  install: true,
-  install_dir: datadir / 'metainfo',
-)
+metainfo_file = files(application_id + '.metainfo.xml')
+install_data(metainfo_file, install_dir: datadir / 'metainfo')
 
 install_data(
   'icons' / application_id + '.svg',

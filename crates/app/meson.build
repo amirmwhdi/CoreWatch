@@ -21,7 +21,6 @@ custom_target(
   install_dir: bindir,
   env: {
     'CARGO_TARGET_DIR': cargo_target_dir,
-    'COREWATCH_LOCALEDIR': localedir,
   },
   command: [
     find_program('sh'),

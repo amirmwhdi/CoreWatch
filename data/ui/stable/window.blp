@@ -1,24 +1,22 @@
 using Gtk 4.0;
 using Adw 1;
 
-translation-domain "corewatch";
-
 menu primary_menu {
   section {
     item {
-      label: _("Preferences");
+      label: "Preferences";
       action: "app.preferences";
     }
 
     item {
-      label: _("Keyboard Shortcuts");
+      label: "Keyboard Shortcuts";
       action: "app.shortcuts";
     }
   }
 
   section {
     item {
-      label: _("About Corewatch");
+      label: "About Corewatch";
       action: "app.about";
     }
   }
@@ -54,7 +52,7 @@ template $CwWindow: Adw.ApplicationWindow {
           MenuButton {
             icon-name: "open-menu-symbolic";
             menu-model: primary_menu;
-            tooltip-text: _("Main Menu");
+            tooltip-text: "Main Menu";
           }
         }
 
@@ -87,8 +85,8 @@ template $CwWindow: Adw.ApplicationWindow {
 
             child: Adw.StatusPage {
               icon-name: "dialog-warning-symbolic";
-              title: _("No data sources available");
-              description: _("Corewatch could not read /proc. Run corewatch --verbose from a terminal for details.");
+              title: "No data sources available";
+              description: "Corewatch could not read /proc. Run corewatch --verbose from a terminal for details.";
             };
           }
         };

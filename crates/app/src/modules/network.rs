@@ -2,7 +2,7 @@
 //! speeds, addresses and link details.
 
 use super::{Module, ResourcePage};
-use crate::i18n::{self, gettext};
+use crate::format;
 use crate::widgets::{Graph, SensorGroup};
 use adw::prelude::*;
 use adw::subclass::prelude::ObjectSubclassIsExt;
@@ -97,7 +97,7 @@ impl ResourcePage for NetworkPage {
     }
 
     fn title(&self) -> String {
-        gettext("Network")
+        String::from("Network")
     }
 
     fn icon_name(&self) -> &'static str {
@@ -125,7 +125,7 @@ impl ResourcePage for NetworkPage {
         snapshot
             .network
             .as_ref()
-            .map(|n| i18n::net_speed(n.rx_bps().saturating_add(n.tx_bps())))
+            .map(|n| format::net_speed(n.rx_bps().saturating_add(n.tx_bps())))
     }
 }
 
@@ -154,8 +154,8 @@ impl InterfaceBlock {
             .build();
 
         let graph = Graph::new_autoscale(100, GRAPH_FLOOR);
-        graph.update_property(&[gtk::accessible::Property::Label(&i18n::fmt(
-            &gettext("Traffic of {name}"),
+        graph.update_property(&[gtk::accessible::Property::Label(&format::fmt(
+            "Traffic of {name}",
             &[("name", &interface.name)],
         ))]);
 
@@ -166,17 +166,17 @@ impl InterfaceBlock {
                 .subtitle_selectable(true)
                 .build()
         };
-        let (download, upload) = (row(&gettext("Download")), row(&gettext("Upload")));
+        let (download, upload) = (row("Download"), row("Upload"));
         download.add_prefix(&legend_dot("primary"));
         upload.add_prefix(&legend_dot("secondary"));
-        let (ipv4, ipv6) = (row(&gettext("IPv4 address")), row(&gettext("IPv6 address")));
+        let (ipv4, ipv6) = (row("IPv4 address"), row("IPv6 address"));
         let rows = adw::PreferencesGroup::new();
         rows.add(&download);
         rows.add(&upload);
         rows.add(&ipv4);
         rows.add(&ipv6);
         if let Some(mac) = &interface.mac {
-            let hardware = row(&gettext("Hardware address"));
+            let hardware = row("Hardware address");
             hardware.set_subtitle(mac);
             rows.add(&hardware);
         }
@@ -208,16 +208,16 @@ impl InterfaceBlock {
         self.description.set_label(&details(interface));
         self.download.set_subtitle(&transfer(
             interface.rx_bps,
-            &i18n::fmt(
-                &gettext("{total} received"),
-                &[("total", &i18n::size(interface.rx_total))],
+            &format::fmt(
+                "{total} received",
+                &[("total", &format::size(interface.rx_total))],
             ),
         ));
         self.upload.set_subtitle(&transfer(
             interface.tx_bps,
-            &i18n::fmt(
-                &gettext("{total} sent"),
-                &[("total", &i18n::size(interface.tx_total))],
+            &format::fmt(
+                "{total} sent",
+                &[("total", &format::size(interface.tx_total))],
             ),
         ));
 
@@ -254,20 +254,17 @@ fn set_optional(row: &adw::ActionRow, text: &str) {
 /// "wlp2s0 · Signal 80%", "enp3s0 · 1 Gb/s", "eth0 · Disconnected".
 fn details(interface: &NetInterface) -> String {
     let state = if !interface.connected {
-        gettext("Disconnected")
+        String::from("Disconnected")
     } else if let Some(signal) = interface.signal {
-        i18n::fmt(
-            &gettext("Signal {percent}"),
-            &[("percent", &i18n::percent(signal))],
-        )
+        format::fmt("Signal {percent}", &[("percent", &format::percent(signal))])
     } else if let Some(mbps) = interface.link_mbps {
         link_speed(mbps)
     } else {
-        gettext("Connected")
+        String::from("Connected")
     };
-    i18n::fmt(
-        // Translators: interface name and state, e.g. "wlp2s0 · Signal 80%"
-        &gettext("{name} · {state}"),
+    format::fmt(
+        // interface name and state, e.g. "wlp2s0 · Signal 80%"
+        "{name} · {state}",
         &[("name", &interface.name), ("state", &state)],
     )
 }
@@ -276,20 +273,20 @@ fn details(interface: &NetInterface) -> String {
 fn link_speed(mbps: u32) -> String {
     if mbps >= 1000 {
         let gbps = format!("{}", f64::from(mbps) / 1000.0);
-        // Translators: a network link speed in gigabits, e.g. "2.5 Gb/s"
-        i18n::fmt(&gettext("{value} Gb/s"), &[("value", &gbps)])
+        // a network link speed in gigabits, e.g. "2.5 Gb/s"
+        format::fmt("{value} Gb/s", &[("value", &gbps)])
     } else {
-        // Translators: a network link speed in megabits, e.g. "100 Mb/s"
-        i18n::fmt(&gettext("{value} Mb/s"), &[("value", &mbps)])
+        // a network link speed in megabits, e.g. "100 Mb/s"
+        format::fmt("{value} Mb/s", &[("value", &mbps)])
     }
 }
 
 /// "1.2 MiB/s · 3.4 GiB received"; "…" while the speed is not known yet.
 fn transfer(bps: Option<u64>, total: &str) -> String {
     match bps {
-        Some(bps) => i18n::fmt(
-            &gettext("{speed} · {total}"),
-            &[("speed", &i18n::net_speed(bps)), ("total", &total)],
+        Some(bps) => format::fmt(
+            "{speed} · {total}",
+            &[("speed", &format::net_speed(bps)), ("total", &total)],
         ),
         None => "…".to_owned(),
     }
@@ -297,10 +294,10 @@ fn transfer(bps: Option<u64>, total: &str) -> String {
 
 fn kind_label(kind: InterfaceKind) -> String {
     match kind {
-        InterfaceKind::Ethernet => gettext("Ethernet"),
-        InterfaceKind::WiFi => gettext("Wi-Fi"),
-        InterfaceKind::Vpn => gettext("VPN"),
-        InterfaceKind::Other => gettext("Network"),
+        InterfaceKind::Ethernet => String::from("Ethernet"),
+        InterfaceKind::WiFi => String::from("Wi-Fi"),
+        InterfaceKind::Vpn => String::from("VPN"),
+        InterfaceKind::Other => String::from("Network"),
     }
 }
 

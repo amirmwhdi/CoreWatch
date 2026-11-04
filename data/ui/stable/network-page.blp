@@ -1,8 +1,6 @@
 using Gtk 4.0;
 using Adw 1;
 
-translation-domain "corewatch";
-
 // Network page. One block per interface is added to interfaces_box at run
 // time (interfaces come and go: USB adapters, VPNs).
 template $CwNetworkPage: Adw.Bin {
@@ -27,7 +25,7 @@ template $CwNetworkPage: Adw.Bin {
 
         Adw.StatusPage no_interfaces {
           icon-name: "network-offline-symbolic";
-          title: _("No network interfaces");
+          title: "No network interfaces";
           visible: false;
 
           styles [
@@ -37,7 +35,7 @@ template $CwNetworkPage: Adw.Bin {
 
         // Sensors that belong to this page; filled by widgets::SensorGroup.
         Adw.PreferencesGroup sensors_group {
-          title: _("Sensors");
+          title: "Sensors";
           visible: false;
         }
       };

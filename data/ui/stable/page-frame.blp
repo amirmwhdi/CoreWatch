@@ -1,8 +1,6 @@
 using Gtk 4.0;
 using Adw 1;
 
-translation-domain "corewatch";
-
 // Wraps every resource page: a banner that tells the user when the page's
 // data source stopped answering, above the page itself. window.rs puts the
 // page into `content` and calls CwPageFrame's `set_has_data` once per tick.
@@ -10,8 +8,8 @@ template $CwPageFrame: Gtk.Box {
   orientation: vertical;
 
   Adw.Banner banner {
-    title: _("Data unavailable. The values below are from the last successful reading.");
-    button-label: _("Details");
+    title: "Data unavailable. The values below are from the last successful reading.";
+    button-label: "Details";
     action-name: "app.show-log";
   }
 

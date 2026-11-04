@@ -1,8 +1,6 @@
 //! Keyboard shortcuts: one table, used both to set the accelerators and to
 //! fill the Keyboard Shortcuts window, so the two never disagree.
 
-use crate::i18n::gettext;
-
 /// One row of the Keyboard Shortcuts window.
 pub struct Shortcut {
     /// Translated title shown in the window.
@@ -27,50 +25,50 @@ pub const NUMBERED_PAGES: i32 = 9;
 pub fn groups() -> Vec<Group> {
     vec![
         Group {
-            title: gettext("General"),
+            title: String::from("General"),
             shortcuts: vec![
                 Shortcut {
-                    title: gettext("Preferences"),
+                    title: String::from("Preferences"),
                     accels: &["<primary>comma"],
                     action: Some("app.preferences"),
                 },
                 Shortcut {
-                    title: gettext("Keyboard Shortcuts"),
+                    title: String::from("Keyboard Shortcuts"),
                     accels: &["<primary>question"],
                     action: Some("app.shortcuts"),
                 },
                 Shortcut {
-                    title: gettext("Close Window"),
+                    title: String::from("Close Window"),
                     accels: &["<primary>w"],
                     action: Some("window.close"),
                 },
                 Shortcut {
-                    title: gettext("Quit"),
+                    title: String::from("Quit"),
                     accels: &["<primary>q"],
                     action: Some("app.quit"),
                 },
             ],
         },
         Group {
-            title: gettext("Navigation"),
+            title: String::from("Navigation"),
             shortcuts: vec![Shortcut {
-                // Translators: Ctrl+1 opens the first page of the sidebar, Ctrl+2 the second, …
-                title: gettext("Go to Page 1 to 9"),
+                // Ctrl+1 opens the first page of the sidebar, Ctrl+2 the second, …
+                title: String::from("Go to Page 1 to 9"),
                 accels: &["<primary>1...<primary>9"],
                 // Set one by one in `set_accels`.
                 action: None,
             }],
         },
         Group {
-            title: gettext("Processes"),
+            title: String::from("Processes"),
             shortcuts: vec![
                 Shortcut {
-                    title: gettext("Search Processes"),
+                    title: String::from("Search Processes"),
                     accels: &["<primary>f"],
                     action: Some("app.find"),
                 },
                 Shortcut {
-                    title: gettext("End Selected Process"),
+                    title: String::from("End Selected Process"),
                     accels: &["Delete"],
                     action: None,
                 },

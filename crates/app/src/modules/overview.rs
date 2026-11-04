@@ -6,7 +6,7 @@
 //! what the other modules collected.
 
 use super::{battery, network, Module, ResourcePage};
-use crate::i18n::{self, gettext};
+use crate::format;
 use crate::widgets::Graph;
 use adw::prelude::*;
 use adw::subclass::prelude::ObjectSubclassIsExt;
@@ -43,22 +43,17 @@ impl OverviewPage {
         let cards = view.imp().cards.get();
         let card = |page: &str, title: String, icon: &str| Card::new(&cards, page, &title, icon);
         Self {
-            cpu: card("cpu", gettext("Processor"), "computer-symbolic"),
-            memory: card("memory", gettext("Memory"), "drive-multidisk-symbolic"),
-            gpu: card("gpu", gettext("Graphics"), "video-display-symbolic"),
-            disk: card("disk", gettext("Disks"), "drive-harddisk-symbolic"),
-            network: Card::new_autoscale(
-                &cards,
-                "network",
-                &gettext("Network"),
-                "network-wireless-symbolic",
-            ),
+            cpu: card("cpu", String::from("Processor"), "computer-symbolic"),
+            memory: card("memory", String::from("Memory"), "drive-multidisk-symbolic"),
+            gpu: card("gpu", String::from("Graphics"), "video-display-symbolic"),
+            disk: card("disk", String::from("Disks"), "drive-harddisk-symbolic"),
+            network: Card::new_autoscale(&cards, "network", "Network", "network-wireless-symbolic"),
             system: card(
                 "processes",
-                gettext("System"),
+                String::from("System"),
                 "preferences-system-symbolic",
             ),
-            battery: card("battery", gettext("Battery"), "battery-symbolic"),
+            battery: card("battery", String::from("Battery"), "battery-symbolic"),
             root: view.upcast(),
         }
     }
@@ -70,7 +65,7 @@ impl ResourcePage for OverviewPage {
     }
 
     fn title(&self) -> String {
-        gettext("Overview")
+        String::from("Overview")
     }
 
     fn icon_name(&self) -> &'static str {
@@ -88,11 +83,11 @@ impl ResourcePage for OverviewPage {
                 details.push(ghz(mhz));
             }
             if let Some(t) = s.sensors.as_ref().and_then(|s| s.cpu_celsius()) {
-                details.push(i18n::celsius(t));
+                details.push(format::celsius(t));
             }
             self.cpu.set(
                 Some(cpu.usage),
-                &i18n::percent(cpu.usage),
+                &format::percent(cpu.usage),
                 &details.join(" · "),
             );
         }
@@ -100,12 +95,12 @@ impl ResourcePage for OverviewPage {
         if let Some(m) = &s.memory {
             self.memory.set(
                 Some(m.used_fraction()),
-                &i18n::percent(m.used_fraction()),
-                &i18n::fmt(
-                    &gettext("{used} of {total}"),
+                &format::percent(m.used_fraction()),
+                &format::fmt(
+                    "{used} of {total}",
                     &[
-                        ("used", &i18n::size(m.used)),
-                        ("total", &i18n::size(m.total)),
+                        ("used", &format::size(m.used)),
+                        ("total", &format::size(m.total)),
                     ],
                 ),
             );
@@ -114,9 +109,9 @@ impl ResourcePage for OverviewPage {
         if let Some(g) = s.gpu.as_ref().and_then(|g| g.devices.first()) {
             // Like the GPU page: usage when the driver reports it, else the clock.
             let value = match (g.usage, g.freq_mhz) {
-                _ if g.asleep => gettext("Asleep"),
-                (Some(usage), _) => i18n::percent(usage),
-                (None, Some(mhz)) => i18n::fmt(&gettext("{cur} MHz"), &[("cur", &mhz)]),
+                _ if g.asleep => String::from("Asleep"),
+                (Some(usage), _) => format::percent(usage),
+                (None, Some(mhz)) => format::fmt("{cur} MHz", &[("cur", &mhz)]),
                 (None, None) => "—".to_owned(),
             };
             let share = if g.asleep {
@@ -134,12 +129,12 @@ impl ResourcePage for OverviewPage {
             };
             self.disk.set(
                 Some(busiest),
-                &i18n::speed(d.total_bps()),
-                &i18n::fmt(
-                    &gettext("Read {read} · Write {write}"),
+                &format::speed(d.total_bps()),
+                &format::fmt(
+                    "Read {read} · Write {write}",
                     &[
-                        ("read", &i18n::speed(sum(|d| d.read_bps))),
-                        ("write", &i18n::speed(sum(|d| d.write_bps))),
+                        ("read", &format::speed(sum(|d| d.read_bps))),
+                        ("write", &format::speed(sum(|d| d.write_bps))),
                     ],
                 ),
             );
@@ -151,15 +146,15 @@ impl ResourcePage for OverviewPage {
                 .push_pair(n.rx_bps() as f32, n.tx_bps() as f32);
             self.network.set(
                 None,
-                &i18n::fmt(
-                    // Translators: download speed, e.g. "↓ 1.2 MiB/s"
-                    &gettext("↓ {speed}"),
-                    &[("speed", &i18n::net_speed(n.rx_bps()))],
+                &format::fmt(
+                    // download speed, e.g. "↓ 1.2 MiB/s"
+                    "↓ {speed}",
+                    &[("speed", &format::net_speed(n.rx_bps()))],
                 ),
-                &i18n::fmt(
-                    // Translators: upload speed, e.g. "↑ 40 KiB/s"
-                    &gettext("↑ {speed}"),
-                    &[("speed", &i18n::net_speed(n.tx_bps()))],
+                &format::fmt(
+                    // upload speed, e.g. "↑ 40 KiB/s"
+                    "↑ {speed}",
+                    &[("speed", &format::net_speed(n.tx_bps()))],
                 ),
             );
         }
@@ -170,15 +165,15 @@ impl ResourcePage for OverviewPage {
             let load = sys.load[0] / cores as f32;
             let load_text = format!("{:.2}", sys.load[0]);
             let detail = match &s.processes {
-                Some(p) => i18n::fmt(
-                    &i18n::ngettext(
+                Some(p) => format::fmt(
+                    format::plural(
+                        p.processes.len(),
                         "Load {load} · {n} process",
                         "Load {load} · {n} processes",
-                        i18n::count(p.processes.len()),
                     ),
                     &[("load", &load_text), ("n", &p.processes.len())],
                 ),
-                None => i18n::fmt(&gettext("Load {load}"), &[("load", &load_text)]),
+                None => format::fmt("Load {load}", &[("load", &load_text)]),
             };
             self.system.set(
                 Some(load.clamp(0.0, 1.0)),
@@ -190,7 +185,7 @@ impl ResourcePage for OverviewPage {
         if let Some(b) = s.battery.as_ref().and_then(|b| b.batteries.first()) {
             self.battery.set(
                 Some(b.capacity),
-                &i18n::percent(b.capacity),
+                &format::percent(b.capacity),
                 &battery::state_label(b.state),
             );
         }
@@ -209,32 +204,28 @@ impl ResourcePage for OverviewPage {
 fn uptime(secs: u64) -> String {
     let (days, hours, minutes) = (secs / 86_400, secs / 3600 % 24, secs / 60 % 60);
     if days > 0 {
-        i18n::fmt(
-            // Translators: uptime, e.g. "2 days 3 h"
-            &i18n::ngettext(
-                "{days} day {hours} h",
-                "{days} days {hours} h",
-                u32::try_from(days).unwrap_or(u32::MAX),
-            ),
+        format::fmt(
+            // uptime, e.g. "2 days 3 h"
+            format::plural(days, "{days} day {hours} h", "{days} days {hours} h"),
             &[("days", &days), ("hours", &hours)],
         )
     } else if hours > 0 {
-        // Translators: uptime, e.g. "3 h 12 min"
-        i18n::fmt(
-            &gettext("{hours} h {minutes} min"),
+        // uptime, e.g. "3 h 12 min"
+        format::fmt(
+            "{hours} h {minutes} min",
             &[("hours", &hours), ("minutes", &minutes)],
         )
     } else {
-        // Translators: uptime, e.g. "12 min"
-        i18n::fmt(&gettext("{minutes} min"), &[("minutes", &minutes)])
+        // uptime, e.g. "12 min"
+        format::fmt("{minutes} min", &[("minutes", &minutes)])
     }
 }
 
 /// "3.4 GHz"
 fn ghz(mhz: u32) -> String {
     let value = format!("{:.1}", f64::from(mhz) / 1000.0);
-    // Translators: a processor clock, e.g. "3.4 GHz"
-    i18n::fmt(&gettext("{value} GHz"), &[("value", &value)])
+    // a processor clock, e.g. "3.4 GHz"
+    format::fmt("{value} GHz", &[("value", &value)])
 }
 
 /// A button showing one resource. Hidden until its data first arrives.
@@ -292,7 +283,7 @@ impl Card {
             .css_classes(["card", "cw-card"])
             .action_name("app.show-page")
             .action_target(&page.to_variant())
-            .tooltip_text(i18n::fmt(&gettext("Open {page}"), &[("page", &title)]))
+            .tooltip_text(format::fmt("Open {page}", &[("page", &title)]))
             .visible(false)
             .build();
         cards.append(&button);

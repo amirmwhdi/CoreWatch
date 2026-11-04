@@ -7,7 +7,7 @@ arch=('x86_64' 'aarch64')
 url='https://github.com/amirmwhdi/CoreWatch'
 license=('GPL-3.0-or-later')
 depends=('gtk4' 'libadwaita' 'gcc-libs' 'glibc')
-makedepends=('cargo' 'meson' 'blueprint-compiler' 'gettext')
+makedepends=('cargo' 'meson' 'blueprint-compiler')
 # The release profile already strips the binary: no -debug package.
 options=('!debug')
 checkdepends=('appstream' 'desktop-file-utils')

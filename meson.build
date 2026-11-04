@@ -6,7 +6,6 @@ project(
   meson_version: '>= 1.7.0',
 )
 
-i18n = import('i18n')
 gnome = import('gnome')
 
 application_id = 'io.github.amirmwhdi.Corewatch'
@@ -14,7 +13,6 @@ application_id = 'io.github.amirmwhdi.Corewatch'
 prefix = get_option('prefix')
 bindir = prefix / get_option('bindir')
 datadir = prefix / get_option('datadir')
-localedir = prefix / get_option('localedir')
 
 dependency('gtk4', version: '>= 4.18')
 dependency('libadwaita-1', version: '>= 1.7')
@@ -22,7 +20,6 @@ find_program('blueprint-compiler')
 cargo = find_program('cargo')
 
 subdir('data')
-subdir('po')
 subdir('crates/app')
 
 gnome.post_install(

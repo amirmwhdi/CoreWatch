@@ -20,7 +20,6 @@ BuildRequires:  pkgconfig(gtk4) >= 4.18
 BuildRequires:  pkgconfig(libadwaita-1) >= 1.7
 BuildRequires:  desktop-file-utils
 BuildRequires:  appstream
-BuildRequires:  gettext
 
 Requires:       gtk4 >= 4.18
 Requires:       libadwaita >= 1.7
@@ -44,9 +43,8 @@ export CARGO_NET_OFFLINE=true
 
 %install
 %meson_install
-%find_lang %{name}
 
-%files -f %{name}.lang
+%files
 %license LICENSE
 %doc README.md
 %{_bindir}/corewatch

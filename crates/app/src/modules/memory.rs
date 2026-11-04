@@ -1,7 +1,7 @@
 //! Memory page: usage graph, used, available, cache and swap.
 
 use super::{Module, ResourcePage};
-use crate::i18n::{self, gettext};
+use crate::format;
 use crate::widgets::Graph;
 use adw::prelude::*;
 use adw::subclass::prelude::ObjectSubclassIsExt;
@@ -55,7 +55,7 @@ impl ResourcePage for MemoryPage {
     }
 
     fn title(&self) -> String {
-        gettext("Memory")
+        String::from("Memory")
     }
 
     fn icon_name(&self) -> &'static str {
@@ -68,30 +68,30 @@ impl ResourcePage for MemoryPage {
 
     fn update(&self, snapshot: &Snapshot) {
         let Some(m) = &snapshot.memory else { return };
-        let size = i18n::size;
+        let size = format::size;
 
         self.graph.push(m.used_fraction());
-        self.used.set_subtitle(&i18n::fmt(
-            // Translators: e.g. "6.2 GiB of 16 GiB (39%)"
-            &gettext("{used} of {total} ({percent})"),
+        self.used.set_subtitle(&format::fmt(
+            // e.g. "6.2 GiB of 16 GiB (39%)"
+            "{used} of {total} ({percent})",
             &[
                 ("used", &size(m.used)),
                 ("total", &size(m.total)),
-                ("percent", &i18n::percent(m.used_fraction())),
+                ("percent", &format::percent(m.used_fraction())),
             ],
         ));
         self.available.set_subtitle(&size(m.available));
-        self.cached.set_subtitle(&i18n::fmt(
-            &gettext("{cache} cache · {buffers} buffers"),
+        self.cached.set_subtitle(&format::fmt(
+            "{cache} cache · {buffers} buffers",
             &[("cache", &size(m.cached)), ("buffers", &size(m.buffers))],
         ));
 
         if m.swap_total == 0 {
-            self.swap.set_subtitle(&gettext("No swap configured"));
+            self.swap.set_subtitle("No swap configured");
             self.swap_bar.set_visible(false);
         } else {
-            self.swap.set_subtitle(&i18n::fmt(
-                &gettext("{used} of {total}"),
+            self.swap.set_subtitle(&format::fmt(
+                "{used} of {total}",
                 &[("used", &size(m.swap_used)), ("total", &size(m.swap_total))],
             ));
             self.swap_bar.set_visible(true);
@@ -107,7 +107,7 @@ impl ResourcePage for MemoryPage {
         snapshot
             .memory
             .as_ref()
-            .map(|m| i18n::percent(m.used_fraction()))
+            .map(|m| format::percent(m.used_fraction()))
     }
 }
 

@@ -1,9 +1,9 @@
 //! Preferences dialog for Corewatch.
 //!
 //! Every row saves at once and takes effect on the next tick: units through
-//! `i18n::set_units`, the graph length through `widgets::graph::set_history`.
+//! `format::set_units`, the graph length through `widgets::graph::set_history`.
 
-use crate::i18n::{self, gettext, NetworkUnits, SizeUnits, TemperatureUnit};
+use crate::format::{self, NetworkUnits, SizeUnits, TemperatureUnit};
 use crate::settings::{AppSettings, StartPage, ThemeMode, UpdateSpeed};
 use adw::prelude::*;
 use adw::subclass::prelude::*;
@@ -88,7 +88,7 @@ impl PreferencesDialog {
         let start_ids: Vec<Option<String>> = std::iter::once(None)
             .chain(pages.iter().map(|(id, _)| Some(id.clone())))
             .collect();
-        let titles: Vec<String> = std::iter::once(gettext("Last Opened Page"))
+        let titles: Vec<String> = std::iter::once(String::from("Last Opened Page"))
             .chain(pages.iter().map(|(_, title)| title.clone()))
             .collect();
         let titles: Vec<&str> = titles.iter().map(String::as_str).collect();
@@ -140,7 +140,7 @@ impl PreferencesDialog {
                     TemperatureUnit::Celsius
                 }
             });
-            i18n::set_units(settings.units);
+            format::set_units(settings.units);
         });
 
         imp.sizes_row
@@ -153,7 +153,7 @@ impl PreferencesDialog {
                     SizeUnits::Binary
                 }
             });
-            i18n::set_units(settings.units);
+            format::set_units(settings.units);
         });
 
         imp.network_row
@@ -166,7 +166,7 @@ impl PreferencesDialog {
                     NetworkUnits::Bytes
                 }
             });
-            i18n::set_units(settings.units);
+            format::set_units(settings.units);
         });
 
         dialog

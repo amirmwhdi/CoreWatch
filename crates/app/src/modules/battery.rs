@@ -1,7 +1,7 @@
 //! Battery page: charge level graph, status, remaining time, power consumption, health, and hardware.
 
 use super::{Module, ResourcePage};
-use crate::i18n::{self, gettext};
+use crate::format;
 use crate::widgets::{Graph, SensorGroup};
 use adw::prelude::*;
 use adw::subclass::prelude::ObjectSubclassIsExt;
@@ -65,7 +65,7 @@ impl ResourcePage for BatteryPage {
     }
 
     fn title(&self) -> String {
-        gettext("Battery")
+        String::from("Battery")
     }
 
     fn icon_name(&self) -> &'static str {
@@ -90,7 +90,7 @@ impl ResourcePage for BatteryPage {
 
         self.status.set_subtitle(&state_label(battery.state));
 
-        self.level.set_subtitle(&i18n::percent(battery.capacity));
+        self.level.set_subtitle(&format::percent(battery.capacity));
 
         // Time remaining
         match battery.time_remaining_secs {
@@ -98,15 +98,15 @@ impl ResourcePage for BatteryPage {
                 let hours = secs / 3600;
                 let minutes = (secs % 3600) / 60;
                 let time_desc = if hours > 0 {
-                    i18n::fmt(&gettext("{h}h {m}m"), &[("h", &hours), ("m", &minutes)])
+                    format::fmt("{h}h {m}m", &[("h", &hours), ("m", &minutes)])
                 } else {
-                    i18n::fmt(&gettext("{m} minutes"), &[("m", &minutes)])
+                    format::fmt("{m} minutes", &[("m", &minutes)])
                 };
                 let full_desc = match battery.state {
                     BatteryState::Charging => {
-                        i18n::fmt(&gettext("{time} until full"), &[("time", &time_desc)])
+                        format::fmt("{time} until full", &[("time", &time_desc)])
                     }
-                    _ => i18n::fmt(&gettext("{time} remaining"), &[("time", &time_desc)]),
+                    _ => format::fmt("{time} remaining", &[("time", &time_desc)]),
                 };
                 self.time.set_subtitle(&full_desc);
                 self.time.set_visible(true);
@@ -119,8 +119,8 @@ impl ResourcePage for BatteryPage {
         // Power rate
         match battery.power_w {
             Some(w) => {
-                // Translators: a power draw, e.g. "7.4 W"
-                let text = i18n::fmt(&gettext("{watts} W"), &[("watts", &format!("{w:.1}"))]);
+                // a power draw, e.g. "7.4 W"
+                let text = format::fmt("{watts} W", &[("watts", &format!("{w:.1}"))]);
                 self.rate.set_subtitle(&text);
                 self.rate.set_visible(true);
             }
@@ -136,11 +136,11 @@ impl ResourcePage for BatteryPage {
             battery.energy_design_wh,
         ) {
             (Some(health_pct), Some(full), Some(design)) => {
-                let text = i18n::fmt(
-                    // Translators: e.g. "92% · 46.1 Wh of 50.0 Wh design"
-                    &gettext("{health} · {full} Wh of {design} Wh design"),
+                let text = format::fmt(
+                    // e.g. "92% · 46.1 Wh of 50.0 Wh design"
+                    "{health} · {full} Wh of {design} Wh design",
                     &[
-                        ("health", &i18n::percent(health_pct)),
+                        ("health", &format::percent(health_pct)),
                         ("full", &format!("{full:.1}")),
                         ("design", &format!("{design:.1}")),
                     ],
@@ -148,7 +148,7 @@ impl ResourcePage for BatteryPage {
                 self.health.set_subtitle(&text);
             }
             (Some(health_pct), _, _) => {
-                self.health.set_subtitle(&i18n::percent(health_pct));
+                self.health.set_subtitle(&format::percent(health_pct));
             }
             // The driver does not report the design capacity: say nothing
             // instead of guessing.
@@ -159,9 +159,9 @@ impl ResourcePage for BatteryPage {
         match battery_sample.ac_online {
             Some(online) => {
                 self.power_supply.set_subtitle(&if online {
-                    gettext("Connected")
+                    String::from("Connected")
                 } else {
-                    gettext("Disconnected (Running on battery)")
+                    String::from("Disconnected (Running on battery)")
                 });
                 self.power_supply.set_visible(true);
             }
@@ -172,12 +172,12 @@ impl ResourcePage for BatteryPage {
         if !self.static_info_set.get() {
             let cycles_str = battery
                 .cycle_count
-                .map(|c| i18n::fmt(&gettext("{c} cycles"), &[("c", &c)]))
+                .map(|c| format::fmt("{c} cycles", &[("c", &c)]))
                 .unwrap_or_default();
 
             let hw_text = if !cycles_str.is_empty() {
-                i18n::fmt(
-                    &gettext("{model} · {tech} · {cycles}"),
+                format::fmt(
+                    "{model} · {tech} · {cycles}",
                     &[
                         ("model", &battery.model),
                         ("tech", &battery.technology),
@@ -185,8 +185,8 @@ impl ResourcePage for BatteryPage {
                     ],
                 )
             } else {
-                i18n::fmt(
-                    &gettext("{model} · {tech}"),
+                format::fmt(
+                    "{model} · {tech}",
                     &[("model", &battery.model), ("tech", &battery.technology)],
                 )
             };
@@ -202,11 +202,9 @@ impl ResourcePage for BatteryPage {
     fn summary(&self, snapshot: &Snapshot) -> Option<String> {
         let b = snapshot.battery.as_ref()?;
         let dev = b.batteries.first()?;
-        let pct = i18n::percent(dev.capacity);
+        let pct = format::percent(dev.capacity);
         match dev.state {
-            BatteryState::Charging => {
-                Some(i18n::fmt(&gettext("{pct} (Charging)"), &[("pct", &pct)]))
-            }
+            BatteryState::Charging => Some(format::fmt("{pct} (Charging)", &[("pct", &pct)])),
             _ => Some(pct),
         }
     }
@@ -214,11 +212,11 @@ impl ResourcePage for BatteryPage {
 
 pub fn state_label(state: BatteryState) -> String {
     match state {
-        BatteryState::Charging => gettext("Charging"),
-        BatteryState::Discharging => gettext("Discharging"),
-        BatteryState::NotCharging => gettext("Not charging"),
-        BatteryState::Full => gettext("Fully charged"),
-        BatteryState::Unknown => gettext("Unknown"),
+        BatteryState::Charging => String::from("Charging"),
+        BatteryState::Discharging => String::from("Discharging"),
+        BatteryState::NotCharging => String::from("Not charging"),
+        BatteryState::Full => String::from("Fully charged"),
+        BatteryState::Unknown => String::from("Unknown"),
     }
 }
 
