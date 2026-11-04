@@ -6,14 +6,16 @@
 //! process count in the sidebar current.
 
 pub mod cgroup;
+mod details;
 pub mod gpu;
 pub mod net;
 mod parse;
 mod source;
 mod users;
 
+pub use details::{details, Details};
 pub use parse::{parse_passwd, parse_proc_stat, parse_statm, ProcStat};
-pub use source::{current_uid, send_signal, ProcessSource};
+pub use source::{current_uid, send_signal, set_priority, ProcessSignal, ProcessSource};
 
 use crate::cpu::{parse_stat, CpuTimes};
 use crate::{CollectError, Collector, Snapshot, SysRoot};
@@ -51,8 +53,11 @@ pub struct ProcessInfo {
     pub download: Option<u64>,
     pub upload: Option<u64>,
     /// The app (its ID, the name of its `.desktop` file) or service it
-    /// belongs to; `None` for kernel threads. See [`cgroup::group`].
+    /// belongs to; `None` outside any (kernel threads, containers without
+    /// systemd). See [`cgroup::group`].
     pub group: Option<Arc<str>>,
+    /// A kernel thread: kthreadd (pid 2) or one of its children.
+    pub kernel_thread: bool,
     /// How busy the process keeps the graphics card (its busiest engine),
     /// 0.0..=1.0, from DRM fdinfo while the list is shown; `None` when
     /// unknown (another user's process, inside Flatpak, or the list hidden).
@@ -269,6 +274,7 @@ impl ProcessCollector {
                     upload,
                     gpu,
                     group,
+                    kernel_thread: stat.pid == 2 || stat.ppid == 2,
                 }
             })
             .collect();

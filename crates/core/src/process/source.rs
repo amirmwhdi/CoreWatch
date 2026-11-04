@@ -386,8 +386,42 @@ pub fn current_uid() -> u32 {
     rustix::process::getuid().as_raw()
 }
 
-/// Ask a process to stop (`force == false`, SIGTERM) or stop it at once
-/// (SIGKILL).
+/// What [`send_signal`] asks of a process.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProcessSignal {
+    /// SIGTERM: ask it to quit, letting it save and clean up.
+    End,
+    /// SIGKILL: stop it at once.
+    ForceStop,
+    /// SIGSTOP: freeze it where it is.
+    Suspend,
+    /// SIGCONT: let a suspended process run again.
+    Resume,
+}
+
+impl ProcessSignal {
+    fn raw(self) -> rustix::process::Signal {
+        use rustix::process::Signal;
+        match self {
+            Self::End => Signal::TERM,
+            Self::ForceStop => Signal::KILL,
+            Self::Suspend => Signal::STOP,
+            Self::Resume => Signal::CONT,
+        }
+    }
+
+    /// The name `kill -s` takes.
+    fn name(self) -> &'static str {
+        match self {
+            Self::End => "TERM",
+            Self::ForceStop => "KILL",
+            Self::Suspend => "STOP",
+            Self::Resume => "CONT",
+        }
+    }
+}
+
+/// Send `signal` to a process.
 ///
 /// The process is named by its pid and its start time (`start_ticks` of
 /// [`ProcStat`](super::ProcStat)): when the process has ended and its pid
@@ -398,22 +432,58 @@ pub fn send_signal(
     source: ProcessSource,
     pid: u32,
     start_ticks: u64,
-    force: bool,
+    signal: ProcessSignal,
 ) -> io::Result<()> {
     match source {
-        ProcessSource::Direct => signal_direct(pid, start_ticks, force),
-        ProcessSource::FlatpakHost => signal_host(pid, start_ticks, force),
+        ProcessSource::Direct => signal_direct(pid, start_ticks, signal),
+        ProcessSource::FlatpakHost => host_command(HOST_KILL, pid, start_ticks, signal.name()),
     }
 }
 
-fn signal_direct(pid: u32, start_ticks: u64, force: bool) -> io::Result<()> {
-    use rustix::process::{self, Pid, PidfdFlags, Signal};
+/// Set a process's niceness, -20 (runs first) to 19 (runs last). Without
+/// root a process can only be made nicer than it is.
+pub fn set_priority(
+    source: ProcessSource,
+    pid: u32,
+    start_ticks: u64,
+    nice: i32,
+) -> io::Result<()> {
+    match source {
+        ProcessSource::Direct => {
+            let raw = raw_pid(pid)?;
+            check_start(pid, start_ticks)?;
+            rustix::process::setpriority_process(Some(raw), nice).map_err(io::Error::from)
+        }
+        ProcessSource::FlatpakHost => {
+            host_command(HOST_RENICE, pid, start_ticks, &nice.to_string())
+        }
+    }
+}
 
-    let raw = i32::try_from(pid)
+fn raw_pid(pid: u32) -> io::Result<rustix::process::Pid> {
+    i32::try_from(pid)
         .ok()
-        .and_then(Pid::from_raw)
-        .ok_or_else(|| io::Error::from(io::ErrorKind::InvalidInput))?;
-    let signal = if force { Signal::KILL } else { Signal::TERM };
+        .and_then(rustix::process::Pid::from_raw)
+        .ok_or_else(|| io::Error::from(io::ErrorKind::InvalidInput))
+}
+
+/// `NotFound` unless `pid` is still the process that started at `start_ticks`.
+fn check_start(pid: u32, start_ticks: u64) -> io::Result<()> {
+    let stat = std::fs::read(format!("/proc/{pid}/stat"))
+        .map_err(|_| io::Error::from(io::ErrorKind::NotFound))?;
+    let same = super::parse_proc_stat(String::from_utf8_lossy(&stat).trim_end())
+        .is_some_and(|s| s.start_ticks == start_ticks);
+    if same {
+        Ok(())
+    } else {
+        Err(io::Error::from(io::ErrorKind::NotFound))
+    }
+}
+
+fn signal_direct(pid: u32, start_ticks: u64, signal: ProcessSignal) -> io::Result<()> {
+    use rustix::process::{self, PidfdFlags};
+
+    let raw = raw_pid(pid)?;
     // A pidfd holds on to this very process: once its start time is checked,
     // the signal cannot reach a newer process that took over the pid.
     let pidfd = match process::pidfd_open(raw, PidfdFlags::empty()) {
@@ -421,38 +491,32 @@ fn signal_direct(pid: u32, start_ticks: u64, force: bool) -> io::Result<()> {
         Err(rustix::io::Errno::NOSYS) => None, // Linux before 5.3
         Err(e) => return Err(e.into()),
     };
-    let stat = std::fs::read_to_string(format!("/proc/{pid}/stat"))
-        .map_err(|_| io::Error::from(io::ErrorKind::NotFound))?;
-    let same =
-        super::parse_proc_stat(stat.trim_end()).is_some_and(|s| s.start_ticks == start_ticks);
-    if !same {
-        return Err(io::Error::from(io::ErrorKind::NotFound));
-    }
+    check_start(pid, start_ticks)?;
     match pidfd {
-        Some(fd) => process::pidfd_send_signal(fd, signal),
-        None => process::kill_process(raw, signal),
+        Some(fd) => process::pidfd_send_signal(fd, signal.raw()),
+        None => process::kill_process(raw, signal.raw()),
     }
     .map_err(io::Error::from)
 }
 
-/// On the host the start time is checked right before `kill`, by the same
+/// On the host the start time is checked right before acting, by the same
 /// shell: field 22 of `/proc/<pid>/stat`. After the name is cut off, field 3
 /// comes right after the three arguments, so field 22 is `${23}`.
-const HOST_KILL: &str = r#"
+const HOST_CHECK: &str = r#"
 s=$(sed 's/.*) //' "/proc/$1/stat" 2>/dev/null) || exit 3
 set -- "$1" "$2" "$3" $s
 [ "${23}" = "$2" ] || exit 3
-exec kill -s "$3" "$1"
 "#;
 
-fn signal_host(pid: u32, start_ticks: u64, force: bool) -> io::Result<()> {
+const HOST_KILL: &str = r#"exec kill -s "$3" "$1""#;
+const HOST_RENICE: &str = r#"exec renice -n "$3" -p "$1" >/dev/null"#;
+
+/// Run `action` on the host for a process, after checking its start time.
+fn host_command(action: &str, pid: u32, start_ticks: u64, arg: &str) -> io::Result<()> {
+    let script = format!("{HOST_CHECK}{action}\n");
     let output = Command::new("flatpak-spawn")
-        .args(["--host", "sh", "-c", HOST_KILL, "sh"])
-        .args([
-            pid.to_string(),
-            start_ticks.to_string(),
-            (if force { "KILL" } else { "TERM" }).to_owned(),
-        ])
+        .args(["--host", "sh", "-c", &script, "sh"])
+        .args([pid.to_string(), start_ticks.to_string(), arg.to_owned()])
         .stdin(Stdio::null())
         .output()?;
     if output.status.success() {
@@ -462,7 +526,7 @@ fn signal_host(pid: u32, start_ticks: u64, force: bool) -> io::Result<()> {
     Err(
         if output.status.code() == Some(3) || message.contains("No such process") {
             io::Error::from(io::ErrorKind::NotFound)
-        } else if message.contains("not permitted") {
+        } else if message.contains("not permitted") || message.contains("ermission denied") {
             io::Error::from(io::ErrorKind::PermissionDenied)
         } else {
             io::Error::other(message.trim().to_owned())
@@ -489,13 +553,37 @@ mod tests {
     fn a_signal_reaches_only_the_process_that_was_meant() {
         let (mut child, pid, start) = sleeper();
         // Another start time: the pid now names another process.
-        let err = send_signal(ProcessSource::Direct, pid, start + 1, false).unwrap_err();
+        let err =
+            send_signal(ProcessSource::Direct, pid, start + 1, ProcessSignal::End).unwrap_err();
         assert_eq!(err.kind(), io::ErrorKind::NotFound);
         assert!(child.try_wait().unwrap().is_none(), "still running");
 
-        send_signal(ProcessSource::Direct, pid, start, false).unwrap();
+        send_signal(ProcessSource::Direct, pid, start, ProcessSignal::End).unwrap();
         let status = child.wait().unwrap();
         assert!(!status.success());
+    }
+
+    #[test]
+    fn a_process_can_be_suspended_resumed_and_made_nicer() {
+        let (mut child, pid, start) = sleeper();
+        let state = || {
+            let stat = std::fs::read_to_string(format!("/proc/{pid}/stat")).unwrap();
+            super::super::parse_proc_stat(stat.trim_end()).unwrap()
+        };
+        send_signal(ProcessSource::Direct, pid, start, ProcessSignal::Suspend).unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        assert_eq!(state().state, 'T');
+        send_signal(ProcessSource::Direct, pid, start, ProcessSignal::Resume).unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        assert_eq!(state().state, 'S');
+
+        set_priority(ProcessSource::Direct, pid, start, 10).unwrap();
+        assert_eq!(state().nice, 10);
+        let gone = set_priority(ProcessSource::Direct, pid, start + 1, 15).unwrap_err();
+        assert_eq!(gone.kind(), io::ErrorKind::NotFound);
+
+        child.kill().unwrap();
+        child.wait().unwrap();
     }
 
     #[test]
@@ -503,7 +591,7 @@ mod tests {
         // The same script the Flatpak build runs on the host, run here.
         let run = |pid: u32, start: u64| {
             Command::new("sh")
-                .args(["-c", HOST_KILL, "sh"])
+                .args(["-c", &format!("{HOST_CHECK}{HOST_KILL}\n"), "sh"])
                 .args([pid.to_string(), start.to_string(), "TERM".to_owned()])
                 .status()
                 .unwrap()

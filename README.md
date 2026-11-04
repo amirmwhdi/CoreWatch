@@ -114,6 +114,10 @@ and Wi-Fi signal strength.
   **Group by App** puts every process of an app (its helpers and web
   content too) under the app's name and icon, with their total use, and
   ends them all at once.
+  **Details** (Enter, or a double click) show a process's command line,
+  program file, parent, start time, threads, disk reads and writes, and
+  the network connections it has open; there it can be suspended and
+  resumed, given a lower priority, or ended.
 - **Processor:** total usage graph, one graph per logical core, model, cores
   and threads, current frequency; on hybrid processors (Intel 12th
   generation and later, ARM big.LITTLE) which cores are performance and

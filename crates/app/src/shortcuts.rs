@@ -68,6 +68,11 @@ pub fn groups() -> Vec<Group> {
                     action: Some("app.find"),
                 },
                 Shortcut {
+                    title: String::from("Details of the Selected Process"),
+                    accels: &["Return"],
+                    action: None,
+                },
+                Shortcut {
                     title: String::from("End Selected Process"),
                     accels: &["Delete"],
                     action: None,

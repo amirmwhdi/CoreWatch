@@ -9,6 +9,7 @@
 
 use std::collections::{HashMap, HashSet};
 use std::io;
+use std::net::{IpAddr, Ipv6Addr, SocketAddr};
 use std::time::Instant;
 
 /// Bytes sent (acknowledged by the peer) and received on one socket.
@@ -36,19 +37,114 @@ const BYTES_RECEIVED: usize = 128;
 
 /// Every TCP socket's byte counters by inode, IPv4 and IPv6.
 pub fn tcp_sockets() -> io::Result<HashMap<u32, SocketBytes>> {
-    let socket = NetlinkSocket::open()?;
     let mut out = HashMap::new();
+    dump_tcp(|buf| parse_dump(buf, &mut out))?;
+    Ok(out)
+}
+
+/// One TCP connection, for a process's details.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Connection {
+    pub local: SocketAddr,
+    pub remote: SocketAddr,
+    pub state: TcpState,
+}
+
+/// The states of `tcp_states.h` a user cares about.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TcpState {
+    Established,
+    Connecting,
+    Listening,
+    Closing,
+}
+
+/// Every TCP socket's addresses and state by inode, IPv4 and IPv6.
+pub fn tcp_connections() -> io::Result<HashMap<u32, Connection>> {
+    let mut out = HashMap::new();
+    dump_tcp(|buf| parse_connections(buf, &mut out))?;
+    Ok(out)
+}
+
+/// Dump every TCP socket and hand each received buffer to `parse`, which
+/// returns `true` at the end of the dump.
+fn dump_tcp(mut parse: impl FnMut(&[u8]) -> bool) -> io::Result<()> {
+    let socket = NetlinkSocket::open()?;
     for (seq, family) in [(1, libc::AF_INET), (2, libc::AF_INET6)] {
         socket.send(&dump_request(family as u8, seq))?;
         let mut buf = vec![0u8; 32 * 1024];
         loop {
             let n = socket.recv(&mut buf)?;
-            if n == 0 || parse_dump(&buf[..n], &mut out) {
+            if n == 0 || parse(&buf[..n]) {
                 break;
             }
         }
     }
-    Ok(out)
+    Ok(())
+}
+
+/// Each `struct inet_diag_msg` in one received buffer; `true` at the end of
+/// the dump.
+fn messages<'a>(mut buf: &'a [u8], mut each: impl FnMut(&'a [u8])) -> bool {
+    while buf.len() >= NLMSG_HDR {
+        let len = u32_at(buf, 0) as usize;
+        let kind = u16::from_ne_bytes([buf[4], buf[5]]);
+        if len < NLMSG_HDR || len > buf.len() {
+            return true;
+        }
+        if kind == NLMSG_DONE || kind == NLMSG_ERROR {
+            return true;
+        }
+        each(&buf[NLMSG_HDR..len]);
+        buf = &buf[align(len).min(buf.len())..];
+    }
+    false
+}
+
+/// Add the connections of one received buffer to `out`.
+pub fn parse_connections(buf: &[u8], out: &mut HashMap<u32, Connection>) -> bool {
+    messages(buf, |body| {
+        if let Some((inode, connection)) = connection(body) {
+            out.insert(inode, connection);
+        }
+    })
+}
+
+/// `struct inet_diag_msg`: family, state, timer, retrans, then the socket
+/// id (ports and addresses in network order), and the inode last.
+fn connection(body: &[u8]) -> Option<(u32, Connection)> {
+    if body.len() < DIAG_MSG {
+        return None;
+    }
+    let port = |at: usize| u16::from_be_bytes([body[at], body[at + 1]]);
+    let addr = |at: usize| -> Option<IpAddr> {
+        match i32::from(body[0]) {
+            libc::AF_INET => Some(IpAddr::from(<[u8; 4]>::try_from(&body[at..at + 4]).ok()?)),
+            libc::AF_INET6 => {
+                let v6 = Ipv6Addr::from(<[u8; 16]>::try_from(&body[at..at + 16]).ok()?);
+                // An IPv4 peer of an IPv6 socket.
+                Some(v6.to_ipv4_mapped().map_or(IpAddr::V6(v6), IpAddr::V4))
+            }
+            _ => None,
+        }
+    };
+    let state = match body[1] {
+        1 => TcpState::Established,
+        2 | 3 => TcpState::Connecting,
+        10 => TcpState::Listening,
+        _ => TcpState::Closing,
+    };
+    let inode = u32_at(body, DIAG_MSG - 4);
+    let local = SocketAddr::new(addr(8)?, port(4));
+    let remote = SocketAddr::new(addr(24)?, port(6));
+    (inode != 0).then_some((
+        inode,
+        Connection {
+            local,
+            remote,
+            state,
+        },
+    ))
 }
 
 /// A `SOCK_DIAG_BY_FAMILY` dump of every TCP socket in every state, asking
@@ -74,17 +170,8 @@ fn dump_request(family: u8, seq: u32) -> Vec<u8> {
 
 /// Add the sockets of one received buffer to `out`. Returns `true` at the
 /// end of the dump.
-pub fn parse_dump(mut buf: &[u8], out: &mut HashMap<u32, SocketBytes>) -> bool {
-    while buf.len() >= NLMSG_HDR {
-        let len = u32_at(buf, 0) as usize;
-        let kind = u16::from_ne_bytes([buf[4], buf[5]]);
-        if len < NLMSG_HDR || len > buf.len() {
-            return true;
-        }
-        if kind == NLMSG_DONE || kind == NLMSG_ERROR {
-            return true;
-        }
-        let body = &buf[NLMSG_HDR..len];
+pub fn parse_dump(buf: &[u8], out: &mut HashMap<u32, SocketBytes>) -> bool {
+    messages(buf, |body| {
         if body.len() >= DIAG_MSG {
             let inode = u32_at(body, DIAG_MSG - 4);
             if let Some(bytes) = tcp_info(&body[DIAG_MSG..]) {
@@ -93,9 +180,7 @@ pub fn parse_dump(mut buf: &[u8], out: &mut HashMap<u32, SocketBytes>) -> bool {
                 }
             }
         }
-        buf = &buf[align(len).min(buf.len())..];
-    }
-    false
+    })
 }
 
 /// The counters in the `INET_DIAG_INFO` attribute.
@@ -395,5 +480,11 @@ mod tests {
         };
         // bytes_acked counts the SYN as one byte; speeds use differences.
         assert!((5000..=5001).contains(&sockets[&inode].sent));
+
+        let connections = tcp_connections().unwrap();
+        let c = &connections[&inode];
+        assert_eq!(c.remote, listener.local_addr().unwrap());
+        assert_eq!(c.local, client.local_addr().unwrap());
+        assert_eq!(c.state, TcpState::Established);
     }
 }

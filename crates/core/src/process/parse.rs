@@ -11,6 +11,10 @@ pub struct ProcStat {
     pub comm: String,
     /// Single-letter state: `R` running, `S` sleeping, `Z` zombie, …
     pub state: char,
+    /// The parent's pid.
+    pub ppid: u32,
+    /// Scheduling niceness, -20 (first) to 19 (last).
+    pub nice: i32,
     /// User plus system time, in clock ticks.
     pub cpu_ticks: u64,
     pub threads: u32,
@@ -28,19 +32,22 @@ pub fn parse_proc_stat(line: &str) -> Option<ProcStat> {
     let close = line.rfind(')')?;
     let pid = line[..open].trim().parse().ok()?;
     let comm = line.get(open + 1..close)?.to_owned();
-    let mut fields = line.get(close + 1..)?.split_ascii_whitespace();
-    // `fields` starts at field 3 of proc(5); field N is at index N - 3.
-    let state = fields.next()?.chars().next()?;
-    let mut rest = fields.skip(10); // to field 14
-    let utime: u64 = rest.next()?.parse().ok()?;
-    let stime: u64 = rest.next()?.parse().ok()?;
-    let mut rest = rest.skip(4); // to field 20
-    let threads = rest.next()?.parse().ok()?;
-    let start_ticks = rest.nth(1)?.parse().ok()?; // field 22
+    let fields: Vec<&str> = line.get(close + 1..)?.split_ascii_whitespace().collect();
+    // `fields` starts at field 3 of proc(5).
+    let field = |n: usize| fields.get(n - 3).copied();
+    let state = field(3)?.chars().next()?;
+    let ppid = field(4)?.parse().ok()?;
+    let utime: u64 = field(14)?.parse().ok()?;
+    let stime: u64 = field(15)?.parse().ok()?;
+    let nice = field(19)?.parse().ok()?;
+    let threads = field(20)?.parse().ok()?;
+    let start_ticks = field(22)?.parse().ok()?;
     Some(ProcStat {
         pid,
         comm,
         state,
+        ppid,
+        nice,
         cpu_ticks: utime.saturating_add(stime),
         threads,
         start_ticks,
@@ -149,6 +156,8 @@ mod tests {
         assert_eq!(s.pid, 1234);
         assert_eq!(s.comm, "Web Content");
         assert_eq!(s.state, 'S');
+        assert_eq!(s.ppid, 1000);
+        assert_eq!(s.nice, 0);
         assert_eq!(s.cpu_ticks, 1750);
         assert_eq!(s.threads, 27);
         assert_eq!(s.start_ticks, 98765);

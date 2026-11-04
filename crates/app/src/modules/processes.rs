@@ -11,7 +11,7 @@ use crate::format;
 use adw::prelude::*;
 use adw::subclass::prelude::ObjectSubclassIsExt;
 use corewatch_core::process::{
-    current_uid, send_signal, ProcessCollector, ProcessInfo, ProcessSource,
+    current_uid, send_signal, ProcessCollector, ProcessInfo, ProcessSignal, ProcessSource,
 };
 use corewatch_core::{CollectError, Collector, Snapshot, SysRoot};
 use gtk::{gio, glib};
@@ -133,10 +133,15 @@ impl ProcessesPage {
             let filter = filter.clone();
             move |list: &gio::ListStore| {
                 let filtered = gtk::FilterListModel::new(Some(list.clone()), Some(filter.clone()));
-                gtk::TreeListModel::new(filtered, false, false, |item| {
-                    item.downcast_ref::<row::ProcessRow>()?
-                        .children()
-                        .map(|c| c.upcast::<gio::ListModel>())
+                // A group's processes are filtered too, so a search shows only
+                // the processes that match under their app.
+                let child_filter = filter.clone();
+                gtk::TreeListModel::new(filtered, false, false, move |item| {
+                    let children = item.downcast_ref::<row::ProcessRow>()?.children()?;
+                    Some(
+                        gtk::FilterListModel::new(Some(children), Some(child_filter.clone()))
+                            .upcast::<gio::ListModel>(),
+                    )
                 })
             }
         };
@@ -186,13 +191,42 @@ impl ProcessesPage {
         add_column(&columns, "Upload", "upload-text", Some("upload"), false);
         add_column(&columns, "ID", "pid-text", Some("pid"), false);
         columns.sort_by_column(Some(&cpu), gtk::SortType::Descending);
-        // Opening a group shows its processes.
+        // Enter or a double click: a group opens or closes, a process shows
+        // its details.
         columns.connect_activate(glib::clone!(
             #[weak]
             selection,
-            move |_, position| {
-                if let Some(row) = selection.item(position).and_downcast::<gtk::TreeListRow>() {
-                    row.set_expanded(!row.is_expanded());
+            move |columns, position| {
+                let Some(tree_row) = selection.item(position).and_downcast::<gtk::TreeListRow>()
+                else {
+                    return;
+                };
+                match tree_row.item().and_downcast::<row::ProcessRow>() {
+                    Some(process) if !process.is_group() => {
+                        super::process_details::show(columns.upcast_ref(), &process);
+                    }
+                    _ => tree_row.set_expanded(!tree_row.is_expanded()),
+                }
+            }
+        ));
+        let details_button = ui.details_button.get();
+        selection
+            .bind_property("selected-item", &details_button, "sensitive")
+            .transform_to(|_, item: Option<glib::Object>| {
+                let process = item
+                    .and_downcast::<gtk::TreeListRow>()
+                    .and_then(|r| r.item())
+                    .and_downcast::<row::ProcessRow>();
+                Some(process.is_some_and(|p| !p.is_group()))
+            })
+            .sync_create()
+            .build();
+        details_button.connect_clicked(glib::clone!(
+            #[weak]
+            selection,
+            move |button| {
+                if let Some(process) = selected(&selection).filter(|p| !p.is_group()) {
+                    super::process_details::show(button.upcast_ref(), &process);
                 }
             }
         ));
@@ -319,6 +353,9 @@ impl ProcessesPage {
     }
 }
 
+/// The group of kernel threads; no app ID or unit name looks like this.
+const KERNEL: &str = "\0kernel";
+
 impl ProcessesPage {
     /// One group row per app or service, holding the rows of its processes.
     fn sync_groups(
@@ -330,10 +367,12 @@ impl ProcessesPage {
         let mut members: HashMap<Option<Arc<str>>, Vec<row::ProcessRow>> = HashMap::new();
         for info in processes {
             if let Some(row) = rows.get(&(info.pid, info.start_ticks)) {
-                members
-                    .entry(info.group.clone())
-                    .or_default()
-                    .push(row.clone());
+                let key = match (&info.group, info.kernel_thread) {
+                    (Some(group), _) => Some(group.clone()),
+                    (None, true) => Some(Arc::from(KERNEL)),
+                    (None, false) => None,
+                };
+                members.entry(key).or_default().push(row.clone());
             }
         }
         let mut groups = self.group_rows.borrow_mut();
@@ -354,7 +393,8 @@ impl ProcessesPage {
                 row
             });
             let (name, icon) = match key.as_deref() {
-                None => ("Kernel".to_owned(), icons.fallback()),
+                Some(KERNEL) => ("Kernel".to_owned(), icons.fallback()),
+                None => ("Other Processes".to_owned(), icons.fallback()),
                 Some(id) => match icons.app(id) {
                     Some((name, icon)) => (name.to_owned(), icon),
                     None => (id.to_owned(), icons.lookup(id)),
@@ -568,7 +608,11 @@ fn add_column(
 }
 
 /// Ask before ending a process, then send the signal off the main thread.
-fn confirm_end(parent: &gtk::Widget, toasts: &adw::ToastOverlay, process: &row::ProcessRow) {
+pub(crate) fn confirm_end(
+    parent: &gtk::Widget,
+    toasts: &adw::ToastOverlay,
+    process: &row::ProcessRow,
+) {
     // A group ends all its processes.
     let targets: Vec<(u32, u64)> = match process.children() {
         Some(children) => children
@@ -607,9 +651,9 @@ fn confirm_end(parent: &gtk::Widget, toasts: &adw::ToastOverlay, process: &row::
     let toasts = toasts.clone();
     let source = ProcessSource::detect(&SysRoot::from_env());
     dialog.choose(Some(parent), gio::Cancellable::NONE, move |response| {
-        let force = match response.as_str() {
-            "end" => false,
-            "kill" => true,
+        let signal = match response.as_str() {
+            "end" => ProcessSignal::End,
+            "kill" => ProcessSignal::ForceStop,
             _ => return,
         };
         glib::spawn_future_local(async move {
@@ -618,7 +662,7 @@ fn confirm_end(parent: &gtk::Widget, toasts: &adw::ToastOverlay, process: &row::
                 targets
                     .into_iter()
                     .map(|(pid, start_ticks)| {
-                        let result = send_signal(source, pid, start_ticks, force);
+                        let result = send_signal(source, pid, start_ticks, signal);
                         if let Err(error) = &result {
                             if error.kind() != io::ErrorKind::NotFound {
                                 tracing::warn!(pid, %error, "cannot end process");
@@ -664,7 +708,7 @@ fn confirm_end(parent: &gtk::Widget, toasts: &adw::ToastOverlay, process: &row::
 
 /// `CwProcessRow`: one table row. Numbers are kept for sorting, text for
 /// display; both are set only when they change.
-mod row {
+pub(crate) mod row {
     use super::*;
     use glib::subclass::prelude::*;
 
@@ -976,6 +1020,8 @@ mod view {
             pub mine: TemplateChild<gtk::ToggleButton>,
             #[template_child]
             pub group: TemplateChild<gtk::ToggleButton>,
+            #[template_child]
+            pub details_button: TemplateChild<gtk::Button>,
             #[template_child]
             pub end_button: TemplateChild<gtk::Button>,
             #[template_child]
