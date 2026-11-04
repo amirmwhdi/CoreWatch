@@ -108,8 +108,8 @@ and Wi-Fi signal strength.
 ## Features
 
 - **Overview** of every resource at a glance, with live graphs.
-- **Processes:** a sortable table with app icons, CPU, memory, download and
-  upload speed, user and process ID; search by name or ID, "only my
+- **Processes:** a sortable table with app icons, CPU, memory, graphics
+  card usage, download and upload speed, user and process ID; search by name or ID, "only my
   processes", End Process and Force Stop.
 - **Processor:** total usage graph, one graph per logical core, model, cores
   and threads, current frequency; on hybrid processors (Intel 12th
@@ -171,6 +171,11 @@ Corewatch lets go of it so it can sleep again.
 ### Good to know
 
 - Corewatch is in English, whatever the language of the system.
+- Graphics card usage per process comes from the driver: amdgpu, Intel
+  (i915, xe) and other drivers that report it in `/proc/<pid>/fdinfo`, and
+  the proprietary NVIDIA driver through NVML. Like the network speeds, it
+  is shown for your own processes unless Corewatch runs as root; inside
+  Flatpak only NVIDIA cards report it.
 - Download and upload speeds per process count TCP traffic, not UDP or QUIC.
   For other users' processes they are only shown when Corewatch runs as root.
 - SATA drives show a temperature through UDisks when the kernel's

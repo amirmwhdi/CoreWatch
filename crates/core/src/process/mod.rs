@@ -5,6 +5,7 @@
 //! page sets), and every [`IDLE_EVERY`] ticks otherwise, which keeps the
 //! process count in the sidebar current.
 
+pub mod gpu;
 pub mod net;
 mod parse;
 mod source;
@@ -48,6 +49,10 @@ pub struct ProcessInfo {
     /// `None` when unknown (another user's process, or the list hidden).
     pub download: Option<u64>,
     pub upload: Option<u64>,
+    /// How busy the process keeps the graphics card (its busiest engine),
+    /// 0.0..=1.0, from DRM fdinfo while the list is shown; `None` when
+    /// unknown (another user's process, inside Flatpak, or the list hidden).
+    pub gpu: Option<f32>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -75,6 +80,7 @@ pub struct ProcessCollector {
     last: ProcessSample,
     idle_countdown: u32,
     net: NetTracker,
+    gpu: gpu::GpuTracker,
     my_uid: u32,
 }
 
@@ -98,6 +104,7 @@ impl ProcessCollector {
             last: ProcessSample::default(),
             idle_countdown: 0,
             net: NetTracker::default(),
+            gpu: gpu::GpuTracker::default(),
             my_uid: current_uid(),
         };
         collector.scan(root)?;
@@ -127,9 +134,56 @@ impl ProcessCollector {
         Some(self.net.rates(sockets))
     }
 
+    /// GPU usage by pid while the list is shown; `None` otherwise or when
+    /// it cannot be read. `own`: the processes whose descriptors can be read.
+    fn gpu_usage(&mut self, root: &SysRoot, own: &[u32]) -> Option<HashMap<u32, f32>> {
+        if !self.active.load(Ordering::Relaxed) || !self.reader.reads_gpu() {
+            self.gpu.pause();
+            return None;
+        }
+        if self.gpu.find_countdown == 0 {
+            self.gpu.fds = self.reader.gpu_fds(root, own);
+            self.gpu.find_countdown = gpu::FIND_EVERY;
+        }
+        self.gpu.find_countdown -= 1;
+        let now = std::time::Instant::now();
+        let mut usage = HashMap::new();
+        let holders: Vec<(u32, Vec<u32>)> =
+            self.gpu.fds.iter().map(|(p, f)| (*p, f.clone())).collect();
+        for (pid, fds) in holders {
+            let mut clients: Vec<gpu::ClientCounters> = Vec::new();
+            for fd in fds {
+                let Some(client) = self
+                    .reader
+                    .fdinfo(root, pid, fd)
+                    .and_then(|text| gpu::parse_fdinfo(&text))
+                else {
+                    continue;
+                };
+                // One client open through several descriptors counts once.
+                if client.client.is_none() || !clients.iter().any(|c| c.client == client.client) {
+                    clients.push(client);
+                }
+            }
+            if let Some(share) = self.gpu.usage(pid, clients, now) {
+                usage.insert(pid, share);
+            }
+        }
+        let own: std::collections::HashSet<u32> = own.iter().copied().collect();
+        self.gpu.retain(|pid| own.contains(&pid));
+        Some(usage)
+    }
+
     fn scan(&mut self, root: &SysRoot) -> Result<(), CollectError> {
         let scan = self.reader.scan(root)?;
         let rates = self.net_rates(root);
+        let own: Vec<u32> = scan
+            .processes
+            .iter()
+            .filter(|p| self.my_uid == 0 || p.uid == Some(self.my_uid))
+            .map(|p| p.stat.pid)
+            .collect();
+        let gpu_usage = self.gpu_usage(root, &own);
         let cpu_now = scan
             .cpu_line
             .as_deref()
@@ -182,6 +236,10 @@ impl ProcessCollector {
                     }
                     _ => (None, None),
                 };
+                let gpu = gpu_usage.as_ref().and_then(|usage| {
+                    let readable = self.my_uid == 0 || raw.uid == Some(self.my_uid);
+                    readable.then(|| usage.get(&stat.pid).copied().unwrap_or(0.0))
+                });
                 ProcessInfo {
                     pid: stat.pid,
                     name,
@@ -194,6 +252,7 @@ impl ProcessCollector {
                     start_ticks: stat.start_ticks,
                     download,
                     upload,
+                    gpu,
                 }
             })
             .collect();

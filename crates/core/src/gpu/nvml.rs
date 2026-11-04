@@ -45,7 +45,24 @@ struct Api {
     nvmlDeviceGetPowerUsage: unsafe extern "C" fn(Device, *mut c_uint) -> Ret,
     nvmlDeviceGetEnforcedPowerLimit: unsafe extern "C" fn(Device, *mut c_uint) -> Ret,
     nvmlDeviceGetFanSpeed: unsafe extern "C" fn(Device, *mut c_uint) -> Ret,
+    /// Missing from old drivers: no usage per process then.
+    nvmlDeviceGetProcessUtilization:
+        Option<unsafe extern "C" fn(Device, *mut ProcessSample, *mut c_uint, u64) -> Ret>,
 }
+
+/// `nvmlProcessUtilizationSample_t`.
+#[repr(C)]
+#[derive(Clone, Copy, Default)]
+struct ProcessSample {
+    pid: c_uint,
+    time_stamp: u64,
+    sm_util: c_uint,
+    mem_util: c_uint,
+    enc_util: c_uint,
+    dec_util: c_uint,
+}
+
+const ERROR_INSUFFICIENT_SIZE: Ret = 7;
 
 /// An initialized NVML. Dropping it shuts NVML down and closes the library.
 pub struct Nvml {
@@ -96,6 +113,10 @@ impl Nvml {
                 nvmlDeviceGetPowerUsage: sym!("nvmlDeviceGetPowerUsage"),
                 nvmlDeviceGetEnforcedPowerLimit: sym!("nvmlDeviceGetEnforcedPowerLimit"),
                 nvmlDeviceGetFanSpeed: sym!("nvmlDeviceGetFanSpeed"),
+                nvmlDeviceGetProcessUtilization: {
+                    let ptr = libc::dlsym(lib, c"nvmlDeviceGetProcessUtilization".as_ptr());
+                    (!ptr.is_null()).then(|| std::mem::transmute::<*mut c_void, _>(ptr))
+                },
             }
         };
         Some(Self { lib, api })
@@ -158,6 +179,42 @@ impl Nvml {
             fan_percent: u32_of(&|v| unsafe { (api.nvmlDeviceGetFanSpeed)(d, v) })
                 .map(|p| (p as f32 / 100.0).clamp(0.0, 1.0)),
         }
+    }
+}
+
+impl Nvml {
+    /// How busy each process kept the card's shaders since `since` (µs,
+    /// NVML's clock; 0 for everything it still has), and the newest sample's
+    /// time for the next call. Empty when the driver cannot say.
+    pub fn process_usage(&self, device: &NvmlDevice, since: u64) -> (Vec<(u32, f32)>, u64) {
+        let Some(get) = self.api.nvmlDeviceGetProcessUtilization else {
+            return (Vec::new(), since);
+        };
+        let mut count: c_uint = 0;
+        // SAFETY: a null buffer with a zero count asks for the count.
+        let ret = unsafe { get(device.0, std::ptr::null_mut(), &mut count, since) };
+        if ret != ERROR_INSUFFICIENT_SIZE || count == 0 {
+            return (Vec::new(), since);
+        }
+        let mut samples = vec![ProcessSample::default(); count as usize];
+        // SAFETY: the buffer holds `count` samples, as NVML is told.
+        let ret = unsafe { get(device.0, samples.as_mut_ptr(), &mut count, since) };
+        if ret != SUCCESS {
+            return (Vec::new(), since);
+        }
+        samples.truncate(count as usize);
+        let newest = samples.iter().map(|s| s.time_stamp).max().unwrap_or(since);
+        // Several samples of one process: the latest wins.
+        samples.sort_by_key(|s| s.time_stamp);
+        let mut usage: Vec<(u32, f32)> = Vec::new();
+        for s in samples {
+            let share = (s.sm_util as f32 / 100.0).clamp(0.0, 1.0);
+            match usage.iter_mut().find(|(pid, _)| *pid == s.pid) {
+                Some(entry) => entry.1 = share,
+                None => usage.push((s.pid, share)),
+            }
+        }
+        (usage, newest)
     }
 }
 

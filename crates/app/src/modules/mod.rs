@@ -22,8 +22,9 @@ use corewatch_core::{CollectError, Collector, Snapshot, SysRoot};
 /// - keep all widgets inside the page; share drawing through `crate::widgets`;
 /// - format numbers here, never in `corewatch-core`.
 ///
-/// The overview page is the one exception to the first rule: it shows a
-/// little of every field, next to its own (uptime and load).
+/// Two pages break the first rule: the overview shows a little of every
+/// field, next to its own (uptime and load), and the process list takes the
+/// GPU usage per process NVIDIA's driver reports to the GPU collector.
 pub trait ResourcePage {
     /// Stable id, used as the stack page name, e.g. `"cpu"`.
     fn id(&self) -> &'static str;

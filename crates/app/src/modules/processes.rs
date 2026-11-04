@@ -130,6 +130,7 @@ impl ProcessesPage {
         add_column(&columns, "User", "user", Some("user"), false);
         let cpu = add_column(&columns, "CPU", "cpu-text", Some("cpu"), false);
         add_column(&columns, "Memory", "memory-text", Some("memory"), false);
+        add_column(&columns, "GPU", "gpu-text", Some("gpu"), false);
         add_column(
             &columns,
             "Download",
@@ -222,7 +223,9 @@ impl ProcessesPage {
         }
     }
 
-    fn sync(&self, processes: &[ProcessInfo]) {
+    /// `nvml`: GPU usage by pid that NVIDIA's driver reports, merged with the
+    /// usage the processes' own GPU files give.
+    fn sync(&self, processes: &[ProcessInfo], nvml: &HashMap<u32, f32>) {
         let icons = self.icons.borrow();
         let units = format::units_generation();
         let relabel = self.units.replace(units) != units;
@@ -233,9 +236,9 @@ impl ProcessesPage {
             let key = (info.pid, info.start_ticks);
             alive.insert(key);
             match rows.get(&key) {
-                Some(row) => row.update(info, &icons, relabel),
+                Some(row) => row.update(info, gpu_of(info, nvml), &icons, relabel),
                 None => {
-                    let row = row::ProcessRow::new(info, &icons);
+                    let row = row::ProcessRow::new(info, gpu_of(info, nvml), &icons);
                     added.push(row.clone());
                     rows.insert(key, row);
                 }
@@ -285,7 +288,14 @@ impl ResourcePage for ProcessesPage {
             return;
         }
         self.generation.set(sample.generation);
-        self.sync(&sample.processes);
+        // The one other field this page reads: NVIDIA cards report usage per
+        // process to the GPU collector (NVML), not in the processes' files.
+        let nvml: HashMap<u32, f32> = snapshot
+            .gpu
+            .as_ref()
+            .map(|g| g.process_usage.iter().copied().collect())
+            .unwrap_or_default();
+        self.sync(&sample.processes, &nvml);
     }
 
     fn has_data(&self, snapshot: &Snapshot) -> bool {
@@ -317,6 +327,14 @@ fn matches_search(name: &str, pid: &str, query: &str) -> bool {
         return true;
     }
     name.to_lowercase().contains(&query.to_lowercase())
+}
+
+/// A process's GPU usage: the larger of its DRM files' and NVML's.
+fn gpu_of(info: &ProcessInfo, nvml: &HashMap<u32, f32>) -> Option<f32> {
+    match (info.gpu, nvml.get(&info.pid).copied()) {
+        (Some(a), Some(b)) => Some(a.max(b)),
+        (a, b) => a.or(b),
+    }
 }
 
 /// A text column bound to `property`; sortable by the numeric or string
@@ -475,6 +493,11 @@ mod row {
             pub upload: Cell<u64>,
             #[property(get)]
             pub upload_text: RefCell<String>,
+            /// 0.0..=1.0; 0 when unknown, so unknown sorts with idle.
+            #[property(get)]
+            pub gpu: Cell<f32>,
+            #[property(get)]
+            pub gpu_text: RefCell<String>,
         }
 
         #[glib::object_subclass]
@@ -492,7 +515,7 @@ mod row {
     }
 
     impl ProcessRow {
-        pub fn new(info: &ProcessInfo, icons: &AppIcons) -> Self {
+        pub fn new(info: &ProcessInfo, gpu: Option<f32>, icons: &AppIcons) -> Self {
             let row: Self = glib::Object::new();
             let imp = row.imp();
             imp.pid.set(info.pid);
@@ -510,6 +533,8 @@ mod row {
             *imp.download_text.borrow_mut() = speed_text(info.download);
             imp.upload.set(info.upload.unwrap_or(0));
             *imp.upload_text.borrow_mut() = speed_text(info.upload);
+            imp.gpu.set(gpu.unwrap_or(0.0));
+            *imp.gpu_text.borrow_mut() = gpu_text(gpu);
             row
         }
 
@@ -524,7 +549,13 @@ mod row {
         }
 
         /// `relabel` remakes every text, after the units changed.
-        pub fn update(&self, info: &ProcessInfo, icons: &AppIcons, relabel: bool) {
+        pub fn update(
+            &self,
+            info: &ProcessInfo,
+            gpu: Option<f32>,
+            icons: &AppIcons,
+            relabel: bool,
+        ) {
             let imp = self.imp();
             if *imp.name.borrow() != *info.name {
                 *imp.name.borrow_mut() = info.name.to_string();
@@ -562,6 +593,11 @@ mod row {
             set_text(&imp.upload_text, speed_text(info.upload), || {
                 self.notify_upload_text()
             });
+            let share = gpu.unwrap_or(0.0);
+            if imp.gpu.replace(share) != share {
+                self.notify_gpu();
+            }
+            set_text(&imp.gpu_text, gpu_text(gpu), || self.notify_gpu_text());
         }
     }
 
@@ -578,6 +614,16 @@ mod row {
         match rate {
             Some(0) => String::new(),
             Some(rate) => format::net_speed(rate),
+            None => "—".to_owned(),
+        }
+    }
+
+    /// Empty for a process that does not use the GPU, a dash when unknown
+    /// (another user's process).
+    fn gpu_text(share: Option<f32>) -> String {
+        match share {
+            Some(s) if s < 0.0005 => String::new(),
+            Some(s) => cpu_text(s),
             None => "—".to_owned(),
         }
     }

@@ -122,6 +122,10 @@ impl GpuDevice {
 pub struct GpuSample {
     /// Discrete cards before Intel's integrated ones, then by address.
     pub devices: Vec<GpuDevice>,
+    /// How busy each process kept an NVIDIA card (proprietary driver, read
+    /// through NVML), by pid; other drivers report this per process in
+    /// fdinfo (see `process::gpu`).
+    pub process_usage: Vec<(u32, f32)>,
 }
 
 impl GpuSample {
@@ -168,6 +172,8 @@ struct Card {
     runtime_status: PathBuf,
     files: Files,
     nvml: Option<NvmlDevice>,
+    /// NVML's time of the last process sample read, for the next read.
+    nvml_seen: u64,
     /// The card sleeps when unused (`power/control` is `auto`).
     runtime_pm: bool,
     /// The load NVML reported last tick, to know when the card is idle.
@@ -291,6 +297,7 @@ impl GpuCollector {
                     vendor,
                     driver,
                     nvml: None,
+                    nvml_seen: 0,
                     last_nvml_usage: None,
                     last_idle: None,
                 }
@@ -557,7 +564,24 @@ impl Collector for GpuCollector {
                 }
             })
             .collect();
-        out.gpu = Some(GpuSample { devices });
+        let mut process_usage: Vec<(u32, f32)> = Vec::new();
+        if let Some(lib) = &self.nvml {
+            for card in &mut self.cards {
+                let Some(device) = &card.nvml else { continue };
+                let (usage, seen) = lib.process_usage(device, card.nvml_seen);
+                card.nvml_seen = seen;
+                for (pid, share) in usage {
+                    match process_usage.iter_mut().find(|(p, _)| *p == pid) {
+                        Some(entry) => entry.1 = entry.1.max(share),
+                        None => process_usage.push((pid, share)),
+                    }
+                }
+            }
+        }
+        out.gpu = Some(GpuSample {
+            devices,
+            process_usage,
+        });
         Ok(())
     }
 }

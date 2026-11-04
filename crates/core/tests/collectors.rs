@@ -650,3 +650,45 @@ fn system_collector_reads_uptime_and_load() {
     assert_eq!(system.uptime_secs, 93784);
     assert_eq!(system.load, [0.52, 0.58, 0.59]);
 }
+
+#[test]
+fn gpu_usage_per_process_comes_from_drm_fdinfo() {
+    use corewatch_core::process::{ProcessCollector, ProcessSource};
+    use std::sync::atomic::AtomicBool;
+
+    static ACTIVE: AtomicBool = AtomicBool::new(true);
+    // A fake /proc, written here: the fdinfo must change between two scans.
+    let base = std::env::temp_dir().join(format!("corewatch-gpu-{}", std::process::id()));
+    let proc_ = base.join("proc");
+    let pid = proc_.join("500");
+    std::fs::create_dir_all(pid.join("fd")).unwrap();
+    std::fs::create_dir_all(pid.join("fdinfo")).unwrap();
+    std::fs::create_dir_all(base.join("sys")).unwrap();
+    std::fs::write(proc_.join("stat"), "cpu  1 0 1 8 0 0 0 0 0 0\n").unwrap();
+    std::fs::write(
+        pid.join("stat"),
+        "500 (game) S 1 500 500 0 -1 0 0 0 0 0 10 10 0 0 20 0 1 0 777 0 0\n",
+    )
+    .unwrap();
+    std::fs::write(pid.join("statm"), "100 50 10 1 0 20 0\n").unwrap();
+    std::os::unix::fs::symlink("/dev/dri/renderD128", pid.join("fd/3")).unwrap();
+    std::os::unix::fs::symlink("/dev/null", pid.join("fd/4")).unwrap();
+    let fdinfo =
+        |ns: u64| format!("drm-driver:\tamdgpu\ndrm-client-id:\t9\ndrm-engine-gfx:\t{ns} ns\n");
+    std::fs::write(pid.join("fdinfo/3"), fdinfo(1_000_000_000)).unwrap();
+
+    let root = SysRoot::at(&base);
+    // The first scan, in `new`, takes the first reading.
+    let mut collector = ProcessCollector::new(&root, ProcessSource::Direct, &ACTIVE).unwrap();
+    let started = std::time::Instant::now();
+    std::thread::sleep(Duration::from_millis(200));
+    // 100 ms of work in the ~200 ms that passed: about half.
+    std::fs::write(pid.join("fdinfo/3"), fdinfo(1_100_000_000)).unwrap();
+    let mut snap = Snapshot::new();
+    collector.collect(&root, &mut snap).unwrap();
+    let wall = started.elapsed().as_secs_f32();
+    let game = &snap.processes.unwrap().processes[0];
+    let gpu = game.gpu.expect("own process: GPU usage known");
+    assert!((gpu - 0.1 / wall).abs() < 0.1, "gpu {gpu}, wall {wall}");
+    std::fs::remove_dir_all(&base).unwrap();
+}

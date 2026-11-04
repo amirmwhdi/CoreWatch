@@ -9,6 +9,7 @@
 use super::net::{parse_fd_listing, Owners};
 use super::parse::{self, parse_proc_stat, parse_statm, parse_status_uid, RawProcess};
 use crate::{CollectError, SysRoot};
+use std::collections::HashMap;
 use std::io::{self, BufRead, BufReader, Write};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 
@@ -101,6 +102,40 @@ impl Reader {
             })
             .unwrap_or_default(),
         }
+    }
+
+    /// Whether GPU usage per process can be read: only directly, not from
+    /// inside Flatpak (the host's fdinfo files are not visible there).
+    pub fn reads_gpu(&self) -> bool {
+        matches!(self, Self::Direct { .. })
+    }
+
+    /// Which processes hold GPU descriptors (`/dev/dri/*`), among `pids`.
+    pub fn gpu_fds(&self, root: &SysRoot, pids: &[u32]) -> HashMap<u32, Vec<u32>> {
+        let mut found = HashMap::new();
+        for &pid in pids {
+            // Other users' descriptors cannot be read without root.
+            let Ok(fds) = std::fs::read_dir(root.proc_path(&format!("{pid}/fd"))) else {
+                continue;
+            };
+            let gpu: Vec<u32> = fds
+                .flatten()
+                .filter(|fd| {
+                    std::fs::read_link(fd.path())
+                        .is_ok_and(|target| target.starts_with("/dev/dri/"))
+                })
+                .filter_map(|fd| fd.file_name().to_str()?.parse().ok())
+                .collect();
+            if !gpu.is_empty() {
+                found.insert(pid, gpu);
+            }
+        }
+        found
+    }
+
+    /// One GPU descriptor's fdinfo text.
+    pub fn fdinfo(&self, root: &SysRoot, pid: u32, fd: u32) -> Option<String> {
+        root.read_proc(&format!("{pid}/fdinfo/{fd}")).ok()
     }
 
     /// Which process owns which socket. Empty when it cannot be read.
