@@ -112,7 +112,9 @@ and Wi-Fi signal strength.
   upload speed, user and process ID; search by name or ID, "only my
   processes", End Process and Force Stop.
 - **Processor:** total usage graph, one graph per logical core, model, cores
-  and threads, current frequency.
+  and threads, current frequency; on hybrid processors (Intel 12th
+  generation and later, ARM big.LITTLE) which cores are performance and
+  which efficient.
 - **Memory:** used, available, cache and buffers, swap, and a usage graph.
 - **Pressure:** how much of the time tasks waited for the processor,
   memory or disks (the kernel's pressure stall information), on the

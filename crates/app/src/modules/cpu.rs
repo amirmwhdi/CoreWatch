@@ -5,7 +5,7 @@ use crate::format;
 use crate::widgets::{Graph, SensorGroup};
 use adw::prelude::*;
 use adw::subclass::prelude::ObjectSubclassIsExt;
-use corewatch_core::cpu::CpuCollector;
+use corewatch_core::cpu::{CoreKind, CpuCollector};
 use corewatch_core::sensors::Home;
 use corewatch_core::{CollectError, Collector, Snapshot, SysRoot};
 use std::cell::{Cell, RefCell};
@@ -110,7 +110,17 @@ impl ResourcePage for CpuPage {
                 format::plural(logical, "{n} thread", "{n} threads"),
                 &[("n", &logical)],
             );
+            let topology = &cpu.topology;
             let threads = match cpu.info.physical {
+                // e.g. "6 performance and 8 efficient cores, 20 threads"
+                _ if topology.is_hybrid() => format::fmt(
+                    "{p} performance and {e} efficient cores, {threads}",
+                    &[
+                        ("p", &topology.performance_cores),
+                        ("e", &topology.efficient_cores),
+                        ("threads", &threads),
+                    ],
+                ),
                 Some(physical) => {
                     let cores = format::fmt(
                         format::plural(physical, "{n} core", "{n} cores"),
@@ -150,11 +160,26 @@ impl ResourcePage for CpuPage {
         self.ensure_cores(cpu.cores.len());
         for ((graph, label), core) in self.cores.borrow().iter().zip(&cpu.cores) {
             graph.push(core.usage);
-            label.set_label(&format::fmt(
-                // one logical core, e.g. "CPU 3 · 12%"
-                "CPU {id} · {usage}",
-                &[("id", &core.id), ("usage", &format::percent(core.usage))],
-            ));
+            let usage = format::percent(core.usage);
+            label.set_label(&match core.kind {
+                // one logical core, e.g. "CPU 3 · 12%", on a hybrid
+                // processor "CPU 3 · P · 12%"
+                None => format::fmt("CPU {id} · {usage}", &[("id", &core.id), ("usage", &usage)]),
+                Some(kind) => format::fmt(
+                    "CPU {id} · {kind} · {usage}",
+                    &[
+                        ("id", &core.id),
+                        ("kind", &kind_letter(kind)),
+                        ("usage", &usage),
+                    ],
+                ),
+            });
+            if let (Some(kind), true) = (core.kind, label.tooltip_text().is_none()) {
+                label.set_tooltip_text(Some(match kind {
+                    CoreKind::Performance => "Performance core",
+                    CoreKind::Efficient => "Efficient core",
+                }));
+            }
         }
     }
 
@@ -164,6 +189,14 @@ impl ResourcePage for CpuPage {
 
     fn summary(&self, snapshot: &Snapshot) -> Option<String> {
         snapshot.cpu.as_ref().map(|c| format::percent(c.usage))
+    }
+}
+
+/// "P" for a performance core, "E" for an efficient one.
+fn kind_letter(kind: CoreKind) -> &'static str {
+    match kind {
+        CoreKind::Performance => "P",
+        CoreKind::Efficient => "E",
     }
 }
 

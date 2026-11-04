@@ -13,6 +13,50 @@ fn fixture(name: &str) -> SysRoot {
 }
 
 #[test]
+fn hybrid_processors_have_performance_and_efficient_cores() {
+    use corewatch_core::cpu::CoreKind::{Efficient, Performance};
+    for (name, kinds, p, e) in [
+        (
+            "hybrid",
+            vec![
+                Performance,
+                Performance,
+                Performance,
+                Performance,
+                Efficient,
+                Efficient,
+            ],
+            2,
+            2,
+        ),
+        (
+            "arm",
+            vec![Efficient, Efficient, Performance, Performance],
+            2,
+            2,
+        ),
+    ] {
+        let root = fixture(name);
+        let mut collector = CpuCollector::new(&root).unwrap();
+        let mut snap = Snapshot::new();
+        collector.collect(&root, &mut snap).unwrap();
+        let cpu = snap.cpu.unwrap();
+        let found: Vec<_> = cpu.cores.iter().map(|c| c.kind.unwrap()).collect();
+        assert_eq!(found, kinds, "{name}");
+        assert_eq!(cpu.topology.performance_cores, p, "{name}");
+        assert_eq!(cpu.topology.efficient_cores, e, "{name}");
+    }
+    // All cores alike: no kinds at all.
+    let root = fixture("basic");
+    let mut snap = Snapshot::new();
+    CpuCollector::new(&root)
+        .unwrap()
+        .collect(&root, &mut snap)
+        .unwrap();
+    assert!(snap.cpu.unwrap().cores.iter().all(|c| c.kind.is_none()));
+}
+
+#[test]
 fn memory_collector_fills_its_field_only() {
     let mut snap = Snapshot::new();
     MemoryCollector

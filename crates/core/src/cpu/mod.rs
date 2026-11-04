@@ -2,9 +2,11 @@
 
 mod info;
 mod stat;
+mod topology;
 
 pub use info::CpuInfo;
 pub use stat::{parse_stat, CoreTimes, CpuTimes, StatTimes};
+pub use topology::{parse_cpu_list, CoreKind, Topology};
 
 use crate::pressure::{self, Pressure, Resource};
 use crate::{CollectError, Collector, Snapshot, SysRoot};
@@ -19,11 +21,16 @@ pub struct CoreSample {
     pub usage: f32,
     /// Current frequency, if the kernel exposes it.
     pub freq_mhz: Option<u32>,
+    /// Performance or efficient core, on processors that have both.
+    pub kind: Option<CoreKind>,
 }
 
 #[derive(Debug, Clone)]
 pub struct CpuSample {
     pub info: Arc<CpuInfo>,
+    /// Which cores are performance and which efficient; empty on processors
+    /// whose cores are all alike.
+    pub topology: Arc<Topology>,
     /// Whole CPU, 0.0..=1.0.
     pub usage: f32,
     /// One entry per online logical core, in kernel order.
@@ -41,6 +48,7 @@ impl CpuSample {
 
 pub struct CpuCollector {
     info: Arc<CpuInfo>,
+    topology: Arc<Topology>,
     prev: StatTimes,
 }
 
@@ -50,7 +58,13 @@ impl CpuCollector {
     pub fn new(root: &SysRoot) -> Result<Self, CollectError> {
         let info = Arc::new(info::parse_cpuinfo(&root.read_proc("cpuinfo")?));
         let prev = stat::parse_stat(&root.read_proc("stat")?)?;
-        Ok(Self { info, prev })
+        let ids: Vec<usize> = prev.cores.iter().map(|c| c.id).collect();
+        let topology = Arc::new(Topology::read(root, &ids));
+        Ok(Self {
+            info,
+            topology,
+            prev,
+        })
     }
 }
 
@@ -77,12 +91,14 @@ impl Collector for CpuCollector {
                     id: core.id,
                     usage,
                     freq_mhz: info::read_freq_mhz(root, core.id),
+                    kind: self.topology.kind(core.id),
                 }
             })
             .collect();
 
         out.cpu = Some(CpuSample {
             info: Arc::clone(&self.info),
+            topology: Arc::clone(&self.topology),
             usage: now.total.usage_since(&self.prev.total),
             cores,
             pressure: pressure::read(root, Resource::Cpu),
