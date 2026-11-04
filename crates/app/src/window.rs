@@ -80,7 +80,7 @@ pub fn present(app: &adw::Application) {
     let settings = crate::settings::AppSettings::load();
     settings.apply_theme();
     crate::format::set_units(settings.units);
-    crate::widgets::graph::set_history(settings.speed.history_points());
+    crate::widgets::graph::set_history(settings.speed.history_points(settings.history_minutes));
     crate::widgets::graph::set_smooth(settings.smooth_graphs);
     crate::widgets::graph::follow_power_saver();
     crate::drive_temps::start();

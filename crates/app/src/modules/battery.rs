@@ -8,6 +8,7 @@ use adw::subclass::prelude::ObjectSubclassIsExt;
 use corewatch_core::battery::{BatteryCollector, BatteryState};
 use corewatch_core::sensors::Home;
 use corewatch_core::{CollectError, Collector, Snapshot, SysRoot};
+use gtk::glib;
 use std::cell::Cell;
 
 fn collector(root: &SysRoot) -> Result<Box<dyn Collector>, CollectError> {
@@ -27,6 +28,10 @@ struct BatteryPage {
     sensors: SensorGroup,
     root: gtk::Widget,
     graph: Graph,
+    day_box: gtk::Box,
+    day_graph: Graph,
+    /// The battery whose day history is being shown.
+    day_for: std::cell::RefCell<Option<String>>,
     status: adw::ActionRow,
     level: adw::ActionRow,
     level_bar: gtk::LevelBar,
@@ -44,6 +49,9 @@ impl BatteryPage {
         let ui = view.imp();
         Self {
             graph: ui.graph.get(),
+            day_box: ui.day_box.get(),
+            day_graph: ui.day_graph.get(),
+            day_for: std::cell::RefCell::default(),
             status: ui.status_row.get(),
             level: ui.level_row.get(),
             level_bar: ui.level_bar.get(),
@@ -56,6 +64,32 @@ impl BatteryPage {
             sensors: SensorGroup::new(ui.sensors_group.get(), Home::Battery),
             root: view.upcast(),
         }
+    }
+}
+
+impl BatteryPage {
+    /// Ask UPower for the last day of `name` now and every few minutes, as
+    /// long as the page exists.
+    fn follow_day(&self, name: &str) {
+        if self.day_for.borrow().as_deref() == Some(name) {
+            return;
+        }
+        *self.day_for.borrow_mut() = Some(name.to_owned());
+        let name = name.to_owned();
+        let (day_box, graph) = (self.day_box.downgrade(), self.day_graph.downgrade());
+        glib::spawn_future_local(async move {
+            loop {
+                let values = crate::battery_history::charge(&name).await;
+                let (Some(day_box), Some(graph)) = (day_box.upgrade(), graph.upgrade()) else {
+                    break;
+                };
+                day_box.set_visible(values.len() >= 2);
+                if values.len() >= 2 {
+                    graph.set_values(&values);
+                }
+                glib::timeout_future(crate::battery_history::REFRESH).await;
+            }
+        });
     }
 }
 
@@ -86,6 +120,7 @@ impl ResourcePage for BatteryPage {
         };
 
         self.graph.push(battery.capacity);
+        self.follow_day(&battery.name);
         self.level_bar.set_value(f64::from(battery.capacity));
 
         self.status.set_subtitle(&state_label(battery.state));
@@ -237,6 +272,10 @@ mod view {
             pub sensors_group: TemplateChild<adw::PreferencesGroup>,
             #[template_child]
             pub graph: TemplateChild<Graph>,
+            #[template_child]
+            pub day_box: TemplateChild<gtk::Box>,
+            #[template_child]
+            pub day_graph: TemplateChild<Graph>,
             #[template_child]
             pub status_row: TemplateChild<adw::ActionRow>,
             #[template_child]

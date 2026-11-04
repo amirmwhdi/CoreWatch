@@ -25,6 +25,8 @@ mod imp {
         #[template_child]
         pub interval_row: TemplateChild<adw::ComboRow>,
         #[template_child]
+        pub history_row: TemplateChild<adw::ComboRow>,
+        #[template_child]
         pub smooth_row: TemplateChild<adw::SwitchRow>,
         #[template_child]
         pub temperature_row: TemplateChild<adw::ComboRow>,
@@ -125,6 +127,21 @@ impl PreferencesDialog {
             });
         });
 
+        let minutes = crate::settings::HISTORY_MINUTES;
+        imp.history_row.set_selected(
+            minutes
+                .iter()
+                .position(|m| *m == settings.history_minutes)
+                .unwrap_or(0) as u32,
+        );
+        imp.history_row.connect_selected_notify(move |row| {
+            let Some(&m) = minutes.get(row.selected() as usize) else {
+                return;
+            };
+            let settings = update(|s| s.history_minutes = m);
+            crate::widgets::graph::set_history(settings.speed.history_points(m));
+        });
+
         imp.smooth_row.set_active(settings.smooth_graphs);
         imp.smooth_row.connect_active_notify(|row| {
             let settings = update(|s| s.smooth_graphs = row.is_active());
@@ -135,7 +152,9 @@ impl PreferencesDialog {
         imp.interval_row.connect_selected_notify(move |row| {
             let settings = update(|s| s.speed = UpdateSpeed::from_index(row.selected()));
             // The same minute at a new interval: a different number of points.
-            crate::widgets::graph::set_history(settings.speed.history_points());
+            crate::widgets::graph::set_history(
+                settings.speed.history_points(settings.history_minutes),
+            );
             if let Some(handle) = sampler_handle.borrow().as_ref() {
                 handle.set_interval(settings.speed.as_duration());
             }

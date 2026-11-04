@@ -21,6 +21,26 @@ template $CwBatteryPage: Adw.Bin {
           height-request: 160;
         }
 
+        // The last day, from UPower; hidden until it answers.
+        Box day_box {
+          orientation: vertical;
+          spacing: 6;
+          visible: false;
+
+          Label {
+            label: "Last 24 Hours";
+            xalign: 0;
+
+            styles [
+              "heading",
+            ]
+          }
+
+          $CwGraph day_graph {
+            height-request: 100;
+          }
+        }
+
         Adw.PreferencesGroup info_group {
           title: "Battery Details";
 

@@ -138,7 +138,8 @@ and Wi-Fi signal strength.
   the Processor page, drive temperatures on
   Disks, and so on); everything else, like motherboard sensors and case
   fans, is on the Sensors page.
-- **Battery:** charge level graph, charging status, time remaining, health,
+- **Battery:** charge level graph and the charge over the last day (from
+  UPower), charging status, time remaining, health,
   power draw and charge cycles, on laptops.
 - **Alerts:** a notification when the processor or graphics card runs
   hot, memory or a drive is almost full, or a process keeps a core busy
@@ -160,6 +161,7 @@ and Wi-Fi signal strength.
 | Style | Follow the system, light, or dark |
 | Update speed | Every 0.5, 1 or 2 seconds |
 | Open on | A page of your choice, or the page you had open last |
+| Graph history | 1, 5 or 15 minutes, or an hour |
 | Smooth graphs | On or off |
 | Temperature | °C or °F |
 | Sizes | Binary (KiB, MiB) or decimal (kB, MB) |

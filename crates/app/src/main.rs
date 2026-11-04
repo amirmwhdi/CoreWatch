@@ -2,6 +2,7 @@
 
 mod alerts;
 mod app_icons;
+mod battery_history;
 mod compat;
 mod config;
 mod drive_temps;

@@ -42,6 +42,9 @@ These permissions are there for single pages:
   module loaded; otherwise they come from UDisks, which reads the drives'
   SMART data (see `crates/app/src/drive_temps.rs`). Only
   `GetManagedObjects` is called.
+- `--system-talk-name=org.freedesktop.UPower`: the Battery page shows the
+  charge over the last day, which UPower records (see
+  `crates/app/src/battery_history.rs`). Only `GetHistory` is called.
 - `--filesystem=host-os:ro`, the two Flatpak `exports/share` folders and
   `xdg-data/applications` and `xdg-data/icons`, all read-only: the
   Processes page shows each app's icon, so it reads the `.desktop` files

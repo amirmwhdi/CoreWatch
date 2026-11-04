@@ -40,8 +40,8 @@ impl ThemeMode {
     }
 }
 
-/// How far back every graph reaches.
-pub const GRAPH_HISTORY: Duration = Duration::from_secs(60);
+/// How far back graphs reach, in minutes, as Preferences offers it.
+pub const HISTORY_MINUTES: [u32; 4] = [1, 5, 15, 60];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum UpdateSpeed {
@@ -72,9 +72,10 @@ impl UpdateSpeed {
         self.as_duration().as_millis() as u64
     }
 
-    /// Points a graph keeps: one minute of samples at this speed.
-    pub fn history_points(&self) -> usize {
-        let points = GRAPH_HISTORY.as_millis() / self.as_duration().as_millis().max(1);
+    /// Points a graph keeps: `minutes` of samples at this speed.
+    pub fn history_points(&self, minutes: u32) -> usize {
+        let history = Duration::from_secs(u64::from(minutes) * 60);
+        let points = history.as_millis() / self.as_duration().as_millis().max(1);
         usize::try_from(points).unwrap_or(usize::MAX).max(2)
     }
 
@@ -167,6 +168,8 @@ pub struct AppSettings {
     pub last_page: String,
     /// The process list groups processes by app.
     pub group_processes: bool,
+    /// How far back graphs reach; one of [`HISTORY_MINUTES`].
+    pub history_minutes: u32,
     pub alerts: AlertSettings,
 }
 
@@ -180,6 +183,7 @@ impl Default for AppSettings {
             start_page: StartPage::default(),
             last_page: String::new(),
             group_processes: false,
+            history_minutes: 1,
             alerts: AlertSettings::default(),
         }
     }
@@ -244,6 +248,12 @@ impl AppSettings {
                 group_processes: key_file
                     .boolean("General", "group_processes")
                     .unwrap_or(false),
+                history_minutes: key_file
+                    .integer("General", "history_minutes")
+                    .ok()
+                    .and_then(|m| u32::try_from(m).ok())
+                    .filter(|m| HISTORY_MINUTES.contains(m))
+                    .unwrap_or(1),
                 alerts: {
                     let default = AlertSettings::default();
                     let flag = |key: &str, d: bool| key_file.boolean("Alerts", key).unwrap_or(d);
@@ -311,6 +321,11 @@ impl AppSettings {
         key_file.set_string("General", "start_page", self.start_page.as_str());
         key_file.set_string("General", "last_page", &self.last_page);
         key_file.set_boolean("General", "group_processes", self.group_processes);
+        key_file.set_integer(
+            "General",
+            "history_minutes",
+            i32::try_from(self.history_minutes).unwrap_or(1),
+        );
         let a = &self.alerts;
         key_file.set_boolean("Alerts", "enabled", a.enabled);
         key_file.set_double("Alerts", "temperature_c", f64::from(a.temperature_c));
@@ -338,9 +353,10 @@ mod tests {
 
     #[test]
     fn history_points_follow_the_interval() {
-        assert_eq!(UpdateSpeed::Normal.history_points(), 60);
-        assert_eq!(UpdateSpeed::HalfSecond.history_points(), 120);
-        assert_eq!(UpdateSpeed::Slow.history_points(), 30);
+        assert_eq!(UpdateSpeed::Normal.history_points(1), 60);
+        assert_eq!(UpdateSpeed::HalfSecond.history_points(1), 120);
+        assert_eq!(UpdateSpeed::Slow.history_points(1), 30);
+        assert_eq!(UpdateSpeed::HalfSecond.history_points(60), 7200);
     }
 
     #[test]

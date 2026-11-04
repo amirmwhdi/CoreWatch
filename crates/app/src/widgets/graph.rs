@@ -103,7 +103,11 @@ fn for_each_graph(f: impl Fn(&Graph)) {
 pub fn set_history(points: usize) {
     let points = u32::try_from(points).unwrap_or(u32::MAX).max(2);
     HISTORY.with(|h| h.set(points));
-    for_each_graph(|graph| graph.imp().set_capacity(points));
+    for_each_graph(|graph| {
+        if !graph.imp().fixed.get() {
+            graph.imp().set_capacity(points);
+        }
+    });
 }
 
 mod imp {
@@ -133,6 +137,12 @@ mod imp {
         /// See [`Graph::target_top`].
         pub peak: Cell<f32>,
         pub tick: RefCell<Option<gtk::TickCallbackId>>,
+        /// Values pushed since the graph was made, so a long history can be
+        /// averaged in buckets that stay put while the line scrolls.
+        pub pushed: Cell<u64>,
+        /// A fixed series ([`super::Graph::set_values`]): no scrolling, and
+        /// the history setting does not apply.
+        pub fixed: Cell<bool>,
         /// StyleManager is global: its handlers must go when the graph does,
         /// or every removed disk block would leave two closures behind.
         pub style_handlers: RefCell<Vec<glib::SignalHandlerId>>,
@@ -152,6 +162,8 @@ mod imp {
                 drawn_top: Cell::new(1.0),
                 peak: Cell::new(1.0),
                 tick: RefCell::default(),
+                pushed: Cell::new(0),
+                fixed: Cell::new(false),
                 style_handlers: RefCell::default(),
             }
         }
@@ -161,7 +173,7 @@ mod imp {
         /// How far into the current interval we are, 0.0..=1.0: the share of
         /// one step the line has scrolled left since the last value.
         pub fn phase(&self) -> f32 {
-            if self.pushed_at.get() == 0 || !scrolling() {
+            if self.pushed_at.get() == 0 || !scrolling() || self.fixed.get() {
                 return 1.0;
             }
             let elapsed = glib::monotonic_time() - self.pushed_at.get();
@@ -198,7 +210,7 @@ mod imp {
         /// Redraw on frames where the line has moved a pixel or the scale
         /// is still easing.
         pub fn start_ticking(&self) {
-            if self.tick.borrow().is_some() {
+            if self.tick.borrow().is_some() || self.fixed.get() {
                 return;
             }
             let id = self.obj().add_tick_callback(|graph, _| {
@@ -356,7 +368,11 @@ mod imp {
             let stroke = gsk::Stroke::new(if h < 60.0 { 1.6 } else { 2.4 });
             stroke.set_line_cap(gsk::LineCap::Round);
 
-            let (line, area) = series_paths(&values, newest_x, step, h, y);
+            // More points than half the width in pixels: average them in
+            // buckets, so an hour of samples is not drawn one by one.
+            let max_points = ((w / 2.0) as usize).max(8);
+            let pushed = self.pushed.get();
+            let (line, area) = series_paths(&values, pushed, max_points, newest_x, step, h, y);
             // Solid fill (append_fill instead of a gradient, because GTK4's
             // push_clip only accepts Rect, not arbitrary paths), then the line.
             let fill = gdk::RGBA::new(accent.red(), accent.green(), accent.blue(), 0.25);
@@ -364,7 +380,7 @@ mod imp {
             snapshot.append_stroke(&line, &stroke, &accent);
 
             if secondary.len() >= 2 {
-                let (line, _) = series_paths(&secondary, newest_x, step, h, y);
+                let (line, _) = series_paths(&secondary, pushed, max_points, newest_x, step, h, y);
                 let color = gdk::RGBA::new(fg.red(), fg.green(), fg.blue(), 0.55);
                 snapshot.append_stroke(&line, &stroke, &color);
             }
@@ -372,21 +388,58 @@ mod imp {
     }
 }
 
+/// `values` (the newest was the `pushed`th value) as at most about
+/// `max_points` points: each bucket of `k` values is averaged. Buckets are
+/// counted from the first value ever pushed, so they do not shift as values
+/// arrive. Returns (index into `values`, value) pairs; the index of a bucket
+/// is its middle.
+pub fn bucket(values: &VecDeque<f32>, pushed: u64, max_points: usize) -> Vec<(f32, f32)> {
+    let len = values.len();
+    let k = len.div_ceil(max_points.max(1)).max(1);
+    if k == 1 {
+        return values
+            .iter()
+            .enumerate()
+            .map(|(i, v)| (i as f32, *v))
+            .collect();
+    }
+    // Absolute index of values[0].
+    let first = pushed.saturating_sub(len as u64);
+    let mut points = Vec::with_capacity(len / k + 2);
+    let (mut bucket, mut sum, mut count, mut index_sum) = (None, 0.0, 0usize, 0.0);
+    for (i, v) in values.iter().enumerate() {
+        let id = (first + i as u64) / k as u64;
+        if bucket != Some(id) && count > 0 {
+            points.push((index_sum / count as f32, sum / count as f32));
+            (sum, count, index_sum) = (0.0, 0, 0.0);
+        }
+        bucket = Some(id);
+        sum += v;
+        count += 1;
+        index_sum += i as f32;
+    }
+    if count > 0 {
+        points.push((index_sum / count as f32, sum / count as f32));
+    }
+    points
+}
+
 /// The line through `values` (newest at `newest_x`, older ones `step` apart
 /// to the left) as smooth cubic curves, and the same line closed down to the
-/// bottom for the fill.
+/// bottom for the fill. Long series are averaged first, see [`bucket`].
 fn series_paths(
     values: &VecDeque<f32>,
+    pushed: u64,
+    max_points: usize,
     newest_x: f32,
     step: f32,
     h: f32,
     y: impl Fn(f32) -> f32 + Copy,
 ) -> (gsk::Path, gsk::Path) {
     let x0 = newest_x - step * (values.len() - 1) as f32;
-    let mut points = values
-        .iter()
-        .enumerate()
-        .map(|(i, v)| (x0 + step * i as f32, y(*v)));
+    let mut points = bucket(values, pushed, max_points)
+        .into_iter()
+        .map(|(i, v)| (x0 + step * i, y(v)));
     let line = gsk::PathBuilder::new();
     let area = gsk::PathBuilder::new();
     if let Some(first) = points.next() {
@@ -395,7 +448,8 @@ fn series_paths(
         area.line_to(first.0, first.1);
         let mut prev = first;
         for curr in points {
-            let (c1, c2) = ((prev.0 + step / 2.0, prev.1), (curr.0 - step / 2.0, curr.1));
+            let half = (curr.0 - prev.0) / 2.0;
+            let (c1, c2) = ((prev.0 + half, prev.1), (curr.0 - half, curr.1));
             line.cubic_to(c1.0, c1.1, c2.0, c2.1, curr.0, curr.1);
             area.cubic_to(c1.0, c1.1, c2.0, c2.1, curr.0, curr.1);
             prev = curr;
@@ -429,9 +483,24 @@ impl Graph {
         graph
     }
 
+    /// Show these values, oldest first, as they are: no scrolling, and the
+    /// graph history setting does not apply (the battery's last day).
+    pub fn set_values(&self, values: &[f32]) {
+        let imp = self.imp();
+        imp.fixed.set(true);
+        imp.stop_ticking();
+        imp.capacity
+            .set(u32::try_from(values.len()).unwrap_or(u32::MAX).max(2));
+        *imp.values.borrow_mut() = values.iter().copied().collect();
+        imp.pushed.set(values.len() as u64);
+        imp.update_peak();
+        self.queue_draw();
+    }
+
     /// Append a value in 0.0..=1.0 and redraw.
     pub fn push(&self, value: f32) {
         let imp = self.imp();
+        imp.pushed.set(imp.pushed.get() + 1);
         push_capped(&imp.values, value, imp.capacity.get());
         imp.update_peak();
         imp.mark_push();
@@ -450,6 +519,7 @@ impl Graph {
     /// left to the page, which knows what the numbers mean.
     pub fn push_pair(&self, primary: f32, secondary: f32) {
         let imp = self.imp();
+        imp.pushed.set(imp.pushed.get() + 1);
         push_capped(&imp.values, primary, imp.capacity.get());
         push_capped(&imp.secondary, secondary, imp.capacity.get());
         imp.update_peak();
@@ -462,5 +532,35 @@ fn push_capped(series: &RefCell<VecDeque<f32>>, value: f32, capacity: u32) {
     values.push_back(value);
     while values.len() > capacity as usize {
         values.pop_front();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::bucket;
+    use std::collections::VecDeque;
+
+    #[test]
+    fn short_series_are_drawn_as_they_are() {
+        let values: VecDeque<f32> = [0.1, 0.2, 0.3].into();
+        assert_eq!(
+            bucket(&values, 3, 100),
+            [(0.0, 0.1), (1.0, 0.2), (2.0, 0.3)]
+        );
+    }
+
+    #[test]
+    fn long_series_are_averaged_in_buckets_that_stay_put() {
+        let values: VecDeque<f32> = (0..100).map(|i| i as f32).collect();
+        let points = bucket(&values, 100, 10);
+        assert_eq!(points.len(), 10);
+        assert_eq!(points[0], (4.5, 4.5));
+        // One more value: the old buckets keep their values, the series
+        // only moved by one index.
+        let mut later = values.clone();
+        later.pop_front();
+        later.push_back(100.0);
+        let moved = bucket(&later, 101, 10);
+        assert_eq!(moved[1], (points[1].0 - 1.0, points[1].1));
     }
 }

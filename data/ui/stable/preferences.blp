@@ -49,6 +49,19 @@ template $CwPreferencesDialog: Adw.PreferencesDialog {
         };
       }
 
+      Adw.ComboRow history_row {
+        title: "Graph History";
+        subtitle: "How far back graphs reach";
+        model: Gtk.StringList {
+          strings [
+            "1 minute (Default)",
+            "5 minutes",
+            "15 minutes",
+            "1 hour",
+          ]
+        };
+      }
+
       Adw.SwitchRow smooth_row {
         title: "Smooth Graphs";
         subtitle: "Scroll graphs continuously between updates. Turn off to save power.";
