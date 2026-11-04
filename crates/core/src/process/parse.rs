@@ -84,6 +84,9 @@ pub struct RawProcess {
     pub stat: ProcStat,
     pub uid: Option<u32>,
     pub private_pages: u64,
+    /// The cgroup line, when the scan brought it (the Flatpak host script);
+    /// otherwise read once per new process.
+    pub cgroup: Option<String>,
 }
 
 /// One scan of the Flatpak host script (see `source.rs`):
@@ -93,6 +96,7 @@ pub struct RawProcess {
 /// P 1000
 /// 1234 (bash) S 1 …
 /// 3522 1200 900 …
+/// C 0::/user.slice/…/app-gnome-org.gnome.Nautilus-42.scope
 /// E
 /// ```
 ///
@@ -115,11 +119,15 @@ pub fn parse_host_scan<'a>(
             let pages = lines
                 .next_if(|l| !l.starts_with("P "))
                 .and_then(parse_statm);
+            let cgroup = lines
+                .next_if(|l| l.starts_with("C "))
+                .map(|l| format!("{}\n", &l[2..]));
             if let (Some(stat), Some(private_pages)) = (stat, pages) {
                 processes.push(RawProcess {
                     stat,
                     uid,
                     private_pages,
+                    cgroup,
                 });
             }
         }
@@ -182,5 +190,19 @@ mod tests {
         assert_eq!(procs[0].uid, Some(1000));
         assert_eq!(procs[0].private_pages, 300);
         assert_eq!(procs[1].stat.pid, 99);
+    }
+
+    #[test]
+    fn host_scan_brings_the_cgroup() {
+        let text = format!(
+            "P 1000\n{STAT}\n3000 1200 900\nC 0::/system.slice/cron.service\nP 0\n{STAT}\n1 1 1\n"
+        );
+        let (_, procs) = parse_host_scan(text.lines());
+        assert_eq!(
+            procs[0].cgroup.as_deref(),
+            Some("0::/system.slice/cron.service\n")
+        );
+        // An older host script without the line.
+        assert_eq!(procs[1].cgroup, None);
     }
 }

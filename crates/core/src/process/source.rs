@@ -29,7 +29,9 @@ while read -r cmd; do
       while read -r k v _; do
         if [ "$k" = Uid: ]; then u=$v; break; fi
       done < "$d/status" 2>/dev/null
-      printf 'P %s\n%s\n%s\n' "$u" "$st" "$sm"
+      cg=
+      read -r cg < "$d/cgroup" 2>/dev/null
+      printf 'P %s\n%s\n%s\nC %s\n' "$u" "$st" "$sm" "$cg"
     done ;;
   f)
     ls -l /proc/[0-9]*/fd 2>/dev/null | while IFS= read -r l; do
@@ -133,6 +135,15 @@ impl Reader {
         found
     }
 
+    /// A process's cgroup file, for its group (see `cgroup.rs`). Inside
+    /// Flatpak the scan itself brings it.
+    pub fn cgroup(&self, root: &SysRoot, pid: u32) -> Option<String> {
+        match self {
+            Self::Direct { .. } => root.read_proc(&format!("{pid}/cgroup")).ok(),
+            Self::Host(_) => None,
+        }
+    }
+
     /// One GPU descriptor's fdinfo text.
     pub fn fdinfo(&self, root: &SysRoot, pid: u32, fd: u32) -> Option<String> {
         root.read_proc(&format!("{pid}/fdinfo/{fd}")).ok()
@@ -232,6 +243,7 @@ fn scan_direct(root: &SysRoot, buf: &mut Vec<u8>) -> Result<Scan, CollectError> 
             stat,
             uid,
             private_pages,
+            cgroup: None,
         });
     }
     let cpu_line = root

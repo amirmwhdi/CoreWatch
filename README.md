@@ -111,6 +111,9 @@ and Wi-Fi signal strength.
 - **Processes:** a sortable table with app icons, CPU, memory, graphics
   card usage, download and upload speed, user and process ID; search by name or ID, "only my
   processes", End Process and Force Stop.
+  **Group by App** puts every process of an app (its helpers and web
+  content too) under the app's name and icon, with their total use, and
+  ends them all at once.
 - **Processor:** total usage graph, one graph per logical core, model, cores
   and threads, current frequency; on hybrid processors (Intel 12th
   generation and later, ARM big.LITTLE) which cores are performance and

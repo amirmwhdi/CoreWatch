@@ -20,6 +20,7 @@ use std::collections::{HashMap, HashSet};
 use std::io;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 /// Set while the page is on screen; the collector scans every tick only then.
 static ACTIVE: AtomicBool = AtomicBool::new(false);
@@ -44,7 +45,11 @@ pub const MODULE: Module = Module {
 struct ProcessesPage {
     root: gtk::Widget,
     search: gtk::SearchEntry,
+    /// Every process, for the plain list.
     store: gio::ListStore,
+    /// One row per app or service, its processes as children.
+    groups: gio::ListStore,
+    group_rows: RefCell<HashMap<Option<Arc<str>>, row::ProcessRow>>,
     /// By pid and start time: a pid reused by a new process gets a new row,
     /// not the old process's user and icon.
     rows: Rc<RefCell<HashMap<(u32, u64), row::ProcessRow>>>,
@@ -75,10 +80,13 @@ impl ProcessesPage {
             true,
             move |item| {
                 let query = search_entry.text().trim().to_owned();
+                let matches =
+                    |r: &row::ProcessRow| matches_search(&r.name(), &r.pid().to_string(), &query);
+                // A group shows when its name or one of its processes matches.
                 query.is_empty()
                     || item
                         .downcast_ref::<row::ProcessRow>()
-                        .is_some_and(|r| matches_search(&r.name(), &r.pid().to_string(), &query))
+                        .is_some_and(|r| matches(r) || any_child(r, matches))
             }
         ));
         search_entry.connect_search_changed(glib::clone!(
@@ -101,10 +109,11 @@ impl ProcessesPage {
             #[upgrade_or]
             true,
             move |item| {
+                let own = |r: &row::ProcessRow| r.uid() == my_uid;
                 !mine.is_active()
                     || item
                         .downcast_ref::<row::ProcessRow>()
-                        .is_some_and(|r| r.uid() == my_uid)
+                        .is_some_and(|r| own(r) || any_child(r, own))
             }
         ));
         mine.connect_toggled(glib::clone!(
@@ -116,14 +125,50 @@ impl ProcessesPage {
         filter.append(search);
         filter.append(owner);
 
-        let filtered = gtk::FilterListModel::new(Some(store.clone()), Some(filter));
-        let sorted = gtk::SortListModel::new(Some(filtered), columns.sorter());
+        // Rows are a tree: processes, or apps that open to their processes.
+        // Either list is filtered at the top level and sorted within each
+        // level, so an app's processes stay under it.
+        let groups = gio::ListStore::new::<row::ProcessRow>();
+        let tree_of = {
+            let filter = filter.clone();
+            move |list: &gio::ListStore| {
+                let filtered = gtk::FilterListModel::new(Some(list.clone()), Some(filter.clone()));
+                gtk::TreeListModel::new(filtered, false, false, |item| {
+                    item.downcast_ref::<row::ProcessRow>()?
+                        .children()
+                        .map(|c| c.upcast::<gio::ListModel>())
+                })
+            }
+        };
+        let grouped = crate::settings::AppSettings::load().group_processes;
+        let group_toggle = ui.group.get();
+        group_toggle.set_active(grouped);
+        let tree = tree_of(if grouped { &groups } else { &store });
+        let sorted = gtk::SortListModel::new(
+            Some(tree),
+            Some(gtk::TreeListRowSorter::new(columns.sorter())),
+        );
         let selection = gtk::SingleSelection::builder()
             .model(&sorted)
             .autoselect(false)
             .can_unselect(true)
             .build();
         columns.set_model(Some(&selection));
+        group_toggle.connect_toggled(glib::clone!(
+            #[weak]
+            sorted,
+            #[strong]
+            store,
+            #[strong]
+            groups,
+            move |toggle| {
+                let grouped = toggle.is_active();
+                sorted.set_model(Some(&tree_of(if grouped { &groups } else { &store })));
+                let mut settings = crate::settings::AppSettings::load();
+                settings.group_processes = grouped;
+                settings.save();
+            }
+        ));
 
         let name = add_column(&columns, "Name", "name", None, true);
         name.set_sorter(Some(&gtk::StringSorter::new(Some(name_expr))));
@@ -141,6 +186,16 @@ impl ProcessesPage {
         add_column(&columns, "Upload", "upload-text", Some("upload"), false);
         add_column(&columns, "ID", "pid-text", Some("pid"), false);
         columns.sort_by_column(Some(&cpu), gtk::SortType::Descending);
+        // Opening a group shows its processes.
+        columns.connect_activate(glib::clone!(
+            #[weak]
+            selection,
+            move |_, position| {
+                if let Some(row) = selection.item(position).and_downcast::<gtk::TreeListRow>() {
+                    row.set_expanded(!row.is_expanded());
+                }
+            }
+        ));
 
         // The table only needs fresh data while it is on screen.
         view.connect_map(|_| ACTIVE.store(true, Ordering::Relaxed));
@@ -184,7 +239,7 @@ impl ProcessesPage {
             #[weak]
             toasts,
             move |button| {
-                if let Some(process) = selection.selected_item().and_downcast::<row::ProcessRow>() {
+                if let Some(process) = selected(&selection) {
                     confirm_end(button.upcast_ref(), &toasts, &process);
                 }
             }
@@ -213,6 +268,8 @@ impl ProcessesPage {
         Self {
             search: search_entry,
             store,
+            groups,
+            group_rows: RefCell::default(),
             rows,
             icons,
             columns,
@@ -254,10 +311,88 @@ impl ProcessesPage {
         if !added.is_empty() {
             self.store.extend_from_slice(&added);
         }
+        self.sync_groups(processes, &rows, &icons);
         // Values changed in place: sort again.
         if let Some(sorter) = self.columns.sorter() {
             sorter.changed(gtk::SorterChange::Different);
         }
+    }
+}
+
+impl ProcessesPage {
+    /// One group row per app or service, holding the rows of its processes.
+    fn sync_groups(
+        &self,
+        processes: &[ProcessInfo],
+        rows: &HashMap<(u32, u64), row::ProcessRow>,
+        icons: &AppIcons,
+    ) {
+        let mut members: HashMap<Option<Arc<str>>, Vec<row::ProcessRow>> = HashMap::new();
+        for info in processes {
+            if let Some(row) = rows.get(&(info.pid, info.start_ticks)) {
+                members
+                    .entry(info.group.clone())
+                    .or_default()
+                    .push(row.clone());
+            }
+        }
+        let mut groups = self.group_rows.borrow_mut();
+        // Groups whose processes all ended.
+        let before = groups.len();
+        groups.retain(|key, _| members.contains_key(key));
+        if groups.len() != before {
+            self.groups.retain(|item| {
+                item.downcast_ref::<row::ProcessRow>()
+                    .is_some_and(|r| groups.contains_key(&r.group()))
+            });
+        }
+        let mut added = Vec::new();
+        for (key, list) in &members {
+            let group = groups.entry(key.clone()).or_insert_with(|| {
+                let row = row::ProcessRow::new_group(key.clone());
+                added.push(row.clone());
+                row
+            });
+            let (name, icon) = match key.as_deref() {
+                None => ("Kernel".to_owned(), icons.fallback()),
+                Some(id) => match icons.app(id) {
+                    Some((name, icon)) => (name.to_owned(), icon),
+                    None => (id.to_owned(), icons.lookup(id)),
+                },
+            };
+            group.set_group(&name, icon, list);
+            if let Some(children) = group.children() {
+                sync_children(&children, list);
+            }
+        }
+        if !added.is_empty() {
+            self.groups.extend_from_slice(&added);
+        }
+    }
+}
+
+/// Make `children` hold exactly `list`, keeping the rows already there (an
+/// open group stays open, a selected process stays selected).
+fn sync_children(children: &gio::ListStore, list: &[row::ProcessRow]) {
+    let wanted: HashSet<(u32, u64)> = list.iter().map(row::ProcessRow::key).collect();
+    let have: HashSet<(u32, u64)> = children
+        .iter::<row::ProcessRow>()
+        .flatten()
+        .map(|r| r.key())
+        .collect();
+    if have.len() > wanted.len() || have.iter().any(|k| !wanted.contains(k)) {
+        children.retain(|item| {
+            item.downcast_ref::<row::ProcessRow>()
+                .is_some_and(|r| wanted.contains(&r.key()))
+        });
+    }
+    let new: Vec<row::ProcessRow> = list
+        .iter()
+        .filter(|r| !have.contains(&r.key()))
+        .cloned()
+        .collect();
+    if !new.is_empty() {
+        children.extend_from_slice(&new);
     }
 }
 
@@ -329,6 +464,25 @@ fn matches_search(name: &str, pid: &str, query: &str) -> bool {
     name.to_lowercase().contains(&query.to_lowercase())
 }
 
+/// The process (or app) of the selected row.
+fn selected(selection: &gtk::SingleSelection) -> Option<row::ProcessRow> {
+    selection
+        .selected_item()
+        .and_downcast::<gtk::TreeListRow>()?
+        .item()
+        .and_downcast()
+}
+
+/// Whether one of a group row's processes is `f`; false for a process row.
+fn any_child(row: &row::ProcessRow, f: impl Fn(&row::ProcessRow) -> bool) -> bool {
+    row.children().is_some_and(|children| {
+        children
+            .iter::<row::ProcessRow>()
+            .flatten()
+            .any(|child| f(&child))
+    })
+}
+
 /// A process's GPU usage: the larger of its DRM files' and NVML's.
 fn gpu_of(info: &ProcessInfo, nvml: &HashMap<u32, f32>) -> Option<f32> {
     match (info.gpu, nvml.get(&info.pid).copied()) {
@@ -360,22 +514,35 @@ fn add_column(
         if !text {
             label.add_css_class("numeric");
         }
-        item.property_expression("item")
-            .chain_property::<row::ProcessRow>(property)
-            .bind(&label, "label", gtk::Widget::NONE);
+        // Each item is a tree row; its own item is the process (or app).
+        let process = item
+            .property_expression("item")
+            .chain_property::<gtk::TreeListRow>("item");
+        process.chain_property::<row::ProcessRow>(property).bind(
+            &label,
+            "label",
+            gtk::Widget::NONE,
+        );
         if property != "name" {
             item.set_child(Some(&label));
             return;
         }
-        // The name column also shows the app's icon.
+        // The name column also shows the app's icon, and the arrow that
+        // opens an app's processes.
         let icon = gtk::Image::builder().pixel_size(24).build();
-        item.property_expression("item")
+        process
             .chain_property::<row::ProcessRow>("icon")
             .bind(&icon, "gicon", gtk::Widget::NONE);
         let cell = gtk::Box::new(gtk::Orientation::Horizontal, 8);
         cell.append(&icon);
         cell.append(&label);
-        item.set_child(Some(&cell));
+        let expander = gtk::TreeExpander::builder()
+            .child(&cell)
+            .indent_for_icon(false)
+            .build();
+        item.property_expression("item")
+            .bind(&expander, "list-row", gtk::Widget::NONE);
+        item.set_child(Some(&expander));
     });
     let column = gtk::ColumnViewColumn::builder()
         .title(title)
@@ -402,11 +569,29 @@ fn add_column(
 
 /// Ask before ending a process, then send the signal off the main thread.
 fn confirm_end(parent: &gtk::Widget, toasts: &adw::ToastOverlay, process: &row::ProcessRow) {
+    // A group ends all its processes.
+    let targets: Vec<(u32, u64)> = match process.children() {
+        Some(children) => children
+            .iter::<row::ProcessRow>()
+            .flatten()
+            .map(|r| r.key())
+            .collect(),
+        None => vec![process.key()],
+    };
+    let heading = if process.is_group() {
+        format::fmt(
+            format::plural(
+                targets.len(),
+                "End the process of “{name}”?",
+                "End all {n} processes of “{name}”?",
+            ),
+            &[("name", &process.group_name()), ("n", &targets.len())],
+        )
+    } else {
+        format::fmt("End “{name}”?", &[("name", &process.name())])
+    };
     let dialog = adw::AlertDialog::new(
-        Some(&format::fmt(
-            "End “{name}”?",
-            &[("name", &process.name())],
-        )),
+        Some(&heading),
         Some("Unsaved work in this program may be lost. Force Stop ends it at once, without letting it clean up."),
     );
     dialog.add_responses(&[
@@ -419,7 +604,6 @@ fn confirm_end(parent: &gtk::Widget, toasts: &adw::ToastOverlay, process: &row::
     dialog.set_default_response(Some("end"));
     dialog.set_close_response("cancel");
 
-    let (pid, start_ticks) = process.key();
     let toasts = toasts.clone();
     let source = ProcessSource::detect(&SysRoot::from_env());
     dialog.choose(Some(parent), gio::Cancellable::NONE, move |response| {
@@ -429,21 +613,49 @@ fn confirm_end(parent: &gtk::Widget, toasts: &adw::ToastOverlay, process: &row::
             _ => return,
         };
         glib::spawn_future_local(async move {
-            let result =
-                gio::spawn_blocking(move || send_signal(source, pid, start_ticks, force)).await;
-            let message = match result {
-                Ok(Ok(())) => return,
-                Ok(Err(e)) if e.kind() == io::ErrorKind::PermissionDenied => {
-                    String::from("You can only end your own processes")
-                }
-                Ok(Err(e)) if e.kind() == io::ErrorKind::NotFound => {
+            let count = targets.len();
+            let results = gio::spawn_blocking(move || {
+                targets
+                    .into_iter()
+                    .map(|(pid, start_ticks)| {
+                        let result = send_signal(source, pid, start_ticks, force);
+                        if let Err(error) = &result {
+                            if error.kind() != io::ErrorKind::NotFound {
+                                tracing::warn!(pid, %error, "cannot end process");
+                            }
+                        }
+                        result
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .await
+            .unwrap_or_default();
+            // Gone already counts as ended.
+            let failed: Vec<&io::Error> = results
+                .iter()
+                .filter_map(|r| r.as_ref().err())
+                .filter(|e| e.kind() != io::ErrorKind::NotFound)
+                .collect();
+            let message = if results.is_empty() {
+                String::from("Could not end the process")
+            } else if failed.is_empty() {
+                if count == 1 && results.iter().all(Result::is_err) {
                     String::from("The process has already ended")
+                } else {
+                    return;
                 }
-                Ok(Err(error)) => {
-                    tracing::warn!(pid, %error, "cannot end process");
-                    String::from("Could not end the process")
-                }
-                Err(_) => String::from("Could not end the process"),
+            } else if failed
+                .iter()
+                .all(|e| e.kind() == io::ErrorKind::PermissionDenied)
+            {
+                String::from("You can only end your own processes")
+            } else if count == 1 {
+                String::from("Could not end the process")
+            } else {
+                format::fmt(
+                    "Could not end {failed} of {count} processes",
+                    &[("failed", &failed.len()), ("count", &count)],
+                )
             };
             toasts.add_toast(adw::Toast::new(&message));
         });
@@ -465,6 +677,13 @@ mod row {
             #[property(get)]
             pub pid: Cell<u32>,
             pub start_ticks: Cell<u64>,
+            /// The app or service this process belongs to (see
+            /// `cgroup::group`); for a group row, the group itself.
+            pub group: RefCell<Option<Arc<str>>>,
+            /// A group row: one app's processes, in `children`.
+            pub children: RefCell<Option<gio::ListStore>>,
+            /// A group row's name, without the count `name` adds.
+            pub group_name: RefCell<String>,
             #[property(get)]
             pub pid_text: RefCell<String>,
             /// `u32::MAX` when unknown.
@@ -520,6 +739,7 @@ mod row {
             let imp = row.imp();
             imp.pid.set(info.pid);
             imp.start_ticks.set(info.start_ticks);
+            *imp.group.borrow_mut() = info.group.clone();
             *imp.pid_text.borrow_mut() = info.pid.to_string();
             imp.uid.set(info.uid.unwrap_or(u32::MAX));
             *imp.user.borrow_mut() = info.user.to_string();
@@ -536,6 +756,102 @@ mod row {
             imp.gpu.set(gpu.unwrap_or(0.0));
             *imp.gpu_text.borrow_mut() = gpu_text(gpu);
             row
+        }
+
+        /// An empty group row for `group`; [`ProcessRow::set_group`] fills it.
+        pub fn new_group(group: Option<Arc<str>>) -> Self {
+            let row: Self = glib::Object::new();
+            let imp = row.imp();
+            *imp.group.borrow_mut() = group;
+            *imp.children.borrow_mut() = Some(gio::ListStore::new::<ProcessRow>());
+            row
+        }
+
+        pub fn group(&self) -> Option<Arc<str>> {
+            self.imp().group.borrow().clone()
+        }
+
+        /// The processes of a group row; `None` for a process row.
+        pub fn children(&self) -> Option<gio::ListStore> {
+            self.imp().children.borrow().clone()
+        }
+
+        pub fn group_name(&self) -> String {
+            self.imp().group_name.borrow().clone()
+        }
+
+        pub fn is_group(&self) -> bool {
+            self.imp().children.borrow().is_some()
+        }
+
+        /// A group row's name and totals, from its processes.
+        pub fn set_group(&self, name: &str, icon: gio::Icon, members: &[ProcessRow]) {
+            let imp = self.imp();
+            if *imp.group_name.borrow() != name {
+                *imp.group_name.borrow_mut() = name.to_owned();
+            }
+            let label = format!("{name} ({})", members.len());
+            if *imp.name.borrow() != label {
+                *imp.name.borrow_mut() = label;
+                self.notify_name();
+            }
+            if imp.icon.borrow().as_ref() != Some(&icon) {
+                *imp.icon.borrow_mut() = Some(icon);
+                self.notify_icon();
+            }
+            // One user for all, or none shown.
+            let first = members.first().map(|m| (m.uid(), m.user()));
+            let same = members
+                .iter()
+                .all(|m| Some(m.uid()) == first.as_ref().map(|f| f.0));
+            let (uid, user) = match first {
+                Some((uid, user)) if same => (uid, user),
+                _ => (u32::MAX, String::new()),
+            };
+            imp.uid.set(uid);
+            set_text(&imp.user, user, || self.notify_user());
+
+            let cpu: f32 = members.iter().map(ProcessRow::cpu).sum();
+            if imp.cpu.replace(cpu) != cpu {
+                self.notify_cpu();
+            }
+            set_text(&imp.cpu_text, cpu_text(cpu), || self.notify_cpu_text());
+            let memory: u64 = members.iter().map(ProcessRow::memory).sum();
+            if imp.memory.replace(memory) != memory {
+                self.notify_memory();
+            }
+            set_text(&imp.memory_text, format::size(memory), || {
+                self.notify_memory_text()
+            });
+            let gpu = members.iter().map(ProcessRow::gpu).sum::<f32>().min(1.0);
+            if imp.gpu.replace(gpu) != gpu {
+                self.notify_gpu();
+            }
+            let known = |text: String| {
+                members
+                    .iter()
+                    .any(|m| m.imp().gpu_text.borrow().as_str() != "—")
+                    .then_some(text)
+            };
+            set_text(
+                &imp.gpu_text,
+                known(gpu_text(Some(gpu))).unwrap_or_else(|| "—".to_owned()),
+                || self.notify_gpu_text(),
+            );
+            let download: u64 = members.iter().map(ProcessRow::download).sum();
+            if imp.download.replace(download) != download {
+                self.notify_download();
+            }
+            set_text(&imp.download_text, speed_text(Some(download)), || {
+                self.notify_download_text()
+            });
+            let upload: u64 = members.iter().map(ProcessRow::upload).sum();
+            if imp.upload.replace(upload) != upload {
+                self.notify_upload();
+            }
+            set_text(&imp.upload_text, speed_text(Some(upload)), || {
+                self.notify_upload_text()
+            });
         }
 
         pub fn set_icon(&self, icon: gio::Icon) {
@@ -658,6 +974,8 @@ mod view {
             pub search: TemplateChild<gtk::SearchEntry>,
             #[template_child]
             pub mine: TemplateChild<gtk::ToggleButton>,
+            #[template_child]
+            pub group: TemplateChild<gtk::ToggleButton>,
             #[template_child]
             pub end_button: TemplateChild<gtk::Button>,
             #[template_child]

@@ -5,6 +5,7 @@
 //! page sets), and every [`IDLE_EVERY`] ticks otherwise, which keeps the
 //! process count in the sidebar current.
 
+pub mod cgroup;
 pub mod gpu;
 pub mod net;
 mod parse;
@@ -49,6 +50,9 @@ pub struct ProcessInfo {
     /// `None` when unknown (another user's process, or the list hidden).
     pub download: Option<u64>,
     pub upload: Option<u64>,
+    /// The app (its ID, the name of its `.desktop` file) or service it
+    /// belongs to; `None` for kernel threads. See [`cgroup::group`].
+    pub group: Option<Arc<str>>,
     /// How busy the process keeps the graphics card (its busiest engine),
     /// 0.0..=1.0, from DRM fdinfo while the list is shown; `None` when
     /// unknown (another user's process, inside Flatpak, or the list hidden).
@@ -68,6 +72,7 @@ struct Known {
     start_ticks: u64,
     cpu_ticks: u64,
     name: Arc<str>,
+    group: Option<Arc<str>>,
 }
 
 pub struct ProcessCollector {
@@ -212,15 +217,25 @@ impl ProcessCollector {
                     }
                     _ => 0.0,
                 };
-                let name = before
-                    .map(|k| k.name)
-                    .unwrap_or_else(|| full_name(root, &self.reader, &stat));
+                let (name, group) = match before {
+                    Some(k) => (k.name, k.group),
+                    None => {
+                        let group = raw
+                            .cgroup
+                            .clone()
+                            .or_else(|| self.reader.cgroup(root, stat.pid))
+                            .and_then(|text| cgroup::group(&text))
+                            .map(Arc::from);
+                        (full_name(root, &self.reader, &stat), group)
+                    }
+                };
                 known.insert(
                     stat.pid,
                     Known {
                         start_ticks: stat.start_ticks,
                         cpu_ticks: stat.cpu_ticks,
                         name: Arc::clone(&name),
+                        group: group.clone(),
                     },
                 );
                 let user = match raw.uid {
@@ -253,6 +268,7 @@ impl ProcessCollector {
                     download,
                     upload,
                     gpu,
+                    group,
                 }
             })
             .collect();

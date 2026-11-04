@@ -17,6 +17,8 @@ pub const FALLBACK: &str = "application-x-executable-symbolic";
 /// Process name (lowercase) to icon.
 pub struct AppIcons {
     icons: HashMap<String, gio::Icon>,
+    /// Desktop ID (lowercase) to the app's name and icon.
+    apps: HashMap<String, (String, gio::Icon)>,
     fallback: gio::Icon,
 }
 
@@ -28,6 +30,7 @@ type IconSpec = String;
 /// strings, so it can be built on another thread; `gio::Icon` cannot.
 pub struct IconTable {
     icons: HashMap<String, IconSpec>,
+    apps: HashMap<String, (String, IconSpec)>,
     flatpak: bool,
     dirs: Vec<PathBuf>,
 }
@@ -37,6 +40,7 @@ impl AppIcons {
     pub fn empty() -> Self {
         Self {
             icons: HashMap::new(),
+            apps: HashMap::new(),
             fallback: gio::ThemedIcon::new(FALLBACK).upcast(),
         }
     }
@@ -47,6 +51,7 @@ impl AppIcons {
         let flatpak = Path::new("/.flatpak-info").exists();
         let dirs = data_dirs(flatpak);
         let mut icons = HashMap::new();
+        let mut apps = HashMap::new();
         for dir in &dirs {
             let Ok(entries) = std::fs::read_dir(dir.join("applications")) else {
                 continue;
@@ -54,12 +59,13 @@ impl AppIcons {
             for entry in entries.flatten() {
                 let path = entry.path();
                 if path.extension().is_some_and(|e| e == "desktop") {
-                    read_desktop(&path, flatpak, &mut icons);
+                    read_desktop(&path, flatpak, &mut icons, &mut apps);
                 }
             }
         }
         IconTable {
             icons,
+            apps,
             flatpak,
             dirs,
         }
@@ -72,21 +78,37 @@ impl AppIcons {
         }
         // One icon object per distinct icon, shared by all its names.
         let mut made: HashMap<IconSpec, gio::Icon> = HashMap::new();
+        let mut icon_of = |spec: IconSpec| {
+            made.entry(spec)
+                .or_insert_with_key(|spec| make_icon(spec))
+                .clone()
+        };
         let icons = table
             .icons
             .into_iter()
-            .map(|(name, spec)| {
-                let icon = made
-                    .entry(spec)
-                    .or_insert_with_key(|spec| make_icon(spec))
-                    .clone();
-                (name, icon)
-            })
+            .map(|(name, spec)| (name, icon_of(spec)))
+            .collect();
+        let apps = table
+            .apps
+            .into_iter()
+            .map(|(id, (name, spec))| (id, (name, icon_of(spec))))
             .collect();
         Self {
             icons,
+            apps,
             ..Self::empty()
         }
+    }
+
+    /// The name and icon of the app with this desktop ID (`"org.gnome.Nautilus"`).
+    pub fn app(&self, id: &str) -> Option<(&str, gio::Icon)> {
+        let (name, icon) = self.apps.get(&id.to_lowercase())?;
+        Some((name.as_str(), icon.clone()))
+    }
+
+    /// The icon shown for a group of processes that is not an app.
+    pub fn fallback(&self) -> gio::Icon {
+        self.fallback.clone()
     }
 
     pub fn lookup(&self, process: &str) -> gio::Icon {
@@ -143,7 +165,12 @@ fn make_icon(spec: &str) -> gio::Icon {
     }
 }
 
-fn read_desktop(path: &Path, flatpak: bool, icons: &mut HashMap<String, IconSpec>) {
+fn read_desktop(
+    path: &Path,
+    flatpak: bool,
+    icons: &mut HashMap<String, IconSpec>,
+    apps: &mut HashMap<String, (String, IconSpec)>,
+) {
     let file = glib::KeyFile::new();
     if file.load_from_file(path, glib::KeyFileFlags::NONE).is_err() {
         return;
@@ -166,6 +193,12 @@ fn read_desktop(path: &Path, flatpak: bool, icons: &mut HashMap<String, IconSpec
         .file_stem()
         .and_then(|s| s.to_str())
         .unwrap_or_default();
+    // The app's name, for its group in the process list. The first folder
+    // (the user's own) wins, as for the icons.
+    if let Some(name) = get("Name").filter(|n| !n.is_empty()) {
+        apps.entry(id.to_lowercase())
+            .or_insert_with(|| (name, icon.clone()));
+    }
     let mut keys = Vec::new();
     if let Some(exec) = get("Exec") {
         keys.extend(exec_program(&exec));

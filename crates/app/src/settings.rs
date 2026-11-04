@@ -130,6 +130,8 @@ pub struct AppSettings {
     pub start_page: StartPage,
     /// The page open when Corewatch was last closed.
     pub last_page: String,
+    /// The process list groups processes by app.
+    pub group_processes: bool,
 }
 
 impl Default for AppSettings {
@@ -141,6 +143,7 @@ impl Default for AppSettings {
             units: Units::default(),
             start_page: StartPage::default(),
             last_page: String::new(),
+            group_processes: false,
         }
     }
 }
@@ -188,6 +191,9 @@ impl AppSettings {
                     .map(|s| StartPage::from_str(&s))
                     .unwrap_or_default(),
                 last_page: text("last_page").unwrap_or_default(),
+                group_processes: key_file
+                    .boolean("General", "group_processes")
+                    .unwrap_or(false),
             }
         } else {
             Self::default()
@@ -234,6 +240,7 @@ impl AppSettings {
         );
         key_file.set_string("General", "start_page", self.start_page.as_str());
         key_file.set_string("General", "last_page", &self.last_page);
+        key_file.set_boolean("General", "group_processes", self.group_processes);
         let _ = key_file.save_to_file(&path);
     }
 
