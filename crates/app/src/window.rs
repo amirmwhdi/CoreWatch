@@ -11,7 +11,7 @@ use adw::prelude::*;
 use adw::subclass::prelude::*;
 use corewatch_core::{Sampler, Snapshot, SysRoot};
 use gtk::{gio, glib};
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 mod imp {
@@ -68,7 +68,9 @@ impl Window {
 }
 
 pub fn present(app: &adw::Application) {
-    if let Some(window) = app.active_window() {
+    // One window: shown again when Corewatch is opened while it runs (also
+    // when it was hidden to keep watching in the background).
+    if let Some(window) = app.windows().first() {
         window.present();
         return;
     }
@@ -203,16 +205,16 @@ pub fn present(app: &adw::Application) {
     ));
     app.add_action(&shortcuts_action);
 
-    // Closing every window ends the app; each window still saves its state
-    // in its close-request handler.
+    // Quit ends Corewatch, also when it keeps watching in the background.
     let quit_action = gio::SimpleAction::new("quit", None);
     quit_action.connect_activate(glib::clone!(
         #[weak]
         app,
+        #[weak]
+        stack,
         move |_, _| {
-            for window in app.windows() {
-                window.close();
-            }
+            save_last_page(&stack);
+            app.quit();
         }
     ));
     app.add_action(&quit_action);
@@ -258,15 +260,19 @@ pub fn present(app: &adw::Application) {
     ));
     app.add_action(&log_action);
 
-    // Overview cards open their page: `app.show-page("cpu")`.
+    // Overview cards and alerts open their page: `app.show-page("cpu")`.
     let show_page = gio::SimpleAction::new("show-page", Some(glib::VariantTy::STRING));
     show_page.connect_activate(glib::clone!(
         #[weak]
         sidebar,
+        #[weak]
+        window,
         move |_, param| {
             let Some(id) = param.and_then(|p| p.str()) else {
                 return;
             };
+            // An alert's notification may come while the window is hidden.
+            window.present();
             let mut index = 0;
             while let Some(row) = sidebar.row_at_index(index) {
                 if row.widget_name() == id {
@@ -327,8 +333,12 @@ pub fn present(app: &adw::Application) {
     crate::shortcuts::set_accels(app);
 
     let handle_loop = Rc::downgrade(&handle);
+    let app_loop = app.downgrade();
     glib::spawn_future_local(async move {
         while let Ok(snapshot) = rx.recv().await {
+            if let Some(app) = app_loop.upgrade() {
+                crate::alerts::check(app.upcast_ref(), &snapshot);
+            }
             for (page, frame, row) in pages.iter() {
                 if frame.set_has_data(page.has_data(&snapshot)) {
                     row.set_subtitle("Unavailable");
@@ -359,18 +369,49 @@ pub fn present(app: &adw::Application) {
     // closes, and the update loop above ends.
     let handle_close = handle.clone();
     let stack_close = stack.downgrade();
-    window.connect_close_request(move |_| {
-        handle_close.borrow_mut().take();
-        // Remember the open page for "Open On: Last Opened Page".
-        if let Some(id) = stack_close.upgrade().and_then(|s| s.visible_child_name()) {
-            let mut settings = crate::settings::AppSettings::load();
-            settings.last_page = id.into();
-            settings.save();
+    let told_background = Cell::new(false);
+    window.connect_close_request(move |window| {
+        if let Some(stack) = stack_close.upgrade() {
+            save_last_page(&stack);
         }
+        // Keep watching: hide the window and keep sampling. Hidden, the pages
+        // draw nothing and the process list is not scanned every tick.
+        let alerts = crate::settings::AppSettings::load_cached().alerts;
+        if alerts.enabled && alerts.background {
+            window.set_visible(false);
+            if !told_background.replace(true) {
+                tell_background(window);
+            }
+            return glib::Propagation::Stop;
+        }
+        handle_close.borrow_mut().take();
         glib::Propagation::Proceed
     });
 
     window.present();
+}
+
+/// Remember the open page for "Open On: Last Opened Page".
+fn save_last_page(stack: &gtk::Stack) {
+    if let Some(id) = stack.visible_child_name() {
+        let mut settings = crate::settings::AppSettings::load();
+        settings.last_page = id.into();
+        settings.save();
+    }
+}
+
+/// The first time the window hides, say that Corewatch still runs.
+fn tell_background(window: &Window) {
+    let Some(app) = window.application() else {
+        return;
+    };
+    let notification = gio::Notification::new("Corewatch keeps watching");
+    notification.set_body(Some(
+        "It runs in the background and sends alerts. Open it again to see everything, or quit it from its menu.",
+    ));
+    notification.set_default_action("app.show-page::overview");
+    notification.add_button("Quit", "app.quit");
+    app.send_notification(Some("background"), &notification);
 }
 
 /// "What's New": the subject, body and hash of the commit this build came

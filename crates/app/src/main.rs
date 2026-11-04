@@ -1,5 +1,6 @@
 //! Corewatch: a modern system monitor for Linux.
 
+mod alerts;
 mod app_icons;
 mod compat;
 mod config;
@@ -41,6 +42,8 @@ fn main() -> glib::ExitCode {
         return glib::ExitCode::FAILURE;
     }
 
+    // The name notifications and the window list show.
+    glib::set_application_name("Corewatch");
     let app = adw::Application::builder()
         .application_id(config::APP_ID)
         .build();

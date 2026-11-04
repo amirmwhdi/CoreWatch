@@ -56,6 +56,60 @@ template $CwPreferencesDialog: Adw.PreferencesDialog {
     }
 
     Adw.PreferencesGroup {
+      title: "Alerts";
+      description: "A notification when something needs attention";
+
+      Adw.SwitchRow alerts_row {
+        title: "Send Alerts";
+      }
+
+      Adw.SpinRow alert_temp_row {
+        title: "Temperature Limit";
+        subtitle: "Processor or graphics card, for 10 seconds";
+        sensitive: bind alerts_row.active;
+        adjustment: Gtk.Adjustment {
+          lower: 50;
+          upper: 230;
+          step-increment: 1;
+        };
+      }
+
+      Adw.SpinRow alert_memory_row {
+        title: "Memory Limit (%)";
+        subtitle: "Memory in use, for 30 seconds";
+        sensitive: bind alerts_row.active;
+        adjustment: Gtk.Adjustment {
+          lower: 50;
+          upper: 100;
+          step-increment: 1;
+        };
+      }
+
+      Adw.SpinRow alert_disk_row {
+        title: "Disk Space Limit (%)";
+        subtitle: "Space in use on a drive";
+        sensitive: bind alerts_row.active;
+        adjustment: Gtk.Adjustment {
+          lower: 50;
+          upper: 100;
+          step-increment: 1;
+        };
+      }
+
+      Adw.SwitchRow alert_busy_row {
+        title: "Busy Processes";
+        subtitle: "A process keeps a processor core busy for five minutes";
+        sensitive: bind alerts_row.active;
+      }
+
+      Adw.SwitchRow background_row {
+        title: "Keep Watching in the Background";
+        subtitle: "Closing the window leaves Corewatch running to send alerts";
+        sensitive: bind alerts_row.active;
+      }
+    }
+
+    Adw.PreferencesGroup {
       title: "Units";
 
       Adw.ComboRow temperature_row {

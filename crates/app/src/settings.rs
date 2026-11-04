@@ -119,6 +119,41 @@ impl StartPage {
     }
 }
 
+/// The limits past which Corewatch sends a notification.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct AlertSettings {
+    pub enabled: bool,
+    /// Processor or graphics card temperature, in °C.
+    pub temperature_c: f32,
+    /// Share of memory in use, 0.0..=1.0.
+    pub memory_share: f32,
+    /// Share of a filesystem in use, 0.0..=1.0.
+    pub disk_share: f32,
+    /// A process keeps a whole core busy for five minutes.
+    pub busy_process: bool,
+    /// Closing the window leaves Corewatch running, to keep watching.
+    pub background: bool,
+}
+
+impl Default for AlertSettings {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            temperature_c: 90.0,
+            memory_share: 0.9,
+            disk_share: 0.95,
+            busy_process: true,
+            background: false,
+        }
+    }
+}
+
+thread_local! {
+    /// The settings as last loaded or saved, for code that reads them every
+    /// tick (alerts) and must not read the file each time.
+    static CACHED: std::cell::RefCell<Option<AppSettings>> = const { std::cell::RefCell::new(None) };
+}
+
 #[derive(Debug, Clone)]
 pub struct AppSettings {
     pub theme: ThemeMode,
@@ -132,6 +167,7 @@ pub struct AppSettings {
     pub last_page: String,
     /// The process list groups processes by app.
     pub group_processes: bool,
+    pub alerts: AlertSettings,
 }
 
 impl Default for AppSettings {
@@ -144,6 +180,7 @@ impl Default for AppSettings {
             start_page: StartPage::default(),
             last_page: String::new(),
             group_processes: false,
+            alerts: AlertSettings::default(),
         }
     }
 }
@@ -155,7 +192,20 @@ impl AppSettings {
             .join("settings.ini")
     }
 
+    /// The settings as last loaded or saved, without reading the file again.
+    pub fn load_cached() -> Self {
+        CACHED
+            .with(|c| c.borrow().clone())
+            .unwrap_or_else(Self::load)
+    }
+
     pub fn load() -> Self {
+        let settings = Self::read();
+        CACHED.with(|c| c.replace(Some(settings.clone())));
+        settings
+    }
+
+    fn read() -> Self {
         let path = Self::file_path();
         let key_file = glib::KeyFile::new();
         if key_file
@@ -194,6 +244,26 @@ impl AppSettings {
                 group_processes: key_file
                     .boolean("General", "group_processes")
                     .unwrap_or(false),
+                alerts: {
+                    let default = AlertSettings::default();
+                    let flag = |key: &str, d: bool| key_file.boolean("Alerts", key).unwrap_or(d);
+                    let number = |key: &str, d: f32, range: std::ops::RangeInclusive<f32>| {
+                        key_file
+                            .double("Alerts", key)
+                            .ok()
+                            .map(|v| v as f32)
+                            .filter(|v| range.contains(v))
+                            .unwrap_or(d)
+                    };
+                    AlertSettings {
+                        enabled: flag("enabled", default.enabled),
+                        temperature_c: number("temperature_c", default.temperature_c, 40.0..=120.0),
+                        memory_share: number("memory_share", default.memory_share, 0.5..=1.0),
+                        disk_share: number("disk_share", default.disk_share, 0.5..=1.0),
+                        busy_process: flag("busy_process", default.busy_process),
+                        background: flag("background", default.background),
+                    }
+                },
             }
         } else {
             Self::default()
@@ -241,6 +311,14 @@ impl AppSettings {
         key_file.set_string("General", "start_page", self.start_page.as_str());
         key_file.set_string("General", "last_page", &self.last_page);
         key_file.set_boolean("General", "group_processes", self.group_processes);
+        let a = &self.alerts;
+        key_file.set_boolean("Alerts", "enabled", a.enabled);
+        key_file.set_double("Alerts", "temperature_c", f64::from(a.temperature_c));
+        key_file.set_double("Alerts", "memory_share", f64::from(a.memory_share));
+        key_file.set_double("Alerts", "disk_share", f64::from(a.disk_share));
+        key_file.set_boolean("Alerts", "busy_process", a.busy_process);
+        key_file.set_boolean("Alerts", "background", a.background);
+        CACHED.with(|c| c.replace(Some(self.clone())));
         let _ = key_file.save_to_file(&path);
     }
 

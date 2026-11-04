@@ -32,6 +32,18 @@ mod imp {
         pub sizes_row: TemplateChild<adw::ComboRow>,
         #[template_child]
         pub network_row: TemplateChild<adw::ComboRow>,
+        #[template_child]
+        pub alerts_row: TemplateChild<adw::SwitchRow>,
+        #[template_child]
+        pub alert_temp_row: TemplateChild<adw::SpinRow>,
+        #[template_child]
+        pub alert_memory_row: TemplateChild<adw::SpinRow>,
+        #[template_child]
+        pub alert_disk_row: TemplateChild<adw::SpinRow>,
+        #[template_child]
+        pub alert_busy_row: TemplateChild<adw::SwitchRow>,
+        #[template_child]
+        pub background_row: TemplateChild<adw::SwitchRow>,
     }
 
     #[glib::object_subclass]
@@ -167,6 +179,59 @@ impl PreferencesDialog {
                 }
             });
             format::set_units(settings.units);
+        });
+
+        // Alerts. The temperature limit is shown in the chosen unit and
+        // kept in °C.
+        let a = settings.alerts;
+        let fahrenheit = units.temperature == TemperatureUnit::Fahrenheit;
+        let shown = move |c: f32| if fahrenheit { c * 9.0 / 5.0 + 32.0 } else { c };
+        let celsius = move |v: f64| {
+            let v = v as f32;
+            if fahrenheit {
+                (v - 32.0) * 5.0 / 9.0
+            } else {
+                v
+            }
+        };
+        imp.alerts_row.set_active(a.enabled);
+        imp.alerts_row.connect_active_notify(|row| {
+            update(|s| s.alerts.enabled = row.is_active());
+        });
+        let temp = &imp.alert_temp_row;
+        temp.set_title(if fahrenheit {
+            "Temperature Limit (°F)"
+        } else {
+            "Temperature Limit (°C)"
+        });
+        let (low, high) = if fahrenheit {
+            (122.0, 230.0)
+        } else {
+            (50.0, 110.0)
+        };
+        temp.adjustment().set_lower(low);
+        temp.adjustment().set_upper(high);
+        temp.set_value(f64::from(shown(a.temperature_c)).round());
+        temp.connect_value_notify(move |row| {
+            update(|s| s.alerts.temperature_c = celsius(row.value()));
+        });
+        imp.alert_memory_row
+            .set_value(f64::from(a.memory_share * 100.0).round());
+        imp.alert_memory_row.connect_value_notify(|row| {
+            update(|s| s.alerts.memory_share = row.value() as f32 / 100.0);
+        });
+        imp.alert_disk_row
+            .set_value(f64::from(a.disk_share * 100.0).round());
+        imp.alert_disk_row.connect_value_notify(|row| {
+            update(|s| s.alerts.disk_share = row.value() as f32 / 100.0);
+        });
+        imp.alert_busy_row.set_active(a.busy_process);
+        imp.alert_busy_row.connect_active_notify(|row| {
+            update(|s| s.alerts.busy_process = row.is_active());
+        });
+        imp.background_row.set_active(a.background);
+        imp.background_row.connect_active_notify(|row| {
+            update(|s| s.alerts.background = row.is_active());
         });
 
         dialog

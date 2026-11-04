@@ -140,6 +140,10 @@ and Wi-Fi signal strength.
   fans, is on the Sensors page.
 - **Battery:** charge level graph, charging status, time remaining, health,
   power draw and charge cycles, on laptops.
+- **Alerts:** a notification when the processor or graphics card runs
+  hot, memory or a drive is almost full, or a process keeps a core busy
+  for five minutes; the limits are set in Preferences. Corewatch can keep
+  watching in the background after its window closes.
 - **Smooth graphs** that scroll continuously, like GNOME System Monitor. You
   can turn this off to save power, and it pauses by itself while the
   system's Power Saver mode is on.
