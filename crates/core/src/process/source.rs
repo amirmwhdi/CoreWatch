@@ -442,6 +442,11 @@ pub fn send_signal(
 
 /// Set a process's niceness, -20 (runs first) to 19 (runs last). Without
 /// root a process can only be made nicer than it is.
+///
+/// On Linux a niceness belongs to one thread, and `setpriority` (like
+/// `renice -p`) changes only the thread whose id is the pid. A browser or a
+/// game does most of its work in other threads, so every thread of the
+/// process is changed.
 pub fn set_priority(
     source: ProcessSource,
     pid: u32,
@@ -452,12 +457,32 @@ pub fn set_priority(
         ProcessSource::Direct => {
             let raw = raw_pid(pid)?;
             check_start(pid, start_ticks)?;
-            rustix::process::setpriority_process(Some(raw), nice).map_err(io::Error::from)
+            // The main thread first: its error (not allowed, gone) is the
+            // answer. Threads that end meanwhile are skipped.
+            rustix::process::setpriority_process(Some(raw), nice).map_err(io::Error::from)?;
+            for tid in threads(pid).into_iter().filter(|t| *t != pid) {
+                if let Ok(tid) = raw_pid(tid) {
+                    let _ = rustix::process::setpriority_process(Some(tid), nice);
+                }
+            }
+            Ok(())
         }
         ProcessSource::FlatpakHost => {
             host_command(HOST_RENICE, pid, start_ticks, &nice.to_string())
         }
     }
+}
+
+/// The thread ids of a process; empty when they cannot be listed.
+fn threads(pid: u32) -> Vec<u32> {
+    std::fs::read_dir(format!("/proc/{pid}/task"))
+        .map(|tasks| {
+            tasks
+                .flatten()
+                .filter_map(|t| t.file_name().to_str()?.parse().ok())
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 fn raw_pid(pid: u32) -> io::Result<rustix::process::Pid> {
@@ -509,7 +534,13 @@ set -- "$1" "$2" "$3" $s
 "#;
 
 const HOST_KILL: &str = r#"exec kill -s "$3" "$1""#;
-const HOST_RENICE: &str = r#"exec renice -n "$3" -p "$1" >/dev/null"#;
+/// Every thread, main thread first (see [`set_priority`]); a thread that
+/// ends meanwhile is not an error.
+const HOST_RENICE: &str = r#"renice -n "$3" -p "$1" >/dev/null || exit
+for t in /proc/$1/task/*; do
+  t=${t##*/}; [ "$t" = "$1" ] || renice -n "$3" -p "$t" >/dev/null 2>&1
+done
+exit 0"#;
 
 /// Run `action` on the host for a process, after checking its start time.
 fn host_command(action: &str, pid: u32, start_ticks: u64, arg: &str) -> io::Result<()> {
@@ -547,6 +578,36 @@ mod tests {
             .unwrap()
             .start_ticks;
         (child, pid, start)
+    }
+
+    #[test]
+    fn a_lower_priority_reaches_every_thread() {
+        use std::sync::mpsc;
+        // A second thread of this test process, waiting until told to end.
+        let (tid_tx, tid_rx) = mpsc::channel();
+        let (end_tx, end_rx) = mpsc::channel::<()>();
+        let worker = std::thread::spawn(move || {
+            // "/proc/thread-self" links to "<pid>/task/<tid>".
+            let link = std::fs::read_link("/proc/thread-self").unwrap();
+            let tid: u32 = link.file_name().unwrap().to_str().unwrap().parse().unwrap();
+            tid_tx.send(tid).unwrap();
+            end_rx.recv().unwrap();
+        });
+        let tid = tid_rx.recv().unwrap();
+        let me = std::process::id();
+        let stat = std::fs::read_to_string(format!("/proc/{me}/stat")).unwrap();
+        let start = super::super::parse_proc_stat(stat.trim_end())
+            .unwrap()
+            .start_ticks;
+        // The lowest priority: allowed without root, and harmless for a test.
+        set_priority(ProcessSource::Direct, me, start, 19).unwrap();
+        let thread_stat = std::fs::read_to_string(format!("/proc/{me}/task/{tid}/stat")).unwrap();
+        let nice = super::super::parse_proc_stat(thread_stat.trim_end())
+            .unwrap()
+            .nice;
+        end_tx.send(()).unwrap();
+        worker.join().unwrap();
+        assert_eq!(nice, 19, "the other thread was changed too");
     }
 
     #[test]
