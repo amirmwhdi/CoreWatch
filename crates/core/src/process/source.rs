@@ -580,34 +580,60 @@ mod tests {
         (child, pid, start)
     }
 
+    /// Not a test on its own: the child process of
+    /// `a_lower_priority_reaches_every_thread`, which runs this test binary
+    /// again with `COREWATCH_THREADS_CHILD` set. It starts a second thread
+    /// and waits, so the parent has a process with several threads to
+    /// change; the niceness of the test process itself is never touched (a
+    /// test started later would inherit it).
+    #[test]
+    #[ignore]
+    fn threads_child() {
+        if std::env::var_os("COREWATCH_THREADS_CHILD").is_none() {
+            return;
+        }
+        let worker = std::thread::spawn(|| std::thread::sleep(std::time::Duration::from_secs(30)));
+        let _ = worker.join();
+    }
+
     #[test]
     fn a_lower_priority_reaches_every_thread() {
-        use std::sync::mpsc;
-        // A second thread of this test process, waiting until told to end.
-        let (tid_tx, tid_rx) = mpsc::channel();
-        let (end_tx, end_rx) = mpsc::channel::<()>();
-        let worker = std::thread::spawn(move || {
-            // "/proc/thread-self" links to "<pid>/task/<tid>".
-            let link = std::fs::read_link("/proc/thread-self").unwrap();
-            let tid: u32 = link.file_name().unwrap().to_str().unwrap().parse().unwrap();
-            tid_tx.send(tid).unwrap();
-            end_rx.recv().unwrap();
-        });
-        let tid = tid_rx.recv().unwrap();
-        let me = std::process::id();
-        let stat = std::fs::read_to_string(format!("/proc/{me}/stat")).unwrap();
+        let mut child = Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "process::source::tests::threads_child",
+                "--ignored",
+            ])
+            .env("COREWATCH_THREADS_CHILD", "1")
+            .stdout(Stdio::null())
+            .spawn()
+            .unwrap();
+        let pid = child.id();
+        // Wait until the child runs its extra thread: at least three tasks
+        // (main, the test's thread, the worker).
+        let tasks = || threads(pid);
+        for _ in 0..200 {
+            if tasks().len() >= 3 {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        let stat = std::fs::read_to_string(format!("/proc/{pid}/stat")).unwrap();
         let start = super::super::parse_proc_stat(stat.trim_end())
             .unwrap()
             .start_ticks;
-        // The lowest priority: allowed without root, and harmless for a test.
-        set_priority(ProcessSource::Direct, me, start, 19).unwrap();
-        let thread_stat = std::fs::read_to_string(format!("/proc/{me}/task/{tid}/stat")).unwrap();
-        let nice = super::super::parse_proc_stat(thread_stat.trim_end())
-            .unwrap()
-            .nice;
-        end_tx.send(()).unwrap();
-        worker.join().unwrap();
-        assert_eq!(nice, 19, "the other thread was changed too");
+        // The lowest priority: allowed without root or CAP_SYS_NICE.
+        set_priority(ProcessSource::Direct, pid, start, 19).unwrap();
+        let nice_of = |tid: u32| {
+            let stat = std::fs::read_to_string(format!("/proc/{pid}/task/{tid}/stat")).unwrap();
+            super::super::parse_proc_stat(stat.trim_end()).unwrap().nice
+        };
+        let all = tasks();
+        let nices: Vec<i32> = all.iter().map(|tid| nice_of(*tid)).collect();
+        child.kill().unwrap();
+        child.wait().unwrap();
+        assert!(all.len() >= 3, "the child has several threads: {all:?}");
+        assert!(nices.iter().all(|n| *n == 19), "every thread: {nices:?}");
     }
 
     #[test]
