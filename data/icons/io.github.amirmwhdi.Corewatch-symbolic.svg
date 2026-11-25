@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+  <!-- The same dial and chip as the full icon, in one colour -->
+  <g fill="none" stroke="#2e3436" stroke-width="2" stroke-linecap="round">
+    <path d="M 10.3 2.46 A 6 6 0 0 1 13.95 8.78"/>
+    <path d="M 11.65 12.76 A 6 6 0 0 1 4.35 12.76"/>
+    <path d="M 2.05 8.78 A 6 6 0 0 1 5.7 2.46"/>
+  </g>
+  <rect x="6" y="6" width="4" height="4" rx="1" fill="#2e3436"/>
+</svg>

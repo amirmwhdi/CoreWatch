@@ -12,6 +12,12 @@ install_data(
   install_dir: datadir / 'icons/hicolor/scalable/apps',
 )
 
+# The one-colour version GNOME shows at small sizes and in the panel.
+install_data(
+  'icons' / application_id + '-symbolic.svg',
+  install_dir: datadir / 'icons/hicolor/symbolic/apps',
+)
+
 desktop_file_validate = find_program('desktop-file-validate', required: false)
 if desktop_file_validate.found()
   test('validate-desktop', desktop_file_validate, args: [desktop_file])

@@ -51,6 +51,7 @@ export CARGO_NET_OFFLINE=true
 %{_datadir}/applications/io.github.amirmwhdi.Corewatch.desktop
 %{_datadir}/metainfo/io.github.amirmwhdi.Corewatch.metainfo.xml
 %{_datadir}/icons/hicolor/scalable/apps/io.github.amirmwhdi.Corewatch.svg
+%{_datadir}/icons/hicolor/symbolic/apps/io.github.amirmwhdi.Corewatch-symbolic.svg
 
 %changelog
 * Wed Nov 04 2026 Amirmahdi <amirmwhdi@users.noreply.github.com> - 0.5.0-1

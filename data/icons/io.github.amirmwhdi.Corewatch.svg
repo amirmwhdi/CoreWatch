@@ -1,18 +1,46 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <defs>
-    <linearGradient id="cw-bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#3584e4"/>
-      <stop offset="100%" stop-color="#1c71d8"/>
-    </linearGradient>
-  </defs>
-  <!-- Background rounded squircle (GNOME style) -->
-  <rect x="8" y="8" width="112" height="112" rx="24" fill="url(#cw-bg)"/>
-  <!-- Subtle grid lines -->
-  <path d="M 20 64 H 108 M 64 20 V 108" stroke="#ffffff" stroke-opacity="0.15" stroke-width="2"/>
-  <!-- Activity graph pulse line -->
-  <path d="M 22 72 L 42 72 L 52 38 L 68 94 L 80 58 L 90 72 L 106 72"
-        fill="none" stroke="#ffffff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
-  <!-- Endpoint dot with glow -->
-  <circle cx="106" cy="72" r="5" fill="#f6f5f4"/>
+  <title>Corewatch</title>
+  <!-- Colours: the GNOME palette. Flat surfaces are flat colours; light
+       comes straight from above, so each part shows a darker front below. -->
+
+  <!-- Plate (Dark 3), its front (Dark 4) and a light rim that keeps the
+       outline on dark backgrounds -->
+  <rect x="16" y="18" width="96" height="96" rx="24" fill="#241f31"/>
+  <rect x="16" y="14" width="96" height="96" rx="24" fill="#3d3846"/>
+  <rect x="16.5" y="14.5" width="95" height="95" rx="23.5" fill="none" stroke="#ffffff" stroke-opacity=".15"/>
+
+  <!-- Dial: processor (Blue 2), graphics card (Green 4), memory (Purple 1);
+       three equal segments with equal gaps -->
+  <g fill="none" stroke-width="10" stroke-linecap="round">
+    <path d="M 73.06 28.19 A 35 35 0 0 1 97.81 71.06" stroke="#62a0ea"/>
+    <path d="M 88.75 86.75 A 35 35 0 0 1 39.25 86.75" stroke="#2ec27e"/>
+    <path d="M 30.19 71.06 A 35 35 0 0 1 54.94 28.19" stroke="#dc8add"/>
+  </g>
+
+  <!-- The core: a chip (Light 1, front Light 3, pins Light 4) -->
+  <g fill="#c0bfbc">
+    <rect x="54" y="40" width="4" height="6" rx="1.5"/>
+    <rect x="54" y="80" width="4" height="6" rx="1.5"/>
+    <rect x="42" y="52" width="6" height="4" rx="1.5"/>
+    <rect x="80" y="52" width="6" height="4" rx="1.5"/>
+    <rect x="62" y="40" width="4" height="6" rx="1.5"/>
+    <rect x="62" y="80" width="4" height="6" rx="1.5"/>
+    <rect x="42" y="60" width="6" height="4" rx="1.5"/>
+    <rect x="80" y="60" width="6" height="4" rx="1.5"/>
+    <rect x="70" y="40" width="4" height="6" rx="1.5"/>
+    <rect x="70" y="80" width="4" height="6" rx="1.5"/>
+    <rect x="42" y="68" width="6" height="4" rx="1.5"/>
+    <rect x="80" y="68" width="6" height="4" rx="1.5"/>
+  </g>
+  <rect x="48" y="48" width="32" height="32" rx="7" fill="#deddda"/>
+  <rect x="48" y="46" width="32" height="32" rx="7" fill="#ffffff"/>
+
+  <!-- Its four cores (Dark 3); one is busy (Green 4) -->
+  <g fill="#3d3846">
+    <rect x="52" y="50" width="10" height="10" rx="2"/>
+    <rect x="66" y="50" width="10" height="10" rx="2"/>
+    <rect x="52" y="64" width="10" height="10" rx="2"/>
+  </g>
+  <rect x="66" y="64" width="10" height="10" rx="2" fill="#2ec27e"/>
 </svg>
