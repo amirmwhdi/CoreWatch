@@ -11,8 +11,12 @@ use gtk::{gdk, gio, glib};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-/// Shown for processes that belong to no app.
-pub const FALLBACK: &str = "application-x-executable-symbolic";
+/// Shown for processes that belong to no app, and for kernel threads: the
+/// icon GNOME System Monitor shows for them.
+pub const FALLBACK: &str = "application-x-executable";
+
+/// The same icon in one colour, for an icon theme without the full-colour one.
+const FALLBACK_SYMBOLIC: &str = "application-x-executable-symbolic";
 
 /// Process name (lowercase) to icon.
 pub struct AppIcons {
@@ -41,7 +45,7 @@ impl AppIcons {
         Self {
             icons: HashMap::new(),
             apps: HashMap::new(),
-            fallback: gio::ThemedIcon::new(FALLBACK).upcast(),
+            fallback: gio::ThemedIcon::from_names(&[FALLBACK, FALLBACK_SYMBOLIC]).upcast(),
         }
     }
 
