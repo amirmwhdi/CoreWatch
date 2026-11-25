@@ -259,7 +259,7 @@ COREWATCH_LOG=corewatch_core=debug cargo run -p corewatch   # custom log filter
 cargo run -p corewatch-core --example print           # CPU and memory in the terminal, no GUI
 COREWATCH_SYSROOT=crates/core/tests/fixtures/basic \
     cargo run -p corewatch                            # read a fake /proc and /sys
-cargo test --workspace                                # tests
+tests/run.sh                                          # lint and tests (see tests/README.md)
 ```
 
 ## Privacy and permissions
@@ -270,7 +270,31 @@ connects to the internet, and it needs no root password.
 The Flatpak asks for a few extra permissions, each one explained in
 [`packaging/flatpak/README.md`](packaging/flatpak/README.md): it reads the
 host's processes, app icons and graphics card names, asks UDisks for drive
-temperatures, and runs the host's `kill` when you end a process.
+temperatures, and runs the host's `kill` when you end a process. Two of them
+are broader than a monitor would like, and are worth knowing about:
+
+- **Network access** (`--share=network`) is only there so the sandbox sees
+  your computer's network interfaces instead of an empty one of its own.
+  Corewatch opens no internet connection.
+- **Running commands outside the sandbox** (`--talk-name=org.freedesktop.Flatpak`)
+  lets the Processes page see every process and act on the one you choose.
+  What it runs on the host is fixed in the code: small shell scripts that
+  read `/proc` (`crates/core/src/process/source.rs` and `details.rs`), and
+  `kill` or `renice` for the process you picked; nothing else.
+
+If you would rather not grant either, install the `.deb`, `.rpm` or Arch
+package instead, which need no extra permissions, or take them away from
+the Flatpak:
+
+```sh
+flatpak override --user --unshare=network --no-talk-name=org.freedesktop.Flatpak \
+    io.github.amirmwhdi.Corewatch
+```
+
+The Network page then shows only the sandbox's own loopback, and the
+Processes page says its data is unavailable; every other page works as
+before. `flatpak override --user --reset io.github.amirmwhdi.Corewatch`
+gives the permissions back.
 
 ## Logs and bug reports
 
@@ -294,6 +318,8 @@ crates/app        corewatch: the GTK app
 data/ui/stable    Blueprint files for the UI, compiled into the binary
 data              desktop entry, metainfo, icon (installed by Meson)
 packaging         Flatpak manifest, Arch PKGBUILD, Debian and RPM packaging
+tests             the checks and tests CI used to run, on your machine
+release           build the release packages and publish them on GitHub
 ```
 
 The UI layout is written in
@@ -305,6 +331,21 @@ complete program.
 Every resource is a **module**: one `Collector` in `corewatch-core` that
 fills one field of `Snapshot`, and one `ResourcePage` in the app that shows
 it. Modules are registered in one place, `crates/app/src/modules/mod.rs`.
+
+### Testing
+
+Nothing runs on GitHub: the checks that used to be CI run on your own
+machine.
+
+```sh
+tests/run.sh                # formatting, Clippy, tests, desktop entry and metainfo
+tests/ci.sh                 # everything CI did: Debian 13, Fedora, Arch and the Flatpak (Podman or Docker)
+tests/install-hook.sh       # run tests/run.sh before every git push
+```
+
+[`tests/README.md`](tests/README.md) has the details: single steps, the
+packages that keep any step from being skipped, and where the tests and the
+fake `/proc` and `/sys` trees are.
 
 ### Adding a module
 
@@ -318,8 +359,8 @@ The window and the sampler never change when a module is added.
 ### Releasing
 
 The version is written in Cargo, Meson, the metainfo and every packaging
-recipe. `scripts/version.sh` moves them all at once, and CI fails when they
-disagree:
+recipe. `scripts/version.sh` moves them all at once, and `tests/run.sh`
+fails when they disagree:
 
 ```sh
 scripts/version.sh                          # the current version
@@ -328,8 +369,16 @@ scripts/version.sh bump 0.4.0 notes.txt     # new version, one note per line
 ```
 
 The notes become the metainfo release and the Debian and RPM changelog
-entries. Then commit `release: <version>`, tag `v<version>` and push the
-tag: the Release workflow builds and publishes every package.
+entries. Then commit `release: <version>`, tag `v<version>`, push the tag,
+and build and publish the packages from your machine:
+
+```sh
+release/build.sh            # every package, into dist/<version>/
+release/publish.sh          # a GitHub release with them
+```
+
+[`release/README.md`](release/README.md) walks through a release step by
+step, ARM packages included.
 
 ## License
 

@@ -12,12 +12,12 @@ flatpak run io.github.amirmwhdi.Corewatch
 offline. Regenerate it whenever `Cargo.lock` changes:
 
 ```sh
-python3 flatpak-cargo-generator.py Cargo.lock -o packaging/flatpak/cargo-sources.json
+tests/flatpak.sh --fix
 ```
 
-(`flatpak-cargo-generator.py` is in
-[flatpak-builder-tools](https://github.com/flatpak/flatpak-builder-tools/tree/master/cargo).)
-CI fails when the file is out of date.
+It runs `flatpak-cargo-generator.py` from
+[flatpak-builder-tools](https://github.com/flatpak/flatpak-builder-tools/tree/master/cargo).
+`tests/flatpak.sh` (and `tests/ci.sh`) fails when the file is out of date.
 
 Inside the sandbox `/proc/self/mountinfo` lists the sandbox's own mounts, so
 the Filesystems group on the Disks page is not meaningful there yet. CPU,
@@ -34,7 +34,11 @@ These permissions are there for single pages:
   with `flatpak-spawn --host` (see `crates/core/src/process/source.rs`). The
   script only reads `/proc` and `/etc/passwd`, using shell built-ins (plus
   one `ls -l /proc/*/fd` to match network connections to processes), and
-  "End Process" runs the host's `kill`. The per-process download and upload
+  "End Process", Suspend and Resume run the host's `kill`, and a lower
+  priority its `renice`; the process details come from a second script in
+  `crates/core/src/process/details.rs`. `kill` and `renice` run only after
+  the process's start time is checked, so a pid reused by another process
+  is never touched. The per-process download and upload
   speeds come from the kernel's socket statistics (netlink), which the
   shared network namespace already allows.
 - `--system-talk-name=org.freedesktop.UDisks2`: the Disks page shows SATA
