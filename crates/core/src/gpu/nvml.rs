@@ -96,12 +96,11 @@ impl Nvml {
                     std::mem::transmute::<*mut c_void, _>(ptr)
                 }};
             }
+            // Every symbol is looked up before NVML is initialized: a symbol
+            // missing after a successful init would close the library
+            // without the matching nvmlShutdown.
             let init: unsafe extern "C" fn() -> Ret = sym!("nvmlInit_v2");
-            if init() != SUCCESS {
-                libc::dlclose(lib);
-                return None;
-            }
-            Api {
+            let api = Api {
                 nvmlShutdown: sym!("nvmlShutdown"),
                 nvmlDeviceGetHandleByPciBusId_v2: sym!("nvmlDeviceGetHandleByPciBusId_v2"),
                 nvmlDeviceGetName: sym!("nvmlDeviceGetName"),
@@ -117,7 +116,12 @@ impl Nvml {
                     let ptr = libc::dlsym(lib, c"nvmlDeviceGetProcessUtilization".as_ptr());
                     (!ptr.is_null()).then(|| std::mem::transmute::<*mut c_void, _>(ptr))
                 },
+            };
+            if init() != SUCCESS {
+                libc::dlclose(lib);
+                return None;
             }
+            api
         };
         Some(Self { lib, api })
     }
