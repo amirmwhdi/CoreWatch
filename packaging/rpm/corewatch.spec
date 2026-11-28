@@ -1,5 +1,5 @@
 Name:           corewatch
-Version:        0.6.0
+Version:        0.6.1
 Release:        1%{?dist}
 Summary:        A modern system monitor for Linux
 License:        GPL-3.0-or-later
@@ -54,6 +54,9 @@ export CARGO_NET_OFFLINE=true
 %{_datadir}/icons/hicolor/symbolic/apps/io.github.amirmwhdi.Corewatch-symbolic.svg
 
 %changelog
+* Sat Nov 28 2026 Amirmahdi <amirmwhdi@users.noreply.github.com> - 0.6.1-1
+- Opening Corewatch while it already runs says so in the terminal and the log, naming the running process, instead of exiting without a word
+
 * Sat Nov 28 2026 Amirmahdi <amirmwhdi@users.noreply.github.com> - 0.6.0-1
 - Disk health: the SMART health of hard disks, SSDs and NVMe drives on the Disks page, with a health percentage, and life left, bad sectors, power-on time, data written and the last self-test on request
 - The process list stays at the top when it sorts again, and a new sort column, search or filter starts at the top

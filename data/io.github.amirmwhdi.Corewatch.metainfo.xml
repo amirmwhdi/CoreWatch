@@ -40,27 +40,27 @@
 
   <screenshots>
     <screenshot type="default">
-      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.6.0/data/screenshots/light/overview.png</image>
+      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.6.1/data/screenshots/light/overview.png</image>
       <caption>Every resource at a glance</caption>
     </screenshot>
     <screenshot>
-      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.6.0/data/screenshots/light/processes.png</image>
+      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.6.1/data/screenshots/light/processes.png</image>
       <caption>Sort, search and end processes, with each app's download and upload speed</caption>
     </screenshot>
     <screenshot>
-      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.6.0/data/screenshots/light/processor.png</image>
+      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.6.1/data/screenshots/light/processor.png</image>
       <caption>Total and per-core usage, frequency and CPU sensors</caption>
     </screenshot>
     <screenshot>
-      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.6.0/data/screenshots/light/graphics.png</image>
+      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.6.1/data/screenshots/light/graphics.png</image>
       <caption>Load, clocks, memory, temperature, power and fan of every graphics card</caption>
     </screenshot>
     <screenshot>
-      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.6.0/data/screenshots/light/disks.png</image>
+      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.6.1/data/screenshots/light/disks.png</image>
       <caption>Activity, speeds and temperature of each drive</caption>
     </screenshot>
     <screenshot>
-      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.6.0/data/screenshots/light/network.png</image>
+      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.6.1/data/screenshots/light/network.png</image>
       <caption>Download and upload speed per interface</caption>
     </screenshot>
   </screenshots>
@@ -101,6 +101,13 @@
   </branding>
 
   <releases>
+    <release version="0.6.1" date="2026-11-28">
+      <description>
+        <ul>
+          <li>Opening Corewatch while it already runs says so in the terminal and the log, naming the running process, instead of exiting without a word</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.6.0" date="2026-11-28">
       <description>
         <ul>

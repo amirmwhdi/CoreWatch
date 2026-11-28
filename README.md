@@ -217,10 +217,10 @@ for x86_64 and aarch64 (the Arch package is x86_64 only):
 | `.AppImage` | Any distribution with GTK 4.18 and libadwaita 1.7 installed |
 
 ```sh
-flatpak install --user corewatch-0.6.0-x86_64.flatpak
-sudo apt install ./corewatch-0.6.0-linux-amd64.deb
-sudo dnf install ./corewatch-0.6.0-linux-x86_64.rpm
-sudo pacman -U corewatch-0.6.0-linux-x86_64.pkg.tar.zst
+flatpak install --user corewatch-0.6.1-x86_64.flatpak
+sudo apt install ./corewatch-0.6.1-linux-amd64.deb
+sudo dnf install ./corewatch-0.6.1-linux-x86_64.rpm
+sudo pacman -U corewatch-0.6.1-linux-x86_64.pkg.tar.zst
 ```
 
 Releases contain only installable packages: the program, its desktop entry,
