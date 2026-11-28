@@ -67,6 +67,9 @@ struct ProcessesPage {
     /// the fallback icon until then.
     icons: Rc<RefCell<AppIcons>>,
     columns: gtk::ColumnView,
+    /// Set while the page sorts again after an update, so the sorter's
+    /// `changed` is not taken for a click on a column header.
+    resorting: Rc<Cell<bool>>,
     generation: Cell<u64>,
     /// The units the row texts were made with.
     units: Cell<u32>,
@@ -132,8 +135,8 @@ impl ProcessesPage {
             move |_| owner.changed(gtk::FilterChange::Different)
         ));
         let filter = gtk::EveryFilter::new();
-        filter.append(search);
-        filter.append(owner);
+        filter.append(search.clone());
+        filter.append(owner.clone());
 
         // Rows are a tree: processes, or apps that open to their processes.
         // Either list is filtered at the top level and sorted within each
@@ -169,9 +172,12 @@ impl ProcessesPage {
             .can_unselect(true)
             .build();
         columns.set_model(Some(&selection));
+        let columns_weak = columns.downgrade();
         group_toggle.connect_toggled(glib::clone!(
             #[weak]
             sorted,
+            #[strong(rename_to = columns)]
+            columns_weak,
             #[strong]
             store,
             #[strong]
@@ -179,6 +185,9 @@ impl ProcessesPage {
             move |toggle| {
                 let grouped = toggle.is_active();
                 sorted.set_model(Some(&tree_of(if grouped { &groups } else { &store })));
+                if let Some(columns) = columns.upgrade() {
+                    scroll_to_top_later(&columns);
+                }
                 let mut settings = crate::settings::AppSettings::load();
                 settings.group_processes = grouped;
                 settings.save();
@@ -201,6 +210,32 @@ impl ProcessesPage {
         add_column(&columns, "Upload", "upload-text", Some("upload"), false);
         add_column(&columns, "ID", "pid-text", Some("pid"), false);
         columns.sort_by_column(Some(&cpu), gtk::SortType::Descending);
+
+        // A new order or a new set of rows starts at the top. Without this
+        // GTK keeps the row that was at the top in view, wherever the new
+        // order puts it, and the best matches are scrolled away.
+        let resorting = Rc::new(Cell::new(false));
+        if let Some(sorter) = columns.sorter() {
+            sorter.connect_changed(glib::clone!(
+                #[weak]
+                columns,
+                #[strong]
+                resorting,
+                move |_, _| {
+                    // The page's own re-sort after an update is not a new order.
+                    if !resorting.get() {
+                        scroll_to_top_later(&columns);
+                    }
+                }
+            ));
+        }
+        for filter in [search.upcast_ref::<gtk::Filter>(), owner.upcast_ref()] {
+            filter.connect_changed(glib::clone!(
+                #[weak]
+                columns,
+                move |_, _| scroll_to_top_later(&columns)
+            ));
+        }
         // Enter or a double click: a group opens or closes, a process shows
         // its details.
         columns.connect_activate(glib::clone!(
@@ -323,6 +358,7 @@ impl ProcessesPage {
             rows,
             icons,
             columns,
+            resorting,
             generation: Cell::new(0),
             units: Cell::new(format::units_generation()),
             count: Cell::new(0),
@@ -333,6 +369,9 @@ impl ProcessesPage {
     /// `nvml`: GPU usage by pid that NVIDIA's driver reports, merged with the
     /// usage the processes' own GPU files give.
     fn sync(&self, processes: &[ProcessInfo], nvml: &HashMap<u32, f32>) {
+        // At the top, stay at the top: the rows move every update, and GTK
+        // would otherwise follow the row that was first to its new place.
+        let at_top = self.columns.vadjustment().is_none_or(|a| a.value() < 1.0);
         let icons = self.icons.borrow();
         let units = format::units_generation();
         let relabel = self.units.replace(units) != units;
@@ -364,9 +403,33 @@ impl ProcessesPage {
         self.sync_groups(processes, &rows, &icons);
         // Values changed in place: sort again.
         if let Some(sorter) = self.columns.sorter() {
+            self.resorting.set(true);
             sorter.changed(gtk::SorterChange::Different);
+            self.resorting.set(false);
+        }
+        if at_top {
+            scroll_to_top(&self.columns);
         }
     }
+}
+
+/// Show the first row at the top, without selecting or focusing it.
+fn scroll_to_top(columns: &gtk::ColumnView) {
+    if columns.model().is_some_and(|m| m.n_items() > 0) {
+        columns.scroll_to(0, None, gtk::ListScrollFlags::NONE, None);
+    }
+}
+
+/// [`scroll_to_top`] once GTK has taken in a new order or a new set of
+/// rows: from inside the sorter's or filter's `changed`, the list view has
+/// not moved its rows yet and would put the old top row back in view.
+fn scroll_to_top_later(columns: &gtk::ColumnView) {
+    let columns = columns.downgrade();
+    glib::idle_add_local_once(move || {
+        if let Some(columns) = columns.upgrade() {
+            scroll_to_top(&columns);
+        }
+    });
 }
 
 /// The group of kernel threads; no app ID or unit name looks like this.
