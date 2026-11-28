@@ -52,9 +52,48 @@ fn main() -> glib::ExitCode {
     // from translations: keep the English interface left to right.
     app.connect_startup(|_| gtk::Widget::set_default_direction(gtk::TextDirection::Ltr));
     app.connect_activate(window::present);
+    // One Corewatch per session: when one runs already, this process only
+    // asks it to show its window and exits. Say so, or a Corewatch that is
+    // stuck, hidden or on another display looks like one that never starts.
+    match app.register(gio::Cancellable::NONE) {
+        Ok(()) if app.is_remote() => {
+            let pid = primary_pid(&app);
+            let shown = pid.map_or_else(|| "?".to_owned(), |p| p.to_string());
+            tracing::info!(pid = %shown, "already running: asking it to show its window");
+            eprintln!(
+                "corewatch: already running (process {shown}); asking it to show its window. \
+                 If no window appears, end that process and start Corewatch again."
+            );
+        }
+        Ok(()) => {}
+        Err(error) => {
+            // GTK then runs without the session bus, as its own instance.
+            tracing::warn!(%error, "cannot register on the session bus");
+        }
+    }
     let code = app.run_with_args::<&str>(&[]);
     tracing::info!("exiting");
     code
+}
+
+/// The process ID of the Corewatch that owns the app's name on the session
+/// bus; `None` when the bus does not tell.
+fn primary_pid(app: &adw::Application) -> Option<u32> {
+    let bus = app.dbus_connection()?;
+    let reply = bus
+        .call_sync(
+            Some("org.freedesktop.DBus"),
+            "/org/freedesktop/DBus",
+            "org.freedesktop.DBus",
+            "GetConnectionUnixProcessID",
+            Some(&(config::APP_ID,).to_variant()),
+            Some(glib::VariantTy::new("(u)").ok()?),
+            gio::DBusCallFlags::NONE,
+            1000,
+            gio::Cancellable::NONE,
+        )
+        .ok()?;
+    reply.child_value(0).get::<u32>()
 }
 
 /// Corewatch is in English only. GTK, libadwaita and GLib bring their own
