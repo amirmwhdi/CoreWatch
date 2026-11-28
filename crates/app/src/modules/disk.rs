@@ -1,5 +1,5 @@
 //! Disk page: one block per physical disk (activity graph, read and write
-//! speed), then the space used on each local filesystem.
+//! speed, temperature and SMART health), then the space used on each local filesystem.
 
 use super::{Module, ResourcePage};
 use crate::format;
@@ -12,6 +12,8 @@ use corewatch_core::{CollectError, Collector, Snapshot, SysRoot};
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
+
+mod health;
 
 fn collector(root: &SysRoot) -> Result<Box<dyn Collector>, CollectError> {
     Ok(Box::new(DiskCollector::new(root)?))
@@ -184,6 +186,8 @@ struct DiskBlock {
     write: adw::ActionRow,
     /// Hidden for drives without a sensor.
     temp: adw::ActionRow,
+    /// Hidden for drives without SMART data from UDisks.
+    health: health::HealthRow,
 }
 
 impl DiskBlock {
@@ -212,9 +216,11 @@ impl DiskBlock {
         let rows = adw::PreferencesGroup::new();
         let temp = row("Temperature");
         temp.set_visible(false);
+        let health = health::HealthRow::new();
         rows.add(&read);
         rows.add(&write);
         rows.add(&temp);
+        rows.add(health.widget());
 
         let header = gtk::Box::new(gtk::Orientation::Vertical, 2);
         header.append(&title);
@@ -233,6 +239,7 @@ impl DiskBlock {
             read,
             write,
             temp,
+            health,
         }
     }
 
@@ -250,7 +257,7 @@ impl DiskBlock {
         // The kernel's sensor when there is one, otherwise UDisks (SMART).
         let temp_c = device
             .temp_c
-            .or_else(|| crate::drive_temps::celsius(&device.name));
+            .or_else(|| crate::drive_smart::celsius(&device.name));
         self.temp.set_visible(temp_c.is_some());
         if let Some(temp) = temp_c {
             let text = format::celsius(temp);
@@ -258,6 +265,8 @@ impl DiskBlock {
                 self.temp.set_subtitle(&text);
             }
         }
+        self.health
+            .update(crate::drive_smart::health(&device.name).as_ref());
     }
 }
 
