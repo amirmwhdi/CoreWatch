@@ -15,8 +15,14 @@ built from a release tag on GitHub instead of the local folder.
 
 2. Fork <https://github.com/flathub/flathub> on GitHub, and in the fork
    create a branch from `new-pr` (not `master`).
-3. Copy `io.github.amirmwhdi.Corewatch.json` and
-   `packaging/flatpak/cargo-sources.json` into the root of that branch.
+3. Copy `io.github.amirmwhdi.Corewatch.json` and the release tag's
+   `cargo-sources.json` into the root of that branch. Take it from the tag,
+   not from `main`: the manifest builds the tag, and `main` may already list
+   newer crates.
+
+   ```sh
+   git show v0.3.0:packaging/flatpak/cargo-sources.json >cargo-sources.json
+   ```
 4. Open a pull request against the `new-pr` branch of `flathub/flathub`,
    titled `Add io.github.amirmwhdi.Corewatch`.
 5. Answer the reviewers. The permissions usually get a question; the
@@ -37,8 +43,9 @@ flatpak run --command=flatpak-builder-lint org.flatpak.Builder manifest io.githu
 
 After Flathub accepted the app it gets its own repository,
 `flathub/io.github.amirmwhdi.Corewatch`. For each release, update `tag` and
-`commit` there (and `cargo-sources.json` when `Cargo.lock` changed) and
-merge the pull request once its test build passes.
+`commit` there (and `cargo-sources.json`, from the tag as above, when
+`Cargo.lock` changed) and merge the pull request once its test build
+passes.
 
 The screenshots in the metainfo file point at the release tag, so they
 appear only once the tag is pushed.
