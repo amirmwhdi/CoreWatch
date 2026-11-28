@@ -130,9 +130,10 @@ and Wi-Fi signal strength.
 - **Graphics:** every card with its model name, driver, load graph, core and
   memory clock, video memory, temperature, power and fan.
 - **Disks:** activity graph, read and write speed, temperature and SMART
-  health of each drive (hard disks, SATA SSDs and NVMe: bad sectors, failed
-  self-tests, time powered on), and the space left on each mounted
-  filesystem.
+  health of each drive (hard disks, SATA SSDs and NVMe): a health
+  percentage, and, opened, life left, bad sectors, power-on time, power
+  cycles, unsafe shutdowns, data written and the last self-test; and the
+  space left on each mounted filesystem.
 - **Network:** download and upload graph per interface, addresses, link
   speed, Wi-Fi signal.
 - **Sensors:** temperatures and fan speeds appear on the page they belong to
@@ -196,6 +197,11 @@ Corewatch lets go of it so it can sleep again.
 - SATA drives show a temperature through UDisks when the kernel's
   `drivetemp` module is not loaded. Drive health comes from UDisks too, so
   it needs UDisks running. UDisks refreshes both about every ten minutes.
+- NVMe drives and most SSDs report their own life left. Hard disks do not,
+  so their percentage (shown as "~92%") is an estimate: it drops by one
+  point per bad sector, and to the lowest margin of the drive's
+  reliability attributes (reallocated, pending and uncorrectable sectors,
+  spin-up retries) above their thresholds.
 
 ## Install
 

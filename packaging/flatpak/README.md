@@ -45,7 +45,8 @@ These permissions are there for single pages:
   drive's SMART health, and SATA drive temperatures, which the kernel only
   exposes with the `drivetemp` module loaded; both come from UDisks, which
   reads the drives' SMART data (see `crates/app/src/drive_smart.rs`). Only
-  `GetManagedObjects` is called.
+  `GetManagedObjects` and the drives' `SmartGetAttributes` are called, both
+  read-only; hard disks are asked not to wake up for it.
 - `--system-talk-name=org.freedesktop.UPower`: the Battery page shows the
   charge over the last day, which UPower records (see
   `crates/app/src/battery_history.rs`). Only `GetHistory` is called.

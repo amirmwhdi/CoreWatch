@@ -2,7 +2,6 @@
 //! speed, temperature and SMART health), then the space used on each local filesystem.
 
 use super::{Module, ResourcePage};
-use crate::drive_smart::Health;
 use crate::format;
 use crate::widgets::{Graph, SensorGroup};
 use adw::prelude::*;
@@ -13,6 +12,8 @@ use corewatch_core::{CollectError, Collector, Snapshot, SysRoot};
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
+
+mod health;
 
 fn collector(root: &SysRoot) -> Result<Box<dyn Collector>, CollectError> {
     Ok(Box::new(DiskCollector::new(root)?))
@@ -186,7 +187,7 @@ struct DiskBlock {
     /// Hidden for drives without a sensor.
     temp: adw::ActionRow,
     /// Hidden for drives without SMART data from UDisks.
-    health: adw::ActionRow,
+    health: health::HealthRow,
 }
 
 impl DiskBlock {
@@ -215,12 +216,11 @@ impl DiskBlock {
         let rows = adw::PreferencesGroup::new();
         let temp = row("Temperature");
         temp.set_visible(false);
-        let health = row("Health");
-        health.set_visible(false);
+        let health = health::HealthRow::new();
         rows.add(&read);
         rows.add(&write);
         rows.add(&temp);
-        rows.add(&health);
+        rows.add(health.widget());
 
         let header = gtk::Box::new(gtk::Orientation::Vertical, 2);
         header.append(&title);
@@ -265,107 +265,9 @@ impl DiskBlock {
                 self.temp.set_subtitle(&text);
             }
         }
-        let health = crate::drive_smart::health(&device.name);
-        self.health.set_visible(health.is_some());
-        if let Some(health) = health {
-            let text = health_text(&health);
-            if self.health.subtitle().as_deref() != Some(text.as_str()) {
-                self.health.set_subtitle(&text);
-            }
-            let level = health_level(&health);
-            for class in ["error", "warning"] {
-                if Some(class) == level {
-                    self.health.add_css_class(class);
-                } else {
-                    self.health.remove_css_class(class);
-                }
-            }
-        }
+        self.health
+            .update(crate::drive_smart::health(&device.name).as_ref());
     }
-}
-
-/// The style class for a drive's health row: `"error"` when the drive
-/// predicts its own failure, `"warning"` for any other problem.
-fn health_level(health: &Health) -> Option<&'static str> {
-    if health.failing {
-        Some("error")
-    } else if !health.is_good() {
-        Some("warning")
-    } else {
-        None
-    }
-}
-
-/// "Good · 375 days powered on", "Warning · 8 bad sectors",
-/// "Failing · back up its data now".
-fn health_text(health: &Health) -> String {
-    let mut parts: Vec<String> = Vec::new();
-    if health.failing {
-        parts.push("Failing · back up its data now".to_owned());
-    } else if health.is_good() {
-        parts.push("Good".to_owned());
-    } else {
-        parts.push("Warning".to_owned());
-        parts.extend(health.critical_warnings.iter().map(|w| nvme_warning(w)));
-        if let Some(n) = health.attributes_failing.filter(|n| *n > 0) {
-            parts.push(format::fmt(
-                "{n} {attributes} past threshold",
-                &[
-                    ("n", &n),
-                    ("attributes", &format::plural(n, "attribute", "attributes")),
-                ],
-            ));
-        }
-    }
-    // Bad sectors matter even on a failing drive.
-    if let Some(n) = health.bad_sectors.filter(|n| *n > 0) {
-        parts.push(format::fmt(
-            "{n} bad {sectors}",
-            &[
-                ("n", &n),
-                ("sectors", &format::plural(n, "sector", "sectors")),
-            ],
-        ));
-    }
-    if health.selftest_failed {
-        parts.push("last self-test failed".to_owned());
-    }
-    if let Some(hours) = health.power_on_hours {
-        parts.push(format::fmt(
-            "{time} powered on",
-            &[("time", &power_on(hours))],
-        ));
-    }
-    parts.join(" · ")
-}
-
-/// "36 hours", "375 days".
-fn power_on(hours: u64) -> String {
-    if hours < 48 {
-        format::fmt(
-            "{n} {hours}",
-            &[
-                ("n", &hours),
-                ("hours", &format::plural(hours, "hour", "hours")),
-            ],
-        )
-    } else {
-        format::fmt("{n} days", &[("n", &(hours / 24))])
-    }
-}
-
-/// UDisks' name of an NVMe critical warning, in words.
-fn nvme_warning(warning: &str) -> String {
-    match warning {
-        "spare" => "spare capacity low",
-        "temperature" => "temperature out of range",
-        "degraded" => "reliability degraded",
-        "readonly" => "read-only",
-        "volatile_mem" => "backup memory failed",
-        "pmr_readonly" => "persistent memory read-only",
-        other => other,
-    }
-    .to_owned()
 }
 
 /// "NVMe · 512 GiB · nvme0n1"
@@ -423,52 +325,6 @@ fn space_bar() -> gtk::LevelBar {
     bar.add_offset_value(gtk::LEVEL_BAR_OFFSET_HIGH, SPACE_WARNING);
     bar.add_offset_value(gtk::LEVEL_BAR_OFFSET_LOW, 1.0);
     bar
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn health_texts() {
-        let good = Health {
-            power_on_hours: Some(9000),
-            bad_sectors: Some(0),
-            attributes_failing: Some(0),
-            ..Health::default()
-        };
-        assert_eq!(health_text(&good), "Good · 375 days powered on");
-        assert_eq!(health_level(&good), None);
-
-        let worn = Health {
-            bad_sectors: Some(1),
-            selftest_failed: true,
-            ..Health::default()
-        };
-        assert_eq!(
-            health_text(&worn),
-            "Warning · 1 bad sector · last self-test failed"
-        );
-        assert_eq!(health_level(&worn), Some("warning"));
-
-        let failing = Health {
-            failing: true,
-            bad_sectors: Some(120),
-            power_on_hours: Some(30),
-            ..Health::default()
-        };
-        assert_eq!(
-            health_text(&failing),
-            "Failing · back up its data now · 120 bad sectors · 30 hours powered on"
-        );
-        assert_eq!(health_level(&failing), Some("error"));
-
-        let nvme = Health {
-            critical_warnings: vec!["spare".to_owned()],
-            ..Health::default()
-        };
-        assert_eq!(health_text(&nvme), "Warning · spare capacity low");
-    }
 }
 
 /// The `CwDiskPage` template from `data/ui/stable/disk-page.blp`.
