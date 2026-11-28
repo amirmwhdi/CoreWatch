@@ -40,27 +40,27 @@
 
   <screenshots>
     <screenshot type="default">
-      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.5.0/data/screenshots/light/overview.png</image>
+      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.6.0/data/screenshots/light/overview.png</image>
       <caption>Every resource at a glance</caption>
     </screenshot>
     <screenshot>
-      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.5.0/data/screenshots/light/processes.png</image>
+      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.6.0/data/screenshots/light/processes.png</image>
       <caption>Sort, search and end processes, with each app's download and upload speed</caption>
     </screenshot>
     <screenshot>
-      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.5.0/data/screenshots/light/processor.png</image>
+      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.6.0/data/screenshots/light/processor.png</image>
       <caption>Total and per-core usage, frequency and CPU sensors</caption>
     </screenshot>
     <screenshot>
-      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.5.0/data/screenshots/light/graphics.png</image>
+      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.6.0/data/screenshots/light/graphics.png</image>
       <caption>Load, clocks, memory, temperature, power and fan of every graphics card</caption>
     </screenshot>
     <screenshot>
-      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.5.0/data/screenshots/light/disks.png</image>
+      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.6.0/data/screenshots/light/disks.png</image>
       <caption>Activity, speeds and temperature of each drive</caption>
     </screenshot>
     <screenshot>
-      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.5.0/data/screenshots/light/network.png</image>
+      <image>https://raw.githubusercontent.com/amirmwhdi/CoreWatch/v0.6.0/data/screenshots/light/network.png</image>
       <caption>Download and upload speed per interface</caption>
     </screenshot>
   </screenshots>
@@ -101,6 +101,17 @@
   </branding>
 
   <releases>
+    <release version="0.6.0" date="2026-11-28">
+      <description>
+        <ul>
+          <li>Disk health: the SMART health of hard disks, SSDs and NVMe drives on the Disks page, with a health percentage, and life left, bad sectors, power-on time, data written and the last self-test on request</li>
+          <li>The process list stays at the top when it sorts again, and a new sort column, search or filter starts at the top</li>
+          <li>A new app icon: a dial of processor, graphics and memory around a chip</li>
+          <li>Processes that belong to no app show GNOME System Monitor's icon</li>
+          <li>NVIDIA: nothing is left running when the driver lacks a function Corewatch uses</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.5.0" date="2026-11-04">
       <description>
         <ul>

@@ -1,3 +1,13 @@
+corewatch (0.6.0-1) unstable; urgency=medium
+
+  * Disk health: the SMART health of hard disks, SSDs and NVMe drives on the Disks page, with a health percentage, and life left, bad sectors, power-on time, data written and the last self-test on request
+  * The process list stays at the top when it sorts again, and a new sort column, search or filter starts at the top
+  * A new app icon: a dial of processor, graphics and memory around a chip
+  * Processes that belong to no app show GNOME System Monitor's icon
+  * NVIDIA: nothing is left running when the driver lacks a function Corewatch uses
+
+ -- Amirmahdi <amirmwhdi@users.noreply.github.com>  Sat, 28 Nov 2026 12:00:00 +0000
+
 corewatch (0.5.0-1) unstable; urgency=medium
 
   * Group by App: one row per app, with the total CPU, memory, graphics and network use of its processes
