@@ -83,7 +83,7 @@ pub fn present(app: &adw::Application) {
     crate::widgets::graph::set_history(settings.speed.history_points(settings.history_minutes));
     crate::widgets::graph::set_smooth(settings.smooth_graphs);
     crate::widgets::graph::follow_power_saver();
-    crate::drive_temps::start();
+    crate::drive_smart::start();
 
     if let Some(display) = gtk::gdk::Display::default() {
         let theme = gtk::IconTheme::for_display(&display);

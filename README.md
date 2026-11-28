@@ -129,8 +129,10 @@ and Wi-Fi signal strength.
   than the load average.
 - **Graphics:** every card with its model name, driver, load graph, core and
   memory clock, video memory, temperature, power and fan.
-- **Disks:** activity graph, read and write speed, temperature of each
-  drive, and the space left on each mounted filesystem.
+- **Disks:** activity graph, read and write speed, temperature and SMART
+  health of each drive (hard disks, SATA SSDs and NVMe: bad sectors, failed
+  self-tests, time powered on), and the space left on each mounted
+  filesystem.
 - **Network:** download and upload graph per interface, addresses, link
   speed, Wi-Fi signal.
 - **Sensors:** temperatures and fan speeds appear on the page they belong to
@@ -192,8 +194,8 @@ Corewatch lets go of it so it can sleep again.
 - Download and upload speeds per process count TCP traffic, not UDP or QUIC.
   For other users' processes they are only shown when Corewatch runs as root.
 - SATA drives show a temperature through UDisks when the kernel's
-  `drivetemp` module is not loaded. UDisks refreshes it about every ten
-  minutes.
+  `drivetemp` module is not loaded. Drive health comes from UDisks too, so
+  it needs UDisks running. UDisks refreshes both about every ten minutes.
 
 ## Install
 
@@ -270,7 +272,7 @@ connects to the internet, and it needs no root password.
 The Flatpak asks for a few extra permissions, each one explained in
 [`packaging/flatpak/README.md`](packaging/flatpak/README.md): it reads the
 host's processes, app icons and graphics card names, asks UDisks for drive
-temperatures, and runs the host's `kill` when you end a process. Two of them
+temperatures and health, and runs the host's `kill` when you end a process. Two of them
 are broader than a monitor would like, and are worth knowing about:
 
 - **Network access** (`--share=network`) is only there so the sandbox sees

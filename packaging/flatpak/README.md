@@ -41,10 +41,10 @@ These permissions are there for single pages:
   is never touched. The per-process download and upload
   speeds come from the kernel's socket statistics (netlink), which the
   shared network namespace already allows.
-- `--system-talk-name=org.freedesktop.UDisks2`: the Disks page shows SATA
-  drive temperatures, which the kernel only exposes with the `drivetemp`
-  module loaded; otherwise they come from UDisks, which reads the drives'
-  SMART data (see `crates/app/src/drive_temps.rs`). Only
+- `--system-talk-name=org.freedesktop.UDisks2`: the Disks page shows each
+  drive's SMART health, and SATA drive temperatures, which the kernel only
+  exposes with the `drivetemp` module loaded; both come from UDisks, which
+  reads the drives' SMART data (see `crates/app/src/drive_smart.rs`). Only
   `GetManagedObjects` is called.
 - `--system-talk-name=org.freedesktop.UPower`: the Battery page shows the
   charge over the last day, which UPower records (see

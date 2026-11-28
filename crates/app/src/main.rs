@@ -5,7 +5,7 @@ mod app_icons;
 mod battery_history;
 mod compat;
 mod config;
-mod drive_temps;
+mod drive_smart;
 mod format;
 mod logging;
 mod modules;
