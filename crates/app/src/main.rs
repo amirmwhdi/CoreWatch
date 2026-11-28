@@ -56,15 +56,7 @@ fn main() -> glib::ExitCode {
     // asks it to show its window and exits. Say so, or a Corewatch that is
     // stuck, hidden or on another display looks like one that never starts.
     match app.register(gio::Cancellable::NONE) {
-        Ok(()) if app.is_remote() => {
-            let pid = primary_pid(&app);
-            let shown = pid.map_or_else(|| "?".to_owned(), |p| p.to_string());
-            tracing::info!(pid = %shown, "already running: asking it to show its window");
-            eprintln!(
-                "corewatch: already running (process {shown}); asking it to show its window. \
-                 If no window appears, end that process and start Corewatch again."
-            );
-        }
+        Ok(()) if app.is_remote() => already_running(&app),
         Ok(()) => {}
         Err(error) => {
             // GTK then runs without the session bus, as its own instance.
@@ -76,8 +68,32 @@ fn main() -> glib::ExitCode {
     code
 }
 
+/// Say that another Corewatch runs and is asked to show its window, and
+/// how to end it when no window appears.
+fn already_running(app: &adw::Application) {
+    // Inside Flatpak the session bus is reached through xdg-dbus-proxy, so
+    // the bus names the proxy's process, not Corewatch's: ending that one
+    // would not help. `flatpak kill` finds the right one by the app's ID.
+    if std::path::Path::new("/.flatpak-info").exists() {
+        tracing::info!("already running: asking it to show its window");
+        eprintln!(
+            "corewatch: already running; asking it to show its window. If no window \
+             appears, run `flatpak kill {id}` and start Corewatch again.",
+            id = config::APP_ID,
+        );
+        return;
+    }
+    let shown = primary_pid(app).map_or_else(|| "?".to_owned(), |p| p.to_string());
+    tracing::info!(pid = %shown, "already running: asking it to show its window");
+    eprintln!(
+        "corewatch: already running (process {shown}); asking it to show its window. \
+         If no window appears, end that process and start Corewatch again."
+    );
+}
+
 /// The process ID of the Corewatch that owns the app's name on the session
-/// bus; `None` when the bus does not tell.
+/// bus; `None` when the bus does not tell. Outside Flatpak only: inside it,
+/// the bus names xdg-dbus-proxy.
 fn primary_pid(app: &adw::Application) -> Option<u32> {
     let bus = app.dbus_connection()?;
     let reply = bus
