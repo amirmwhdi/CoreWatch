@@ -95,3 +95,16 @@ fi
 # shellcheck disable=SC2086 # empty flags drop out, file names have no spaces
 gh release create "$tag" --verify-tag --title "Corewatch $version" --generate-notes \
     $draft $prerelease $files "$dist/SHA256SUMS"
+
+# The Flathub manifest builds the tag's commit, which is known only now
+# (scripts/version.sh leaves a placeholder at each bump). Fill it in, so it
+# is not forgotten.
+flathub=packaging/flathub/io.github.amirmwhdi.Corewatch.json
+commit=$(git rev-parse "$tag^{commit}")
+if grep -q '"commit": "FILL-IN-AFTER-TAGGING"' "$flathub"; then
+    sed -i "s/\"commit\": \"FILL-IN-AFTER-TAGGING\"/\"commit\": \"$commit\"/" "$flathub"
+    echo
+    echo "Filled in the commit of $tag in $flathub. Commit and push it:"
+    echo "  git commit -m \"flathub: $version\" $flathub && git push"
+    echo "then update the Flathub repository (packaging/flathub/README.md)."
+fi

@@ -59,7 +59,7 @@
           "type": "git",
           "url": "https://github.com/amirmwhdi/CoreWatch.git",
           "tag": "v0.6.1",
-          "commit": "FILL-IN-AFTER-TAGGING"
+          "commit": "022a27f184075ea6d10380c25e70dfd224169183"
         },
         "cargo-sources.json"
       ]

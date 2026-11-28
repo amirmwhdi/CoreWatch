@@ -29,7 +29,10 @@ release/publish.sh --draft                 # check the draft on GitHub, then pub
 release/publish.sh                         # or straight away
 ```
 
-Then update the Flathub manifest (`packaging/flathub/README.md`).
+`release/publish.sh` then fills the tag's commit into the Flathub manifest
+(the hash exists only after tagging, so `scripts/version.sh` leaves a
+placeholder): commit and push that change as it says, and update the
+Flathub repository (`packaging/flathub/README.md`).
 
 ## `release/build.sh`
 

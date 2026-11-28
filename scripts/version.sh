@@ -15,8 +15,8 @@
 #
 # After a bump: review `git diff`, commit as "release: <version>", tag
 # v<version>, push the tag, build and publish the packages
-# (release/build.sh, release/publish.sh), then fill in the commit of the
-# Flathub manifest (packaging/flathub/README.md). See release/README.md.
+# (release/build.sh, release/publish.sh; publish.sh then fills in the
+# commit of the Flathub manifest, to commit and push). See release/README.md.
 set -eu
 
 cd "$(dirname "$0")/.."
